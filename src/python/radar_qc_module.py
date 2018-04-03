@@ -252,8 +252,8 @@ def main_qc( filename , options ) :
 
         tmp_z[:]=output['altitude'][0,:,:]    #Store only one RHI section of the altitutde (we will assume that the altitude of a pixel is independent
                                               #of the azimuth).
-        tmp_d[:]=output['distance'][0,:,:]    #Store only one RHI section of the distance to radar (we will assume that the altitude of a pixel is independent
-                                              #of the azimuth). 
+        tmp_d[:]=output['distance']         
+                                           
         tmp_max_z=np.zeros((na,nr,ne))
 
         for ii in range(0,output['ne'])     :       #Estimate the maximum radar data height assoicated with each gate.
@@ -328,8 +328,8 @@ def main_qc( filename , options ) :
 
         tmp_z[:]=output['altitude'][0,:,:]    #Store only one RHI section of the altitutde (we will assume that the altitude of a pixel is independent
                                               #of the azimuth).
-        tmp_d[:]=output['distance'][0,:,:] #Store only one RHI section of the distance to radar (we will assume that the altitude of a pixel is independent
-                                              #of the azimuth). 
+        tmp_d[:]=output['distance']
+                                             
         tmp_max_z=np.zeros((na,nr,ne))
 
         for ii in range(0,output['ne'])     :       #Estimate the maximum radar data height assoicated with each gate.
