@@ -718,11 +718,11 @@ END SUBROUTINE ECHO_TOP_SUB
 SUBROUTINE COMPUTE_BLOCKING( radarz , topo , na , nr , ne ,  & 
            &                 radar_beam_width_v , beam_length , radarrange , radarelev , blocking )
 
-INTEGER     , INTENT(IN) :: na,nr,ne
-REAL(r_size), INTENT(IN) :: radarz(na,nr,ne)
-REAL(r_size), INTENT(IN) :: topo(na,nr,ne)
+INTEGER     , INTENT(IN)  :: na,nr,ne
+REAL(r_size), INTENT(IN)  :: radarz(na,nr,ne)
+REAL(r_size), INTENT(IN)  :: topo(na,nr,ne)
 REAL(r_size), INTENT(OUT) :: blocking(na,nr,ne)
-REAL(r_size), INTENT(IN) :: radar_beam_width_v , beam_length , radarrange(nr) , radarelev(ne)
+REAL(r_size), INTENT(IN)  :: radar_beam_width_v , beam_length , radarrange(nr) , radarelev(ne)
 
 REAL(r_size) :: alfa , beta , diag , max_vertical_extent(nr,ne) , vert_beam_width
 REAL(r_size) :: max_blocking_factor

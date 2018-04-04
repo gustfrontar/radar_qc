@@ -97,6 +97,9 @@ options['attfilter_save']=True    #Save filter fields
 
 #Blocking parameters
 
+options['blocking_correction']=True  #Wether correction will be applied for partially blocked beams.
+options['blocking_threshold']=0.5    #Beams with blocking above this threshold will be eliminated.
+options['blocking_save']=True        #Save blocking factor into qc_output dictionary.
 
 #Detect missing parameters
 

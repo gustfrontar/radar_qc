@@ -316,7 +316,6 @@ def main_qc( filename , options ) :
    # ECHO DEPTH FILTER 
    #===================================================
 
-
    if ( options['ifedfilter']  ) :
 
      start=time.time()
@@ -398,7 +397,7 @@ def main_qc( filename , options ) :
 
       output['qcref'][ output['attenuation'] < options['attfiltertr'] ] = QCCODE_ATTENUATION
 
-      if [ not options['attfilter_save'] ] :
+      if  not options['attfilter_save']  :
           output['attenuation']=0
 
 
@@ -410,7 +409,47 @@ def main_qc( filename , options ) :
    # TOPOGRAPHY BLOCKING FILTER
    #===================================================
 
-   #TODO
+   if options['ifblfilter']   :
+
+      start=time.time()
+
+      output['blocking']=qc.compute_blocking( radarz=output['altitude'] , topo=output['topo'] , na=na , nr=nr , ne=ne      ,
+                                              radar_beam_width_v=radar.instrument_parameters['radar_beam_width_v']['data'] , 
+                                              beam_length=radar.range['meters_between_gates']                              , 
+                                              radarrange=radar.range['data'] , radarelev=radar.elevation['data']  ) 
+
+
+      #Compute correction 
+      if options['blocking_correction']  :
+         mask=np.logical_and( output['blocking'] > 0.1d0 , output['blocking'] <= 0.3 )
+         mask=np.logical_and( mask , output['cref'] > options['norainrefval'] )
+
+         output['cref'][mask] = output['cref'][mask] + 1.0
+
+         mask=np.logical_and( output['blocking'] > 0.3d0 , output['blocking'] <= 0.4 )
+         mask=np.logical_and( mask , output['cref'] > options['norainrefval'] )
+
+         output['cref'][mask] = output['cref'][mask] + 2.0
+
+         mask=np.logical_and( output['blocking'] > 0.4d0 )
+         mask=np.logical_and( mask , output['cref'] > options['norainrefval'] )
+
+         output['cref'][mask] = output['cref'][mask] + 3.0
+
+
+      #Set the pixels with values below the threshold as undef. 
+      output['cref'][ output['blocking'] > options['blocking_threshold']  ] = undef
+      output['cv'][ output['blocking']   > options['blocking_threshold']  ] = undef
+
+      output['qcref'][ output['blocking'] > options['blocking_threshold'] ] = QCCODE_BLOCKING
+
+      if  not options['blocking_save']  :
+          output['blocking']=0  
+
+      end=time.time()
+
+      print("The elapsed time in {:s} is {:2f}".format("blocking filter",end-start) )
+
 
    #===================================================
    # DOPPLER NOISE FILTER
