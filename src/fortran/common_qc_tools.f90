@@ -732,7 +732,7 @@ REAL(r_size) :: lthreshold
 
 DO kk=1,ne
  DO jj=1,nr
-   vert_beam_width=radar_beam_width_v * radarrange(jj)*(180.0d0/pi)/2.0d0
+   vert_beam_width=radar_beam_width_v * radarrange(jj)*(deg2rad)/2.0d0
    alfa=atan(beam_length/vert_beam_width)
    diag =sqrt( beam_length**2 + vert_beam_width**2 )
    beta=alfa-radarelev(kk)*deg2rad
@@ -759,14 +759,6 @@ DO ii=1,na
             ENDIF
           ENDIF
        ENDIF
-    ENDDO
-    !Compute and store the cumulative maximum blocking on each radar beam
-    DO jj=1,nr
-      max_blocking_factor = 0.0d0
-      IF( blocking(ii,jj,kk) > max_blocking_factor )THEN
-          max_blocking_factor = blocking(ii,jj,kk) 
-      ENDIF
-      blocking(ii,jj,kk)=max_blocking_factor
     ENDDO
   ENDDO
 ENDDO

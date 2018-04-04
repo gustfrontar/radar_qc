@@ -222,8 +222,11 @@ def main_qc( filename , options ) :
      radar.fields['Vda']['long_name']     = radar.fields[name_v]['long_name']
      radar.fields['Vda']['standard_name'] = radar.fields[name_v]['standard_name']
 
+     tmp_v=np.copy( output['cv'] )
      #Re-order dealiased wind data.
      [ output['cv'] , output['az'] , output['level'] , output['time'] , output['index'] , output['az_exact']  ]=order_variable( radar , 'Vda' , undef  )
+
+     output['qcv'][ output['cv'] != tmp_v ]=QCCODE_DEALIAS
 
      end=time.time()
 
@@ -305,8 +308,8 @@ def main_qc( filename , options ) :
          display('Warning: could not perform RHO-HV filter because rho was not found on this file')
 
       if [ not options['rhofilter_save'] ] :
-          output['rho_smooth']=0
-          output['rho']=0
+          output.pop('rho_smooth')
+          output.pop('rho')
 
       end=time.time()
 
@@ -349,6 +352,7 @@ def main_qc( filename , options ) :
      end=time.time()
 
      print("The elapsed time in {:s} is {:2f}".format("echo-depth filter",end-start) )
+
  
    #===================================================
    # SPECKLE FILTER
@@ -358,22 +362,43 @@ def main_qc( filename , options ) :
 
        start=time.time()
 
-       #TODO poner todo en terminos de la estructura output
-       #Compute the number pixels with reflectivities over spfiltertr sourrounding each pixels in the box defined by nx,ny,nz.
-       nx=options['spfilternx']
-       ny=options['spfilterny']
-       nz=options['spfilternz']
-       tr=options['spfilterreftr']
-       output['speckle']=qc.box_functions_2d(datain=output['cref'].data,na=na,nr=nr,ne=ne,boxx=nx,boxy=ny,boxz=nz,operation='COUN',threshold=tr) 
+       if options['spfilter_ref']  :
 
-       #Set the pixels with values below the threshold as undef. 
-       output['cref'][ output['speckle'] < options['spfiltertr']  ] = undef
+          #Compute the number pixels with reflectivities over spfiltertr sourrounding each pixels in the box defined by nx,ny,nz.
+          nx=options['spfilternx']
+          ny=options['spfilterny']
+          nz=options['spfilternz']
+          tr=options['spfilterreftr']
+          output['speckle_ref']=qc.box_functions_2d(datain=output['cref'].data,na=na,nr=nr,ne=ne,boxx=nx,boxy=ny,boxz=nz,operation='COUN',threshold=tr) 
+
+          #Set the pixels with values below the threshold as undef. 
+          output['cref'][ output['speckle_ref'] < options['spfiltertr']  ] = undef
        
-       output['qcref'][ output['speckle'] < options['spfiltertr'] ] = QCCODE_SPECKLE
+          output['qcref'][ output['speckle_ref'] < options['spfiltertr'] ] = QCCODE_SPECKLE
 
-       #If the field is not included in the output then set it to 0.
-       if [ not options['spfilter_save'] ] : 
-          output['speckle']=0   
+          #If the field is not included in the output then set it to 0.
+          if [ not options['spfilter_save'] ] : 
+             output.pop('speckle_ref')   
+
+
+       if options['spfilter_v']  :
+
+          #Compute the number pixels with reflectivities over spfiltertr sourrounding each pixels in the box defined by nx,ny,nz.
+          nx=options['spfilternx']
+          ny=options['spfilterny']
+          nz=options['spfilternz']
+          tr=options['spfilterreftr']
+          output['speckle_v']=qc.box_functions_2d(datain=output['cv'].data,na=na,nr=nr,ne=ne,boxx=nx,boxy=ny,boxz=nz,operation='COUN',threshold=tr)
+
+          #Set the pixels with values below the threshold as undef. 
+          output['cv'][ output['speckle_v'] < options['spfiltertr']  ] = undef
+       
+          output['qcv'][ output['speckle_v'] < options['spfiltertr'] ] = QCCODE_SPECKLE
+
+          #If the field is not included in the output then set it to 0.
+          if [ not options['spfilter_save'] ] :
+             output.pop('speckle_v')
+
 
        end=time.time()
 
@@ -397,7 +422,7 @@ def main_qc( filename , options ) :
       output['qcref'][ output['attenuation'] < options['attfiltertr'] ] = QCCODE_ATTENUATION
 
       if  not options['attfilter_save']  :
-          output['attenuation']=0
+          output.pop('attenuation')
 
 
       end=time.time()
@@ -415,26 +440,26 @@ def main_qc( filename , options ) :
       output['blocking']=qc.compute_blocking( radarz=output['altitude'] , topo=output['topo'] , na=na , nr=nr , ne=ne      ,
                                               radar_beam_width_v=radar.instrument_parameters['radar_beam_width_v']['data'] , 
                                               beam_length=radar.range['meters_between_gates']                              , 
-                                              radarrange=radar.range['data'] , radarelev=radar.elevation['data']  ) 
+                                              radarrange=radar.range['data'] , radarelev=np.unique(radar.elevation['data'])  ) 
 
 
       #Compute correction 
       if options['blocking_correction']  :
-         mask=np.logical_and( output['blocking'] > 0.1d0 , output['blocking'] <= 0.3 )
+         #Correct partially blocked precipitation echoes.
+         mask=np.logical_and( output['blocking'] > 0.1 , output['blocking'] <= 0.3 )
          mask=np.logical_and( mask , output['cref'] > options['norainrefval'] )
 
          output['cref'][mask] = output['cref'][mask] + 1.0
 
-         mask=np.logical_and( output['blocking'] > 0.3d0 , output['blocking'] <= 0.4 )
+         mask=np.logical_and( output['blocking'] > 0.3 , output['blocking'] <= 0.4 )
          mask=np.logical_and( mask , output['cref'] > options['norainrefval'] )
 
          output['cref'][mask] = output['cref'][mask] + 2.0
 
-         mask=np.logical_and( output['blocking'] > 0.4d0 )
+         mask= output['blocking'] > 0.4 
          mask=np.logical_and( mask , output['cref'] > options['norainrefval'] )
 
          output['cref'][mask] = output['cref'][mask] + 3.0
-
 
       #Set the pixels with values below the threshold as undef. 
       output['cref'][ output['blocking'] > options['blocking_threshold']  ] = undef
@@ -443,7 +468,7 @@ def main_qc( filename , options ) :
       output['qcref'][ output['blocking'] > options['blocking_threshold'] ] = QCCODE_BLOCKING
 
       if  not options['blocking_save']  :
-          output['blocking']=0  
+          output.pop('blocking')  
 
       end=time.time()
 

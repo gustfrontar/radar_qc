@@ -5,7 +5,7 @@ export LD_LIBRARY_PATH=/opt/anaconda3/lib/:$LD_LIBRARY_PATH
 export FC=gfortran
 export F77=gfortran
 export F90=gfortran
-export F2PY=f2py
+export F2PY=f2py3
 
 export FFLAGS='-fopenmp -lgomp -O3 -fPIC'
 #export FFLAGS='-g -fPIC'
