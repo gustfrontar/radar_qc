@@ -18,6 +18,12 @@ import radar_qc_module as rqc
 import os
 
 #======================================
+# ENVIRONMENTAL VARIABLES 
+#======================================
+
+os.environ['OMP_STACKSIZE'] = "1G" # visible in this process + all children
+
+#======================================
 # QC PARAMETERS
 #======================================
 options = {}
@@ -91,21 +97,24 @@ options['attfilter_save']=True    #Save filter fields
 
 #Blocking parameters
 
+options['blocking_correction']=True  #Wether correction will be applied for partially blocked beams.
+options['blocking_threshold']=0.5    #Beams with blocking above this threshold will be eliminated.
+options['blocking_save']=True        #Save blocking factor into qc_output dictionary.
 
 #Detect missing parameters
 
 
 #Topography parameters
 
-options['toporawdatapath']="/home/jruiz/share/radar_qc_da/data/terrain_data/raw/"
-options['toporadardatapath']="/home/jruiz/share/radar_qc_da/data/terrain_data/radar/"
+options['toporawdatapath']="/home/jruiz/Dropbox/DATA/radar_qc/data/terrain_data/raw/"
+options['toporadardatapath']="/home/jruiz/Dropbox/DATA/radar_qc/data/terrain_data/radar/"
 
 
 #=======================================
 
 
 # read in the file, create a RadarMapDisplay object
-filename = '/home/jruiz/share/DATA/OBS/OBS_REAL_PARANA_20091117_CFRADIAL/cfrad.20091117_200345.000_to_20091117_200734.001_PAR_SUR.nc3'
+filename = './cfrad.20091117_174348.000_to_20091117_174737.000_PAR_SUR.nc'
 
 #Performs QC operations based on options
 [radar , qc_output] = rqc.main_qc( filename , options )

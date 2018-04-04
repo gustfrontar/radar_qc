@@ -259,7 +259,11 @@ REAL(r_size)             :: tmp_mean , tmp_var
 INTEGER                  :: NITEMS
 INTEGER                  :: ii , jj , kk , bii , bjj , bkk , box_size , iin ,ii_index , data_count
 
-box_size=(2*boxx+1)*(2*boxy+1)*(2*boxz+1);
+box_size=(2*boxx+1)*(2*boxy+1)*(2*boxz+1)
+
+!DO kk=1,ne
+!WRITE(*,*)maxval( datain(:,:,kk) )
+!ENDDO
 
 ALLOCATE( tmp_field(box_size) )
 
@@ -294,7 +298,7 @@ DO kk=1,ne
       IF( OPERATION .EQ. 'MEAN' .OR. OPERATION .EQ. 'MEA2' )THEN
         IF (NITEMS > 0 )THEN
           dataout(ii,jj,kk)=sum( tmp_field(1:NITEMS) )/ REAL( NITEMS , r_size )
-          WRITE(*,*)NITEMS,tmp_field
+          !WRITE(*,*)NITEMS,tmp_field
         ENDIF
 
       ELSEIF( OPERATION == 'SIGM')THEN
@@ -455,23 +459,23 @@ DO ia=1,na
 ENDDO
 !$OMP END PARALLEL DO
 
-WRITE(*,*)maxval( tmp_radgrid_3d(:,:,:,1) )
+!WRITE(*,*)maxval( tmp_radgrid_3d(:,:,:,1) )
 
 !DO ip=1,NPAR_ECHO_TOP_3D
-CALL BOX_FUNCTIONS_2D(output_data_3d(:,:,:,1),na,nr,ne,nx,ny,nz,'MEAN',0.0d0,tmp_radgrid_3d(:,:,:,1))
-CALL BOX_FUNCTIONS_2D(output_data_3d(:,:,:,2),na,nr,ne,nx,ny,nz,'MEAN',0.0d0,tmp_radgrid_3d(:,:,:,2))
-CALL BOX_FUNCTIONS_2D(output_data_3d(:,:,:,3),na,nr,ne,nx,ny,nz,'MEAN',0.0d0,tmp_radgrid_3d(:,:,:,3))
-CALL BOX_FUNCTIONS_2D(output_data_3d(:,:,:,4),na,nr,ne,nx,ny,nz,'MEAN',0.0d0,tmp_radgrid_3d(:,:,:,4))
-CALL BOX_FUNCTIONS_2D(output_data_3d(:,:,:,5),na,nr,ne,0,1,0,'MINN',0.0d0,tmp_radgrid_3d(:,:,:,5))
-CALL BOX_FUNCTIONS_2D(output_data_3d(:,:,:,6),na,nr,ne,0,1,0,'MINN',0.0d0,tmp_radgrid_3d(:,:,:,6))
+CALL BOX_FUNCTIONS_2D(tmp_radgrid_3d(:,:,:,1),na,nr,ne,nx,ny,nz,'MEAN',0.0d0,output_data_3d(:,:,:,1))
+CALL BOX_FUNCTIONS_2D(tmp_radgrid_3d(:,:,:,2),na,nr,ne,nx,ny,nz,'MEAN',0.0d0,output_data_3d(:,:,:,2))
+CALL BOX_FUNCTIONS_2D(tmp_radgrid_3d(:,:,:,3),na,nr,ne,nx,ny,nz,'MEAN',0.0d0,output_data_3d(:,:,:,3))
+CALL BOX_FUNCTIONS_2D(tmp_radgrid_3d(:,:,:,4),na,nr,ne,nx,ny,nz,'MEAN',0.0d0,output_data_3d(:,:,:,4))
+CALL BOX_FUNCTIONS_2D(tmp_radgrid_3d(:,:,:,5),na,nr,ne,0,1,0,'MINN',0.0d0,output_data_3d(:,:,:,5))
+CALL BOX_FUNCTIONS_2D(tmp_radgrid_3d(:,:,:,6),na,nr,ne,0,1,0,'MINN',0.0d0,output_data_3d(:,:,:,6))
 !END DO
 
 DO ip=1,NPAR_ECHO_TOP_2D
-CALL BOX_FUNCTIONS_2D(output_data_2d(:,:,ip),na,nr,1,nx,ny,0,'MEAN',0.0d0,tmp_radgrid_2d(:,:,ip))
+CALL BOX_FUNCTIONS_2D(tmp_radgrid_2d(:,:,ip),na,nr,1,nx,ny,0,'MEAN',0.0d0,output_data_2d(:,:,ip))
 END DO
 
 
-WRITE(*,*)maxval( output_data_3d(:,:,:,1) )
+!WRITE(*,*)maxval( output_data_3d(:,:,:,1) )
 
 DEALLOCATE(  tmp_data_3d , tmp_data_2d )
 DEALLOCATE( REGREF )
@@ -704,6 +708,72 @@ ENDIF
 RETURN
 END SUBROUTINE ECHO_TOP_SUB
 
+!-------------------------------------------------------------------------------------------
+!
+! Computation of blocking by the topography
+!
+!-------------------------------------------------------------------------------------------
+
+
+SUBROUTINE COMPUTE_BLOCKING( radarz , topo , na , nr , ne ,  & 
+           &                 radar_beam_width_v , beam_length , radarrange , radarelev , blocking )
+
+INTEGER     , INTENT(IN)  :: na,nr,ne
+REAL(r_size), INTENT(IN)  :: radarz(na,nr,ne)
+REAL(r_size), INTENT(IN)  :: topo(na,nr,ne)
+REAL(r_size), INTENT(OUT) :: blocking(na,nr,ne)
+REAL(r_size), INTENT(IN)  :: radar_beam_width_v , beam_length , radarrange(nr) , radarelev(ne)
+
+REAL(r_size) :: alfa , beta , diag , max_vertical_extent(nr,ne) , vert_beam_width
+REAL(r_size) :: max_blocking_factor
+REAL(r_size) :: norm_h , min_norm_h 
+INTEGER      :: ii , jj , kk
+REAL(r_size) :: lthreshold
+
+DO kk=1,ne
+ DO jj=1,nr
+   vert_beam_width=radar_beam_width_v * radarrange(jj)*(180.0d0/pi)/2.0d0
+   alfa=atan(beam_length/vert_beam_width)
+   diag =sqrt( beam_length**2 + vert_beam_width**2 )
+   beta=alfa-radarelev(kk)*deg2rad
+   max_vertical_extent(jj,kk)=diag*cos(beta)
+ ENDDO
+ENDDO
+
+blocking=0.0d0
+!$OMP PARALLEL DO SCHEDULE(DYNAMIC) PRIVATE(ii,jj,kk,norm_h,min_norm_h,max_blocking_factor)
+DO ii=1,na
+  DO kk=1,ne
+    min_norm_h=1.0d0
+    DO jj=1,nr
+       !Compute heigth over the terrain normalized by the beam vertical extent.
+       norm_h=( radarz(ii,jj,kk)-topo(ii,jj,kk) ) / max_vertical_extent(jj,kk)
+       IF( norm_h < min_norm_h )THEN
+          min_norm_h=norm_h
+          IF( min_norm_h < 1.0d0  )THEN
+            !We have some blocking, lets compute the blocking magnitude
+            IF( min_norm_h > -1.0d0 )THEN
+               blocking(ii,jj,kk)=( min_norm_h * SQRT( 1 - min_norm_h ** 2) - ASIN( min_norm_h ) + pi/2.0d0 )/pi
+            ELSE
+               blocking(ii,jj,kk)=1.0d0
+            ENDIF
+          ENDIF
+       ENDIF
+    ENDDO
+    !Compute and store the cumulative maximum blocking on each radar beam
+    DO jj=1,nr
+      max_blocking_factor = 0.0d0
+      IF( blocking(ii,jj,kk) > max_blocking_factor )THEN
+          max_blocking_factor = blocking(ii,jj,kk) 
+      ENDIF
+      blocking(ii,jj,kk)=max_blocking_factor
+    ENDDO
+  ENDDO
+ENDDO
+!$OMP END PARALLEL DO
+
+RETURN
+END SUBROUTINE COMPUTE_BLOCKING
 
 !-----------------------------------------------------------------------
 ! (X,Y) --> (i,j) conversion (General pourpuse interpolation)
