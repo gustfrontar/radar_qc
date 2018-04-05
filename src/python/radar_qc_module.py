@@ -56,6 +56,11 @@ def main_qc( filename , options ) :
 
    radar = pyart.io.read(filename)
 
+   if radar.altitude_agl['data'] == 0.0    :
+      #Radar is assumed to be at ground level. Add 20 meters to account for the height of the tower.
+      radar.altitude['data']=radar.altitude['data']+20
+
+
    #Get the nyquist velocity
    nyquistv=radar.get_nyquist_vel(0,check_uniform=True)
 

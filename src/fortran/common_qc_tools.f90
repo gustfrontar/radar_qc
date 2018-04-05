@@ -753,9 +753,11 @@ DO ii=1,na
           IF( min_norm_h < 1.0d0  )THEN
             !We have some blocking, lets compute the blocking magnitude
             IF( min_norm_h > -1.0d0 )THEN
-               blocking(ii,jj,kk)=( min_norm_h * SQRT( 1 - min_norm_h ** 2) - ASIN( min_norm_h ) + pi/2.0d0 )/pi
+               blocking(ii,jj:nr,kk)=( min_norm_h * SQRT( 1 - min_norm_h ** 2) - ASIN( min_norm_h ) + pi/2.0d0 )/pi
             ELSE
-               blocking(ii,jj,kk)=1.0d0
+               blocking(ii,jj:nr,kk)=1.0d0
+               !This beam is toatally blocked so we exit the loop.
+               exit
             ENDIF
           ENDIF
        ENDIF
