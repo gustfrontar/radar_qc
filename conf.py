@@ -32,11 +32,11 @@ options['norainrefval']=-0.1
 options['undef']=-9.99e9
 
 #Dealiasing parameters (pyart)
-options['ifdealias']=False
+options['ifdealias']=True
 
-options['interval_split']=3
-options['skip_between_rays']=10
-options['skip_along_rays']=10
+options['da_interval_split']=3
+options['da_skip_between_ray']=10
+options['da_skip_along_ray']=10
 
 #Rho filter parameters
 options['ifrhofilter']=False    #Rhohv filter
@@ -85,20 +85,20 @@ options['attcalerror']=1.0        #Calibration error
 options['attfilter_save']=True    #Save filter fields
 
 #Blocking parameters
-options['ifblfilter']=True      #Blocking filter
+options['ifblfilter']=False      #Blocking filter
 
 options['blocking_correction']=True  #Wether correction will be applied for partially blocked beams.
 options['blocking_threshold']=0.5    #Beams with blocking above this threshold will be eliminated.
 options['blocking_save']=True        #Save blocking factor into qc_output dictionary.
 
 #Low elevation angles filter.
-options['iflefilter']=True           #Low elevation angles filter.
+options['iflefilter']=False           #Low elevation angles filter.
 
 options['flfilter_minangle']=2.0     #Reflectivity with echo tops lower than this angle will be eliminated.
 
 #Dealiasing border filter 
 options['ifdabfilter']=True          #Dealiasing border filter.
-options['dabfilter_tr']=20.0d0      #Threshold for edge detection.
+options['dabfilter_tr']=20.0         #Threshold for edge detection.
 options['dabfilter_boxx']=3          #Edge "expansion" in azimuth
 options['dabfilter_boxy']=3          #Edge "expansion" in range
 options['dabfilter_boxz']=0          #Edge "expansion" in elevation

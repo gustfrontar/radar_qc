@@ -43,9 +43,11 @@ def main_qc( filename , options ) :
    QCCODE_ECHOTOP     = 16
    QCCODE_ECHODEPTH   = 17
    QCCODE_LOWANGLE    = 18
+   
 
    #Para la velocidad radial
    QCCODE_DEALIAS     = 30
+   QCCODE_DABFILTER   = 31
 
    #El codigo de los datos buenos para reflectividad y velocidad radial.
    QCCODE_GOOD        = 0
@@ -77,7 +79,9 @@ def main_qc( filename , options ) :
    if name_ref in radar.fields :
         start=time.time()
 
-        [ output['ref'] , output['az'] , output['level'] , output['time'] , output['index'] , output['az_exact'] ]=order_variable( radar , name_ref , undef )
+        output['undef_ref']=radar.fields[options['ref_name']]['_FillValue']
+
+        [ output['ref'] , output['az'] , output['level'] , output['time'] , output['index'] , output['az_exact'] ]=order_variable( radar , name_ref , output['undef_ref'] )
         na=output['ref'].shape[0]
         nr=output['ref'].shape[1]
         ne=output['ref'].shape[2]
@@ -89,8 +93,8 @@ def main_qc( filename , options ) :
 
         output['cref'][:] = output['ref']                 #Initialize the corrected reflectivity array.
 
-        output['cref'][ output['cref'] == undef ]=options['norainrefval']
-        output['ref'] [ output['ref']  == undef ]=options['norainrefval']
+        output['cref'][ output['cref'] == output['undef_ref'] ]=options['norainrefval']
+        output['ref'] [ output['ref']  == output['undef_ref'] ]=options['norainrefval']
 
         output['qcref'] = np.zeros(output['cref'].shape)  #Set the qc flag array to 0.
 
@@ -104,7 +108,9 @@ def main_qc( filename , options ) :
 
         start=time.time()
 
-        [ output['v'] , output['az'] , output['level'] , output['time'] , output['index'] , output['az_exact']  ]=order_variable( radar , name_v , undef  )
+        output['undef_v']=radar.fields[options['v_name']]['_FillValue']
+
+        [ output['v'] , output['az'] , output['level'] , output['time'] , output['index'] , output['az_exact']  ]=order_variable( radar , name_v , output['undef_v']  )
  
         na=output['ref'].shape[0]
         nr=output['ref'].shape[1]
@@ -119,7 +125,7 @@ def main_qc( filename , options ) :
 
         output['qcv'] = np.zeros(output['v'].shape)       #Set the qc flag array to 0.
 
-        output['elevations']=np.unique(radar.elevation['data'])       
+        output['elevations']=np.unique(radar.elevation['data'])
 
         end=time.time()
 
@@ -207,7 +213,7 @@ def main_qc( filename , options ) :
    print("The elapsed time in {:s} is {:2f}".format("topography interpolation",end-start) )
 
    #===================================================
-   # PRE-DEALIASING FILTER FOR RV
+   # VR TEXTURE (PRE-DEALIASING FILTER)
    #===================================================
  
    #TODO
@@ -221,8 +227,8 @@ def main_qc( filename , options ) :
      start=time.time()
 
      #Uso una de las funciones de dealiasing de pyart con los parametros por defecto
-     winddealias=pyart.correct.region_dealias.dealias_region_based(radar, interval_splits=options['interval_splits'],interval_limits=None, 
-                 skip_between_rays=options['skip_between_rays'], skip_along_ray=options['skip_along_ray'],centered=True,nyquist_vel=None,
+     winddealias=pyart.correct.region_dealias.dealias_region_based(radar, interval_splits=options['da_interval_split'],interval_limits=None, 
+                 skip_between_rays=options['da_skip_between_ray'], skip_along_ray=options['da_skip_along_ray'],centered=True,nyquist_vel=None,
                  check_nyquist_uniform=True,gatefilter=False,rays_wrap_around=True,keep_original=False,set_limits=True,
                  vel_field=name_v,corr_vel_field=None)
 
@@ -235,9 +241,10 @@ def main_qc( filename , options ) :
 
      output['v']=np.copy( output['cv'] )
      #Re-order dealiased wind data.
-     [ output['cv'] , output['az'] , output['level'] , output['time'] , output['index'] , output['az_exact']  ]=order_variable( radar , 'Vda' , undef  )
+     [ output['cv'] , output['az'] , output['level'] , output['time'] , output['index'] , output['az_exact']  ]=order_variable( radar , 'Vda' , output['undef_v']  )
 
-     output['qcv'][ output['cv'] != tmp_v ]=QCCODE_DEALIAS
+     mask=np.logical_and( output['cv'] != output['v'] , output['cv'] != output['undef_v'] )
+     output['qcv'][ mask ]=QCCODE_DEALIAS
 
      end=time.time()
 
@@ -252,14 +259,11 @@ def main_qc( filename , options ) :
      #Use a simple edge detection routine to detect the borders between dealiased and non-dealiased regions.
      #Flag this grid points and eliminate all the non-dealiased corrected pixels near by.
 
-     tmp_diff=output['qcv'] - otuput['v']
+     tmp_diff=output['qcv'] - output['v']
 
-     [ output['edge_intensity'] , output['edge_mask'] ]=qc.simple_edge_filter( field=tmp_diff , nx=na,ny=nr,nz=ne,undef=undef,
+     [ output['edge_intensity'] , output['edge_mask'] ]=qc.simple_edge_filter( field=tmp_diff , nx=na,ny=nr,nz=ne,undef=output['undef_v'],
                                                                                nboxx=options['dabfilter_boxx'],nboxy=options['dabfilter_boxy'],
                                                                                nboxz=options['dabfilter_boxz'],edge_tr=options['dabfilter_tr'])
-
-     #SUBROUTINE SIMPLE_EDGE_FILTER( field , nx , ny , nz , undef , nboxx , nboxy , nboxz , edge_tr , edge_intensity , edge_mask )
-
 
 
 
@@ -286,7 +290,7 @@ def main_qc( filename , options ) :
         for ii in range(0,output['ne'])     :       #Estimate the maximum radar data height assoicated with each gate.
            tmp_max_z[:,:,ii]=output['altitude'][:,:,output['ne']-1]
  
-        [tmp_data_3d,tmp_data_2d]=qc.echo_top(reflectivity=output['cref'],heigth=tmp_z,rrange=tmp_d,na=na,nr=nr,ne=ne
+        [tmp_data_3d,tmp_data_2d]=qc.echo_top(reflectivity=output['cref'],heigth=tmp_z,rrange=tmp_d,na=na,nr=nr,ne=ne,undef=output['undef_ref']
                                                 ,nx=options['etfilternx'],ny=options['etfilterny'],nz=options['etfilternz'])
         computed_etfilter = True  #In case we need any of the other variables computed in this routine.
 
@@ -295,7 +299,7 @@ def main_qc( filename , options ) :
 
      #Mask the pixels with echo top values under the threshold.
      #Do not mask tose pixels where the echo top threshold in below the maximum radar height (i.e. the heigth of the maximum elevation)
-     output['cref'][ np.logical_and( tmp_max_z > options['etfiltertr'] , tmp_data_3d[:,:,:,0] < options['etfiltertr'] ) ]   = undef
+     output['cref'][ np.logical_and( tmp_max_z > options['etfiltertr'] , tmp_data_3d[:,:,:,0] < options['etfiltertr'] ) ]   = output['undef_ref']
      output['qcref'][ np.logical_and( tmp_max_z > options['etfiltertr'] , tmp_data_3d[:,:,:,0] < options['etfiltertr'] )  ] = QCCODE_ECHOTOP
 
      #If requested store the auxiliary fields and data in the output dictionary.
@@ -329,8 +333,8 @@ def main_qc( filename , options ) :
       tmp_n_angles = np.size( tmp_angles )
       
       for ia in range( 0 , tmp_n_angles )  :
-         tmp_mask=np.logical_and( output['cref'][:,:,ia] > configuration['norainrefval'] , output['cref'][:,:,tmp_n_angles] <= options['norainrefval']
-         output['cref'][ mask ]= undef
+         tmp_mask=np.logical_and( output['cref'][:,:,ia] > configuration['norainrefval'] , output['cref'][:,:,tmp_n_angles] <= options['norainrefval'] )
+         output['cref'][ mask ]= output['undef_ref']
          output['qcref'][ mask ]=QCCODE_LOWANGLE
 
       end=time.time()
@@ -351,11 +355,14 @@ def main_qc( filename , options ) :
 
       if name_rho in radar.fields  :
 
-         [ output['rho'] , dm , dm , dm , dm , dm  ]=order_variable( radar , name_rho , undef  )
+         output['undef_rho']=radar.fields[options['rho_name']]['_FillValue']
 
-         output['rho_smooth']=qc.box_functions_2d(datain=output['rho'],na=na,nr=nr,ne=ne,boxx=nx,boxy=ny,boxz=nz,operation='MEAN',threshold=0.0)
+         [ output['rho'] , dm , dm , dm , dm , dm  ]=order_variable( radar , name_rho , output['undef_rho']  )
 
-         output['cref'][ output['rho_smooth'] < options['rhofiltertr'] ] = undef
+         output['rho_smooth']=qc.box_functions_2d(datain=output['rho'],na=na,nr=nr,ne=ne,undef=output['undef_rho']
+                                                 ,boxx=nx,boxy=ny,boxz=nz,operation='MEAN',threshold=0.0)
+
+         output['cref'][ output['rho_smooth'] < options['rhofiltertr'] ] = output['undef_ref']
          output['qcref'][output['rho_smooth'] < options['rhofiltertr'] ] = QCCODE_RHOFILTER
 
       else   :
@@ -390,13 +397,13 @@ def main_qc( filename , options ) :
         for ii in range(0,output['ne'])     :       #Estimate the maximum radar data height assoicated with each gate.
            tmp_max_z[:,:,ii]=output['altitude'][:,:,output['ne']-1]
 
-        [tmp_data_3d,tmp_data_2d]=qc.echo_top(reflectivity=output['cref'],heigth=tmp_z,rrange=tmp_d,na=na,nr=nr,ne=ne
+        [tmp_data_3d,tmp_data_2d]=qc.echo_top(reflectivity=output['cref'],heigth=tmp_z,rrange=tmp_d,na=na,nr=nr,ne=ne,undef=output['undef_ref']
                                                 ,nx=options['edfilternx'],ny=options['edfilterny'],nz=options['edfilternz'])
         computed_etfilter = True  #In case we need any of the other variables computed in this routine.
 
      #Mask the pixels with echo depth values under the threshold.
      #Do not mask tose pixels where the echo depth threshold in below the maximum radar height (i.e. the heigth of the maximum elevation)
-     output['cref'] [ np.logical_and( tmp_max_z > options['edfiltertr'] , tmp_data_3d[:,:,:,2] < options['edfiltertr'] ) ] = undef
+     output['cref'] [ np.logical_and( tmp_max_z > options['edfiltertr'] , tmp_data_3d[:,:,:,2] < options['edfiltertr'] ) ] = output['undef_ref']
      output['qcref'][ np.logical_and( tmp_max_z > options['edfiltertr'] , tmp_data_3d[:,:,:,2] < options['edfiltertr'] ) ] = QCCODE_ECHODEPTH
 
      #If requested store the auxiliary fields and data in the output dictionary.
@@ -423,10 +430,11 @@ def main_qc( filename , options ) :
           ny=options['spfilterny']
           nz=options['spfilternz']
           tr=options['spfilterreftr']
-          output['speckle_ref']=qc.box_functions_2d(datain=output['cref'].data,na=na,nr=nr,ne=ne,boxx=nx,boxy=ny,boxz=nz,operation='COUN',threshold=tr) 
+          output['speckle_ref']=qc.box_functions_2d(datain=output['cref'].data,na=na,nr=nr,ne=ne,undef=output['undef_ref']
+                                                   ,boxx=nx,boxy=ny,boxz=nz,operation='COUN',threshold=tr) 
 
           #Set the pixels with values below the threshold as undef. 
-          output['cref'][ output['speckle_ref'] < options['spfiltertr']  ] = undef
+          output['cref'][ output['speckle_ref'] < options['spfiltertr']  ] = output['undef_ref']
        
           output['qcref'][ output['speckle_ref'] < options['spfiltertr'] ] = QCCODE_SPECKLE
 
@@ -442,10 +450,11 @@ def main_qc( filename , options ) :
           ny=options['spfilterny']
           nz=options['spfilternz']
           tr=options['spfilterreftr']
-          output['speckle_v']=qc.box_functions_2d(datain=output['cv'].data,na=na,nr=nr,ne=ne,boxx=nx,boxy=ny,boxz=nz,operation='COUN',threshold=tr)
+          output['speckle_v']=qc.box_functions_2d(datain=output['cv'].data,na=na,nr=nr,ne=ne,undef=output['undef_v'] 
+                                                 ,boxx=nx,boxy=ny,boxz=nz,operation='COUN',threshold=tr)
 
           #Set the pixels with values below the threshold as undef. 
-          output['cv'][ output['speckle_v'] < options['spfiltertr']  ] = undef
+          output['cv'][ output['speckle_v'] < options['spfiltertr']  ] = output['undef_v']
        
           output['qcv'][ output['speckle_v'] < options['spfiltertr'] ] = QCCODE_SPECKLE
 
@@ -468,10 +477,11 @@ def main_qc( filename , options ) :
 
       beaml=radar.range['data'][1]-radar.range['data'][0] #Get beam length
 
-      output['attenuation']=qc.get_attenuation(var=output['cref'],na=na,nr=nr,ne=ne,beaml=beaml,cal_error=options['attcalerror'])
+      output['attenuation']=qc.get_attenuation(var=output['cref'],na=na,nr=nr,ne=ne,undef=output['undef_ref']
+                                               ,beaml=beaml,cal_error=options['attcalerror'])
 
       #Set the pixels with values below the threshold as undef. 
-      output['cref'][ output['attenuation'] < options['attfiltertr']  ] = undef
+      output['cref'][ output['attenuation'] < options['attfiltertr']  ] = output['undef_ref']
 
       output['qcref'][ output['attenuation'] < options['attfiltertr'] ] = QCCODE_ATTENUATION
 
@@ -492,6 +502,7 @@ def main_qc( filename , options ) :
       start=time.time()
 
       output['blocking']=qc.compute_blocking( radarz=output['altitude'] , topo=output['topo'] , na=na , nr=nr , ne=ne      ,
+                                              undef=output['undef']                                                        ,
                                               radar_beam_width_v=radar.instrument_parameters['radar_beam_width_v']['data'] , 
                                               beam_length=radar.range['meters_between_gates']                              , 
                                               radarrange=radar.range['data'] , radarelev=options['elevations'] )  
@@ -516,10 +527,11 @@ def main_qc( filename , options ) :
          output['cref'][mask] = output['cref'][mask] + 3.0
 
       #Set the pixels with values below the threshold as undef. 
-      output['cref'][ output['blocking'] > options['blocking_threshold']  ] = undef
-      output['cv'][ output['blocking']   > options['blocking_threshold']  ] = undef
+      output['cref'][ output['blocking'] > options['blocking_threshold']  ] = output['undef_ref']
+      output['cv'][ output['blocking']   > options['blocking_threshold']  ] = output['undef_v']
 
       output['qcref'][ output['blocking'] > options['blocking_threshold'] ] = QCCODE_BLOCKING
+      output['qcv']  [ output['blocking'] > options['blocking_threshold'] ] = QCCODE_BLOCKING
 
       if  not options['blocking_save']  :
           output.pop('blocking')  
@@ -661,7 +673,7 @@ def order_variable ( radar , var_name , undef )  :
    return order_var , order_azimuth , levels , order_time , order_index , azimuth_exact
 
 #From ARE order to Pyart order 
-def order_variable_inv (  radar , var , order_index  )  :
+def order_variable_inv (  radar , var , order_index , undef )  :
     import numpy as np
    
     #Esta funcion es la inversa de la funcion order variable. Es decir que toma un array ordenado como azimuth , range y elevation y lo vuelve
@@ -678,7 +690,7 @@ def order_variable_inv (  radar , var , order_index  )  :
 
     nb=radar.azimuth['data'].shape[0]
 
-    output_var=np.ones((na,nb)) * options['undef']
+    output_var=np.ones((na,nb)) * undef 
        
 
     for ia in range(0,na)  :

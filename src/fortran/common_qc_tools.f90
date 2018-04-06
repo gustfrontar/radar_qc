@@ -27,14 +27,14 @@ MODULE QC_CONST
   REAL(r_size),PARAMETER :: rad2deg=180d0/3.1415926535d0
   REAL(r_size),PARAMETER :: clight=299792458.0d0 !Speed of light
 
-  INTEGER      , PARAMETER :: NPAR_ECHO_TOP_3D=6 , NPAR_ECHO_TOP_2D=7 !Number of parameters in output arrays.
-  REAL(r_size) , PARAMETER :: MAX_Z_ECHO_TOP=20.0d4 , MAX_R_ECHO_TOP=240.0d03
-  REAL(r_size) , PARAMETER :: DZ_ECHO_TOP = 500.0d0 , DX_ECHO_TOP = 500.0d0
+!  INTEGER      , PARAMETER :: NPAR_ECHO_TOP_3D=6 , NPAR_ECHO_TOP_2D=7 !Number of parameters in output arrays.
+!  REAL(r_size) , PARAMETER :: MAX_Z_ECHO_TOP=20.0d4 , MAX_R_ECHO_TOP=240.0d03
+!  REAL(r_size) , PARAMETER :: DZ_ECHO_TOP = 500.0d0 , DX_ECHO_TOP = 500.0d0
 
-  INTEGER      , PARAMETER :: MAX_ECHO_TOP_LEVS=5 
-  REAL(r_size) , PARAMETER :: DBZ_THRESHOLD_ECHO_TOP=5.0d0  !Echo top detection value.
+!  INTEGER      , PARAMETER :: MAX_ECHO_TOP_LEVS=5 
+!  REAL(r_size) , PARAMETER :: DBZ_THRESHOLD_ECHO_TOP=5.0d0  !Echo top detection value.
 
-  REAL(r_size)             :: undef 
+!  REAL(r_size)             :: undef 
 
 
 !  REAL(r_size) , ALLOCATABLE  :: QCARRAY(:,:,:)  !Array to store qccodes
@@ -58,40 +58,38 @@ MODULE QC
  CONTAINS
 
 
-SUBROUTINE SPECKLE_FILTER(var,na,nr,ne,nx,ny,nz,threshold,speckle)
+SUBROUTINE SPECKLE_FILTER(var,na,nr,ne,undef,nx,ny,nz,threshold,speckle)
 IMPLICIT NONE
 INTEGER, INTENT(IN)        :: na,nr,ne,nx,ny,nz        !Var dims and box dims
 REAL(r_size),INTENT(IN)    :: threshold                !Threshold 
 REAL(r_size),INTENT(IN)    :: var(na,nr,ne)            !Input variable
+REAL(r_size),INTENT(IN)    :: undef
 REAL(r_size),INTENT(OUT)   :: speckle(na,nr,ne)        !Temporal array
 INTEGER                    :: ia,ir,ie 
 
-  CALL BOX_FUNCTIONS_2D(var,na,nr,ne,nx,ny,nz,'COUN',threshold,speckle)
+  CALL BOX_FUNCTIONS_2D(var,na,nr,ne,undef,nx,ny,nz,'COUN',threshold,speckle)
 
 RETURN
 END SUBROUTINE SPECKLE_FILTER
 
-SUBROUTINE RHO_FILTER(var,na,nr,ne,nx,ny,nz,rho_smooth)
+SUBROUTINE RHO_FILTER(var,na,nr,ne,undef,nx,ny,nz,rho_smooth)
 IMPLICIT NONE
 INTEGER, INTENT(IN)        :: na,nr,ne,nx,ny,nz        !Var dims and box dims
 !REAL(r_size),INTENT(IN)    :: threshold                !Threshold 
 REAL(r_size),INTENT(INOUT) :: var(na,nr,ne)            !Input variable
+REAL(r_size),INTENT(IN)    :: undef                    !Undefined value.
 REAL(r_size),INTENT(OUT)   :: rho_smooth(na,nr,ne)     !Temporal array
 INTEGER                    :: ia,ir,ie
 
-  CALL BOX_FUNCTIONS_2D(var,na,nr,ne,nx,ny,nz,'MEAN',0.0d0,rho_smooth)
+  CALL BOX_FUNCTIONS_2D(var,na,nr,ne,undef,nx,ny,nz,'MEAN',0.0d0,rho_smooth)
 
-!  where( rho_smooth < threshold )
-!    var=undef 
-!    qcarray=QCCODE_RHOFILTER
-!  endwhere
 
 RETURN
 
 END SUBROUTINE RHO_FILTER
 
 
-SUBROUTINE GET_ATTENUATION(var,na,nr,ne,beaml,cal_error,attenuation)
+SUBROUTINE GET_ATTENUATION(var,na,nr,ne,undef,beaml,cal_error,attenuation)
 
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 !  This function estimates the attenuation percentaje due to metereological
@@ -114,6 +112,7 @@ SUBROUTINE GET_ATTENUATION(var,na,nr,ne,beaml,cal_error,attenuation)
 IMPLICIT NONE
 INTEGER     ,INTENT(IN)    :: na,nr,ne
 REAL(r_size),INTENT(IN)    :: var(na,nr,ne) !Input reflectivity
+REAL(r_size),INTENT(IN)    :: undef
 REAL(r_size),INTENT(OUT)   :: attenuation(na,nr,ne) !Attenuation factor.
 REAL(r_size),INTENT(IN)    :: beaml  !Beam length (m)
 REAL(r_size)               :: a_coef , b_coef , c_coef , d_coef , alfa , beta  !Attenuation parameters
@@ -164,13 +163,14 @@ attenuation=-10*log(attenuation)  !Compute PIA
 END SUBROUTINE GET_ATTENUATION
 
 
-SUBROUTINE COMPUTE_TDBZ(var,na,nr,ne,nx,ny,nz,texture)
+SUBROUTINE COMPUTE_TDBZ(var,na,nr,ne,undef,nx,ny,nz,texture)
 !This routine performs the radar QC computing the requested fields.
 IMPLICIT NONE
 INTEGER     ,INTENT(IN) :: na , nr , ne    !Grid dimension
 INTEGER     ,INTENT(IN) :: nx , ny , nz  !Box dimension
 REAL(r_size),INTENT(INOUT)  :: var(na,nr,ne) 
 !REAL(r_size),INTENT(IN)     :: threshold
+REAL(r_size),INTENT(IN)     :: undef
 REAL(r_size),INTENT(OUT)    :: texture(na,nr,ne)
 REAL(r_size)             :: tmp_data_3d(na,nr,ne) 
 INTEGER                  :: ii , jj , kk
@@ -191,23 +191,19 @@ tmp_data_3d=undef
 !$OMP END PARALLEL DO
 
  !Average the squared radial differences.
- CALL BOX_FUNCTIONS_2D(tmp_data_3d,na,nr,ne,nx,ny,nz,'MEAN',0.0d0,texture)
-
-! where( texture > threshold .or. texture == undef )
-!      var=undef
-!      qcarray=QCCODE_TEXTURE
-! endwhere
+ CALL BOX_FUNCTIONS_2D(tmp_data_3d,na,nr,ne,undef,nx,ny,nz,'MEAN',0.0d0,texture)
 
 RETURN
 END SUBROUTINE COMPUTE_TDBZ
 
-SUBROUTINE COMPUTE_SIGN(var,na,nr,ne,nx,ny,nz,varsign)
+SUBROUTINE COMPUTE_SIGN(var,na,nr,ne,undef,nx,ny,nz,varsign)
 !This routine computes the sign parameter
 !Kessinger et al 2003
 IMPLICIT NONE
 INTEGER     ,INTENT(IN)     :: na , nr , ne    !Grid dimension
 INTEGER     ,INTENT(IN)     :: nx , ny , nz  !Box dimension
 REAL(r_size),INTENT(INOUT)  :: var(na,nr,ne)
+REAL(r_size),INTENT(IN)     :: undef
 !REAL(r_size),INTENT(IN)     :: threshold 
 REAL(r_size)                :: tmp_data_3d(na,nr,ne) , diff
 INTEGER                     :: ii , jj , kk
@@ -234,7 +230,7 @@ tmp_data_3d=undef
 !$OMP END PARALLEL DO
 
  !Average the squared radial differences.
- CALL BOX_FUNCTIONS_2D(tmp_data_3d,na,nr,ne,nx,ny,nz,'MEAN',0.0d0,varsign)
+ CALL BOX_FUNCTIONS_2D(tmp_data_3d,na,nr,ne,undef,nx,ny,nz,'MEAN',0.0d0,varsign)
 
 ! where( varsign > threshold .or. varsign == undef )
 !    var=undef
@@ -245,12 +241,13 @@ tmp_data_3d=undef
 RETURN
 END SUBROUTINE COMPUTE_SIGN
 
-SUBROUTINE BOX_FUNCTIONS_2D(datain,na,nr,ne,boxx,boxy,boxz,operation,threshold,dataout)
+SUBROUTINE BOX_FUNCTIONS_2D(datain,na,nr,ne,undef,boxx,boxy,boxz,operation,threshold,dataout)
 
 IMPLICIT NONE
 INTEGER     ,INTENT(IN) :: na , nr , ne    !Grid dimension
 INTEGER     ,INTENT(IN) :: boxx,boxy,boxz  !Box dimension
 REAL(r_size),INTENT(IN) :: datain(na,nr,ne)
+REAL(r_size),INTENT(IN) :: undef
 CHARACTER(4),INTENT(IN) :: operation     
 REAL(r_size),INTENT(IN) :: threshold
 REAL(r_size),INTENT(OUT) :: dataout(na,nr,ne) !Result
@@ -267,7 +264,7 @@ box_size=(2*boxx+1)*(2*boxy+1)*(2*boxz+1)
 
 ALLOCATE( tmp_field(box_size) )
 
-dataout=UNDEF
+dataout=undef
 
 !$OMP PARALLEL DO SCHEDULE(DYNAMIC) PRIVATE(kk,ii,jj,bkk,bii,bjj,ii_index,NITEMS,tmp_field,tmp_mean,tmp_var,data_count,iin)
 DO kk=1,ne
@@ -348,7 +345,7 @@ ENDDO
 RETURN
 END SUBROUTINE BOX_FUNCTIONS_2D
 
-SUBROUTINE  ECHO_TOP(reflectivity,heigth,rrange,na,nr,ne,nx,ny,nz,output_data_3d,output_data_2d)
+SUBROUTINE  ECHO_TOP(reflectivity,heigth,rrange,na,nr,ne,undef,nx,ny,nz,output_data_3d,output_data_2d)
 !Curretnly this routine:
 !Compute 3D echo top, echo base , echo depth , max dbz and max dbz z
 !Performs interpolation from original radar grid (r,elevation) to an uniform (r,z) grid, where
@@ -359,9 +356,19 @@ use qc_const
 
 
 IMPLICIT NONE
+
+!TODO SOME OF THESE PARAMETERS SHOULD BE INPUT ARGUMENTS.
+INTEGER      , PARAMETER :: NPAR_ECHO_TOP_3D=6 , NPAR_ECHO_TOP_2D=7 !Number of parameters in output arrays.
+REAL(r_size) , PARAMETER :: MAX_Z_ECHO_TOP=20.0d4 , MAX_R_ECHO_TOP=240.0d03
+REAL(r_size) , PARAMETER :: DZ_ECHO_TOP = 500.0d0 , DX_ECHO_TOP = 500.0d0
+INTEGER      , PARAMETER :: MAX_ECHO_TOP_LEVS=5
+REAL(r_size) , PARAMETER :: DBZ_THRESHOLD_ECHO_TOP=5.0d0  !Echo top detection value.
+
+
 INTEGER     ,INTENT(IN)  :: na,nr,ne
 INTEGER     ,INTENT(IN)  :: nx,ny,nz
 REAL(r_size),INTENT(IN)  :: reflectivity(na,nr,ne) , heigth(nr,ne) , rrange(nr,ne)  
+REAL(r_size),INTENT(IN)  :: undef
 REAL(r_size),INTENT(OUT) :: output_data_3d(na,nr,ne,NPAR_ECHO_TOP_3D)  !Echo top , echo base , echo depth , max_dbz , maz_dbz_z , vertical_z_gradient
 REAL(r_size),INTENT(OUT) :: output_data_2d(na,nr,NPAR_ECHO_TOP_2D)  !Max echo top, max_echo_base, max_echo_depth, col_max, height weighted col_max
 !REAL(r_size)             :: tmp_output_data_3d(na,nr,ne,NPAR_ECHO_TOP_3D)
@@ -402,7 +409,7 @@ REGNR=INT(MAX_R_ECHO_TOP / DX_ECHO_TOP)+1
    DO jj=1,REGNZ
      Z(ii,jj)=REAL(jj-1,r_size)*DZ_ECHO_TOP
      R(ii,jj)=REAL(ii-1,r_size)*DX_ECHO_TOP
-     CALL com_xy2ij(nr,ne,rrange,heigth,R(ii,jj),Z(ii,jj),REGI(ii,jj,:),REGJ(ii,jj,:),W(ii,jj,:),NEARESTN(ii,jj))
+     CALL com_xy2ij(nr,ne,rrange,heigth,R(ii,jj),Z(ii,jj),REGI(ii,jj,:),REGJ(ii,jj,:),W(ii,jj,:),NEARESTN(ii,jj),undef)
    ENDDO
   ENDDO
   !$OMP END PARALLEL DO
@@ -412,7 +419,7 @@ REGNR=INT(MAX_R_ECHO_TOP / DX_ECHO_TOP)+1
   !$OMP PARALLEL DO SCHEDULE(DYNAMIC) PRIVATE(ii,jj)
   DO ii=1,nr
    DO jj=1,ne
-     CALL com_xy2ij(REGNR,REGNZ,R,Z,rrange(ii,jj),heigth(ii,jj),INVI(ii,jj,:),INVJ(ii,jj,:),INVW(ii,jj,:),INVNEARESTN(ii,jj)) 
+     CALL com_xy2ij(REGNR,REGNZ,R,Z,rrange(ii,jj),heigth(ii,jj),INVI(ii,jj,:),INVJ(ii,jj,:),INVW(ii,jj,:),INVNEARESTN(ii,jj),undef) 
    ENDDO
   ENDDO
   !$OMP END PARALLEL DO
@@ -438,7 +445,7 @@ DO ia=1,na
      ENDIF
   ENDDO
 
-  CALL ECHO_TOP_SUB(REGREF(ii,:),Z(ii,:),REGNZ,tmp_data_3d(ii,:,:),tmp_data_2d(ii,:),MAX_ECHO_TOP_LEVS,DBZ_THRESHOLD_ECHO_TOP)
+  CALL ECHO_TOP_SUB(REGREF(ii,:),Z(ii,:),REGNZ,undef,tmp_data_3d(ii,:,:),tmp_data_2d(ii,:),MAX_ECHO_TOP_LEVS,DBZ_THRESHOLD_ECHO_TOP)
  ENDDO
 
  DO ii=1,nr
@@ -462,16 +469,16 @@ ENDDO
 !WRITE(*,*)maxval( tmp_radgrid_3d(:,:,:,1) )
 
 !DO ip=1,NPAR_ECHO_TOP_3D
-CALL BOX_FUNCTIONS_2D(tmp_radgrid_3d(:,:,:,1),na,nr,ne,nx,ny,nz,'MEAN',0.0d0,output_data_3d(:,:,:,1))
-CALL BOX_FUNCTIONS_2D(tmp_radgrid_3d(:,:,:,2),na,nr,ne,nx,ny,nz,'MEAN',0.0d0,output_data_3d(:,:,:,2))
-CALL BOX_FUNCTIONS_2D(tmp_radgrid_3d(:,:,:,3),na,nr,ne,nx,ny,nz,'MEAN',0.0d0,output_data_3d(:,:,:,3))
-CALL BOX_FUNCTIONS_2D(tmp_radgrid_3d(:,:,:,4),na,nr,ne,nx,ny,nz,'MEAN',0.0d0,output_data_3d(:,:,:,4))
-CALL BOX_FUNCTIONS_2D(tmp_radgrid_3d(:,:,:,5),na,nr,ne,0,1,0,'MINN',0.0d0,output_data_3d(:,:,:,5))
-CALL BOX_FUNCTIONS_2D(tmp_radgrid_3d(:,:,:,6),na,nr,ne,0,1,0,'MINN',0.0d0,output_data_3d(:,:,:,6))
+CALL BOX_FUNCTIONS_2D(tmp_radgrid_3d(:,:,:,1),na,nr,ne,undef,nx,ny,nz,'MEAN',0.0d0,output_data_3d(:,:,:,1))
+CALL BOX_FUNCTIONS_2D(tmp_radgrid_3d(:,:,:,2),na,nr,ne,undef,nx,ny,nz,'MEAN',0.0d0,output_data_3d(:,:,:,2))
+CALL BOX_FUNCTIONS_2D(tmp_radgrid_3d(:,:,:,3),na,nr,ne,undef,nx,ny,nz,'MEAN',0.0d0,output_data_3d(:,:,:,3))
+CALL BOX_FUNCTIONS_2D(tmp_radgrid_3d(:,:,:,4),na,nr,ne,undef,nx,ny,nz,'MEAN',0.0d0,output_data_3d(:,:,:,4))
+CALL BOX_FUNCTIONS_2D(tmp_radgrid_3d(:,:,:,5),na,nr,ne,undef,0,1,0,'MINN',0.0d0,output_data_3d(:,:,:,5))
+CALL BOX_FUNCTIONS_2D(tmp_radgrid_3d(:,:,:,6),na,nr,ne,undef,0,1,0,'MINN',0.0d0,output_data_3d(:,:,:,6))
 !END DO
 
 DO ip=1,NPAR_ECHO_TOP_2D
-CALL BOX_FUNCTIONS_2D(tmp_radgrid_2d(:,:,ip),na,nr,1,nx,ny,0,'MEAN',0.0d0,output_data_2d(:,:,ip))
+CALL BOX_FUNCTIONS_2D(tmp_radgrid_2d(:,:,ip),na,nr,1,undef,nx,ny,0,'MEAN',0.0d0,output_data_2d(:,:,ip))
 END DO
 
 
@@ -485,7 +492,7 @@ INITIALIZED=.TRUE.
 RETURN
 END SUBROUTINE ECHO_TOP
 
-SUBROUTINE ECHO_TOP_SUB(reflectivity,z,nz,output_3d,output_2d,max_levs,threshold)
+SUBROUTINE ECHO_TOP_SUB(reflectivity,z,nz,undef,output_3d,output_2d,max_levs,threshold)
 !Vertical columns calculations
 !Compute the possition of multiple echo tops in a single reflectivity column.
 !Compute echo depth of each echo layer
@@ -498,11 +505,12 @@ SUBROUTINE ECHO_TOP_SUB(reflectivity,z,nz,output_3d,output_2d,max_levs,threshold
 use qc_const
 
 IMPLICIT NONE
+INTEGER      , PARAMETER :: NPAR_ECHO_TOP_3D=6 , NPAR_ECHO_TOP_2D=7 !Number of parameters in output arrays.
 INTEGER, INTENT(IN)  :: nz , max_levs
 REAL(r_size),INTENT(IN) :: reflectivity(nz) , z(nz)
 REAL(r_size),INTENT(OUT):: output_3d(nz,NPAR_ECHO_TOP_3D) !echo_top, echo_base, echo_depth , max_dbz , max_dbz_z , reflectivity gradient
 REAL(r_size),INTENT(OUT):: output_2d(NPAR_ECHO_TOP_2D) !Max echo top, max_echo_base, max_echo_depth, col_max, height weighted col_max , first ref maximum height , intensity.
-
+REAL(r_size),INTENT(IN) :: undef
 REAL(r_size),INTENT(IN) :: threshold    !Reflectivity threshold to detect echo top.
 INTEGER, PARAMETER      :: Nlevelstop=2
 REAL(r_size)            :: tmp(max_levs,5) !echo_top, echo_base, echo_depth , max_dbz , max_dbz_z
@@ -513,17 +521,15 @@ LOGICAL                 :: found_first_maximum
 REAL(r_size), PARAMETER :: first_maximum_threshold = 10.0d0 
 INTEGER     , PARAMETER :: NDELTAZ=5      ! NDELTAZ * dz is the distance used to estimate vertical reflectivity gradient
 REAL(r_size), PARAMETER :: refmin =0.0d0  ! Reflectivity value that will be assumed for UNDEF values in gradient computation.
-                                          
 
-output_3d=UNDEF
-output_2d=UNDEF
+output_3d=undef
+output_2d=undef
 tmp=UNDEF
 
 base_count=0
 top_count=0
 
 ref=reflectivity   !reflectivity is intent in.
-
 
 base_detected=.false.
 top_detected=.false.
@@ -541,7 +547,6 @@ DO iz=1,nz
      EXIT
    ENDIF
 ENDDO
-
 
 DO iz=1,nz
    !Look for an echo base
@@ -715,13 +720,14 @@ END SUBROUTINE ECHO_TOP_SUB
 !-------------------------------------------------------------------------------------------
 
 
-SUBROUTINE COMPUTE_BLOCKING( radarz , topo , na , nr , ne ,  & 
+SUBROUTINE COMPUTE_BLOCKING( radarz , topo , na , nr , ne , undef ,  & 
            &                 radar_beam_width_v , beam_length , radarrange , radarelev , blocking )
 
 INTEGER     , INTENT(IN)  :: na,nr,ne
 REAL(r_size), INTENT(IN)  :: radarz(na,nr,ne)
 REAL(r_size), INTENT(IN)  :: topo(na,nr,ne)
 REAL(r_size), INTENT(OUT) :: blocking(na,nr,ne)
+REAL(r_size), INTENT(IN)  :: undef
 REAL(r_size), INTENT(IN)  :: radar_beam_width_v , beam_length , radarrange(nr) , radarelev(ne)
 
 REAL(r_size) :: alfa , beta , diag , max_vertical_extent(nr,ne) , vert_beam_width
@@ -886,7 +892,7 @@ DO ix=1,nx
            maxz=min( iz+1 ,  nz )
            minx=max( ix-1 ,  1  )
            miny=max( iy-1 ,  1  )
-           minz=max( iy-1 ,  1  )
+           minz=max( iz-1 ,  1  )
 
            DO iix=minx,maxx
              DO iiy=miny,maxy
@@ -896,7 +902,7 @@ DO ix=1,nx
  
                    IF( abs( field(iix,iiy,iiz) - field(ix,iy,iz) ) > edge_intensity(ix,iy,iz) )THEN
                         
-                     edge_intensity(ix,iy,iz) = abs( field(iix,iiy,iiz) - field(ix,iy,iz)  )     
+                     edge_intensity(ix,iy,iz) = abs( field(iix,iiy,iiz) - field(ix,iy,iz) )     
 
                    ENDIF
  
@@ -906,7 +912,7 @@ DO ix=1,nx
              ENDDO      
            ENDDO
 
-           IF(   edge_intensity(ix,iy,iz) > edge_tr  ) THEN
+           IF( edge_intensity(ix,iy,iz) > edge_tr ) THEN
 
              !Expand the grid points identified as edges using nx,ny,nz
 
@@ -939,7 +945,7 @@ END SUBROUTINE SIMPLE_EDGE_FILTER
 ! (X,Y) --> (i,j) conversion (General pourpuse interpolation)
 !   [ORIGINAL AUTHOR:] Masaru Kunii
 !-----------------------------------------------------------------------
-SUBROUTINE com_xy2ij(nx,ny,fx,fy,datax,datay,dist_min_x,dist_min_y,ratio,nearestn)
+SUBROUTINE com_xy2ij(nx,ny,fx,fy,datax,datay,dist_min_x,dist_min_y,ratio,nearestn,undef)
 
   use qc_const
 
@@ -948,6 +954,7 @@ SUBROUTINE com_xy2ij(nx,ny,fx,fy,datax,datay,dist_min_x,dist_min_y,ratio,nearest
   INTEGER,INTENT(IN) :: nx,ny !number of grid points
   REAL(r_size),INTENT(IN) :: fx(nx,ny),fy(nx,ny) !(x,y) at (i,j)
   REAL(r_size),INTENT(IN) :: datax,datay !target (lon,lat)
+  REAL(r_size),INTENT(IN) :: undef
   ! --- local work variables
   LOGICAL,PARAMETER :: detailout = .FALSE.
   INTEGER,PARAMETER :: num_grid_ave = 4  ! fix
@@ -958,6 +965,7 @@ SUBROUTINE com_xy2ij(nx,ny,fx,fy,datax,datay,dist_min_x,dist_min_y,ratio,nearest
   REAL(r_size),PARAMETER :: max_dist = 2.0e+6
   REAL(r_size) :: rxmax, rxmin, rymax, rymin   
   REAL(r_size) :: dist(num_grid_ave)  , tmp_dist(num_grid_ave)
+  
   INTEGER,INTENT(OUT) :: dist_min_x( num_grid_ave)
   INTEGER,INTENT(OUT) :: dist_min_y( num_grid_ave) 
   INTEGER,INTENT(OUT) :: nearestn(1)
