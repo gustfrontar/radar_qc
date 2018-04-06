@@ -42,6 +42,7 @@ def main_qc( filename , options ) :
    QCCODE_BLOCKING    = 15
    QCCODE_ECHOTOP     = 16
    QCCODE_ECHODEPTH   = 17
+   QCCODE_LOWANGLE    = 18
 
    #Para la velocidad radial
    QCCODE_DEALIAS     = 30
@@ -63,6 +64,7 @@ def main_qc( filename , options ) :
 
    #Get the nyquist velocity
    nyquistv=radar.get_nyquist_vel(0,check_uniform=True)
+
 
    #===================================================
    # RESHAPE VARIABLES
@@ -92,6 +94,8 @@ def main_qc( filename , options ) :
 
         output['qcref'] = np.zeros(output['cref'].shape)  #Set the qc flag array to 0.
 
+        output['elevations']=np.unique(radar.elevation['data'])
+
         end=time.time()
 
         print("The elapsed time in {:s} is {:2f}".format("ref -> az,r,el",end-start) )
@@ -114,6 +118,8 @@ def main_qc( filename , options ) :
         output['cv'][:] = output['v']                     #Initialize the corrected doppler velocity array
 
         output['qcv'] = np.zeros(output['v'].shape)       #Set the qc flag array to 0.
+
+        output['elevations']=np.unique(radar.elevation['data'])       
 
         end=time.time()
 
@@ -227,7 +233,7 @@ def main_qc( filename , options ) :
      radar.fields['Vda']['long_name']     = radar.fields[name_v]['long_name']
      radar.fields['Vda']['standard_name'] = radar.fields[name_v]['standard_name']
 
-     tmp_v=np.copy( output['cv'] )
+     output['v']=np.copy( output['cv'] )
      #Re-order dealiased wind data.
      [ output['cv'] , output['az'] , output['level'] , output['time'] , output['index'] , output['az_exact']  ]=order_variable( radar , 'Vda' , undef  )
 
@@ -241,7 +247,20 @@ def main_qc( filename , options ) :
    # DEALIASING BORDER FILTER
    #===================================================
 
-   #TODO
+   if options['ifdabfilter']  and options['ifdealias'] :
+
+     #Use a simple edge detection routine to detect the borders between dealiased and non-dealiased regions.
+     #Flag this grid points and eliminate all the non-dealiased corrected pixels near by.
+
+     tmp_diff=output['qcv'] - otuput['v']
+
+     [ output['edge_intensity'] , output['edge_mask'] ]=qc.simple_edge_filter( field=tmp_diff , nx=na,ny=nr,nz=ne,undef=undef,
+                                                                               nboxx=options['dabfilter_boxx'],nboxy=options['dabfilter_boxy'],
+                                                                               nboxz=options['dabfilter_boxz'],edge_tr=options['dabfilter_tr'])
+
+     #SUBROUTINE SIMPLE_EDGE_FILTER( field , nx , ny , nz , undef , nboxx , nboxy , nboxz , edge_tr , edge_intensity , edge_mask )
+
+
 
 
    #===================================================
@@ -287,6 +306,36 @@ def main_qc( filename , options ) :
      end=time.time()
 
      print("The elapsed time in {:s} is {:2f}".format("echo-top filter",end-start) )
+
+   #===================================================
+   # LOW ELEVATION ANGLE REFLECTIVITY FILTER
+   #===================================================
+
+   #Remove echos which are present at low elevation angles but not at higher elevation
+   #angles. This will help to remove clutter produced by anomalous propagation.
+   #This can also help to remove second trip echoes which are usually observed only at low elevation
+   #angles.
+   #This can also eliminate distant convective cells that are only seen in low 
+   #elevation angles near the radar range edge. However these cells are of little interest
+   #for data assimilation since that information is usually not enough to adequatelly constrain
+   #the evolution of the convective cells.
+
+   if options['iflefilter']    :
+
+      start=time.time()
+
+      #Get the angles that will be used based on the selected threshold.
+      tmp_angles= output['elevations'][ output['elevations'] < options['flfilter_minangle']]
+      tmp_n_angles = np.size( tmp_angles )
+      
+      for ia in range( 0 , tmp_n_angles )  :
+         tmp_mask=np.logical_and( output['cref'][:,:,ia] > configuration['norainrefval'] , output['cref'][:,:,tmp_n_angles] <= options['norainrefval']
+         output['cref'][ mask ]= undef
+         output['qcref'][ mask ]=QCCODE_LOWANGLE
+
+      end=time.time()
+      print("The elapsed time in {:s} is {:2f}".format("low elevation angle filter",end-start) )
+
 
    #===================================================
    # RHO HV FILTER
@@ -445,7 +494,7 @@ def main_qc( filename , options ) :
       output['blocking']=qc.compute_blocking( radarz=output['altitude'] , topo=output['topo'] , na=na , nr=nr , ne=ne      ,
                                               radar_beam_width_v=radar.instrument_parameters['radar_beam_width_v']['data'] , 
                                               beam_length=radar.range['meters_between_gates']                              , 
-                                              radarrange=radar.range['data'] , radarelev=np.unique(radar.elevation['data'])  ) 
+                                              radarrange=radar.range['data'] , radarelev=options['elevations'] )  
 
 
       #Compute correction 

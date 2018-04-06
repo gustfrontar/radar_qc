@@ -91,6 +91,19 @@ options['blocking_correction']=True  #Wether correction will be applied for part
 options['blocking_threshold']=0.5    #Beams with blocking above this threshold will be eliminated.
 options['blocking_save']=True        #Save blocking factor into qc_output dictionary.
 
+#Low elevation angles filter.
+options['iflefilter']=True           #Low elevation angles filter.
+
+options['flfilter_minangle']=2.0     #Reflectivity with echo tops lower than this angle will be eliminated.
+
+#Dealiasing border filter 
+options['ifdabfilter']=True          #Dealiasing border filter.
+options['dabfilter_tr']=20.0d0      #Threshold for edge detection.
+options['dabfilter_boxx']=3          #Edge "expansion" in azimuth
+options['dabfilter_boxy']=3          #Edge "expansion" in range
+options['dabfilter_boxz']=0          #Edge "expansion" in elevation
+
+
 #Detect missing parameters
 options['ifmissfilter']=False   #Missing values filter
 
