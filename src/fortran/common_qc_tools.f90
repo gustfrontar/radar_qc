@@ -835,7 +835,7 @@ DO ix=2,nx-1
              maxz=min( iz+boxz ,  nz )
              minx=max( ix-boxx ,  1  )
              miny=max( iy-boxy ,  1  )
-             minz=max( iy-boxz ,  1  )
+             minz=max( iz-boxz ,  1  )
 
              edge_mask(minx:maxx,miny:maxy,minz:maxz)=.True.         
  
@@ -889,26 +889,26 @@ DO ix=1,nx
            !Look for neighbors.
            maxx=min( ix+1 ,  nx )
            maxy=min( iy+1 ,  ny )
-           maxz=min( iz+1 ,  nz )
+           !maxz=min( iz+1 ,  nz )
            minx=max( ix-1 ,  1  )
            miny=max( iy-1 ,  1  )
-           minz=max( iz-1 ,  1  )
+           !minz=max( iz-1 ,  1  )
 
            DO iix=minx,maxx
              DO iiy=miny,maxy
-               DO iiz=minz,maxz
+               !DO iiz=minz,maxz
                 
-                 IF( field(iix,iiy,iiz) .ne. undef )THEN
+                 IF( field(iix,iiy,iz) .ne. undef )THEN
  
-                   IF( abs( field(iix,iiy,iiz) - field(ix,iy,iz) ) > edge_intensity(ix,iy,iz) )THEN
+                   IF( abs( field(iix,iiy,iz) - field(ix,iy,iz) ) > edge_intensity(ix,iy,iz) )THEN
                         
-                     edge_intensity(ix,iy,iz) = abs( field(iix,iiy,iiz) - field(ix,iy,iz) )     
+                     edge_intensity(ix,iy,iz) = abs( field(iix,iiy,iz) - field(ix,iy,iz) )     
 
                    ENDIF
  
                  ENDIF 
 
-               ENDDO 
+               !ENDDO 
              ENDDO      
            ENDDO
 
@@ -921,7 +921,7 @@ DO ix=1,nx
              maxz=min( iz+boxz ,  nz )
              minx=max( ix-boxx ,  1  )
              miny=max( iy-boxy ,  1  )
-             minz=max( iy-boxz ,  1  )
+             minz=max( iz-boxz ,  1  )
 
              edge_mask(minx:maxx,miny:maxy,minz:maxz)=.True.
 
@@ -940,6 +940,43 @@ RETURN
 
 END SUBROUTINE SIMPLE_EDGE_FILTER 
 
+SUBROUTINE MULTIPLE_1D_INTERPOLATION( field , nx, ny , nz , undef , xx , yy , nxx , fieldo )
+!Interpolate the values given in the 3-dimensional array to the 1d function defined by xx and yy.
+!Linear interpolation is used and values ouside xx range are asigned to the max/min value of yy.
+IMPLICIT NONE
+INTEGER      , INTENT(IN)      :: nx , ny , nz , nxx 
+REAL(r_size) , INTENT(IN)      :: field(nx,ny,nz)            !Input values to be interpolated.
+REAL(r_size) , INTENT(IN)      :: undef            
+REAL(r_size) , INTENT(IN)      :: xx(nxx) , yy(nxx)          !x and y that define the interpolation function.
+REAL(r_size) , INTENT(OUT)     :: fieldo(nx,ny,nz)           !Field containing interpolated values.
+
+INTEGER                        :: ix , iy , iz , iix
+
+fieldo=0.0d0
+
+!$OMP PARALLEL DO SCHEDULE(DYNAMIC) PRIVATE(ix,iy,iz,iix)
+DO ix = 1 , nx
+  DO iy = 1 , ny
+    DO iz = 1 , nz
+       IF( field(ix,iy,iz) < xx(1) )THEN
+         fieldo(ix,iy,iz) = yy(1) 
+       ELSEIF( field(ix,iy,iz) > xx(nxx) )THEN
+         fieldo(ix,iy,iz) = yy(nxx)
+       ELSE
+         DO iix = 1 , nxx-1
+            IF( field(ix,iy,iz) >= xx(iix) .and. field(ix,iy,iz) < xx(iix+1) )THEN
+                fieldo(ix,iy,iz)= yy(iix) + ( field(ix,iy,iz)-xx(iix) ) * ( ( yy(iix+1) - yy(iix) ) / ( xx(iix+1) - xx(iix) ) )
+            ENDIF
+         ENDDO
+       ENDIF
+    ENDDO
+  ENDDO
+ENDDO
+!$OMP END PARALLEL DO
+
+
+
+END SUBROUTINE MULTIPLE_1D_INTERPOLATION
 
 !-----------------------------------------------------------------------
 ! (X,Y) --> (i,j) conversion (General pourpuse interpolation)

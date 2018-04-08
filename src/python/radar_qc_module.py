@@ -35,14 +35,15 @@ def main_qc( filename , options ) :
 
    #Para la reflectividad
    QCCODE_ATTENUATION = 10
-   QCCODE_SPECKLE     = 11
+#   QCCODE_SPECKLE     = 11
    QCCODE_TEXTURE     = 12
-   QCCODE_RHOFILTER   = 13
+#   QCCODE_RHOFILTER   = 13
    QCCODE_SIGN        = 14
    QCCODE_BLOCKING    = 15
-   QCCODE_ECHOTOP     = 16
-   QCCODE_ECHODEPTH   = 17
+#   QCCODE_ECHOTOP     = 16
+#   QCCODE_ECHODEPTH   = 17
    QCCODE_LOWANGLE    = 18
+   QCCODE_LOWDOPPLER  = 19
    
 
    #Para la velocidad radial
@@ -67,6 +68,7 @@ def main_qc( filename , options ) :
    #Get the nyquist velocity
    nyquistv=radar.get_nyquist_vel(0,check_uniform=True)
 
+   output['maxw']=0.0
 
    #===================================================
    # RESHAPE VARIABLES
@@ -97,6 +99,7 @@ def main_qc( filename , options ) :
         output['ref'] [ output['ref']  == output['undef_ref'] ]=options['norainrefval']
 
         output['qcref'] = np.zeros(output['cref'].shape)  #Set the qc flag array to 0.
+        output['wref']  = np.zeros(output['cref'].shape)  #Set the weigths to 0.
 
         output['elevations']=np.unique(radar.elevation['data'])
 
@@ -124,6 +127,8 @@ def main_qc( filename , options ) :
         output['cv'][:] = output['v']                     #Initialize the corrected doppler velocity array
 
         output['qcv'] = np.zeros(output['v'].shape)       #Set the qc flag array to 0.
+
+        output['wv'] = np.zeros(output['v'].shape)       #Set the weigths to 0.
 
         output['elevations']=np.unique(radar.elevation['data'])
 
@@ -210,6 +215,9 @@ def main_qc( filename , options ) :
 
    end=time.time()
 
+   #Compute AGL height for each pixel.
+   output['altitude_agl']=output['altitude']-output['topo'] 
+
    print("The elapsed time in {:s} is {:2f}".format("topography interpolation",end-start) )
 
    #===================================================
@@ -259,57 +267,127 @@ def main_qc( filename , options ) :
      #Use a simple edge detection routine to detect the borders between dealiased and non-dealiased regions.
      #Flag this grid points and eliminate all the non-dealiased corrected pixels near by.
 
-     tmp_diff=output['qcv'] - output['v']
+     tmp_diff=output['cv'] - output['v']
+
+     mask = np.logical_or( output['cv'] == output['undef_v'] , output['v'] == output['undef_v'] )
+     tmp_diff[ mask ] = output['undef_v']
+    
+     v_nyquist = radar.instrument_parameters['nyquist_velocity']['data'].max()
+ 
+     if v_nyquist < 0 :
+        v_nyquist = 40.0 #Put some value that can detect strong jumps in the doppler velocity field.
 
      [ output['edge_intensity'] , output['edge_mask'] ]=qc.simple_edge_filter( field=tmp_diff , nx=na,ny=nr,nz=ne,undef=output['undef_v'],
                                                                                nboxx=options['dabfilter_boxx'],nboxy=options['dabfilter_boxy'],
-                                                                               nboxz=options['dabfilter_boxz'],edge_tr=options['dabfilter_tr'])
+                                                                               nboxz=options['dabfilter_boxz'],edge_tr=v_nyquist )
 
+
+     #Find the pixels which are close to a dealiased region but which has not been corrected by the dealiasing.
+     mask = np.logical_and( ouput['edge_mask'] , tmp_diff == 0 ) 
+
+     outout['cv'][ mask ]  = output['undef_v'] 
+     output['qcv'][ mask ] = QCCODE_DABFILTER
 
 
    #===================================================
    # ECHO TOP FILTER  
    #===================================================
-
-
-   if ( options['ifetfilter'] ) :
-  
+   filter_name='EchoTopFilter'
+   if ( options[filter_name]['flag'] ) :
      start=time.time()
 
      if ( not computed_etfilter )     :
+     #Compute the filter field.
 
-        tmp_z=np.zeros((nr,ne))
-        tmp_d=np.zeros((nr,ne))
-
-        tmp_z[:]=output['altitude'][0,:,:]    #Store only one RHI section of the altitutde (we will assume that the altitude of a pixel is independent
-                                              #of the azimuth).
-        tmp_d[:]=output['distance']
+        nx=options[filter_name]['nx']
+        ny=options[filter_name]['ny']
+        nz=options[filter_name]['nz']
                                    
         tmp_max_z=np.zeros((na,nr,ne))
 
         for ii in range(0,output['ne'])     :       #Estimate the maximum radar data height assoicated with each gate.
            tmp_max_z[:,:,ii]=output['altitude'][:,:,output['ne']-1]
  
-        [tmp_data_3d,tmp_data_2d]=qc.echo_top(reflectivity=output['cref'],heigth=tmp_z,rrange=tmp_d,na=na,nr=nr,ne=ne,undef=output['undef_ref']
-                                                ,nx=options['etfilternx'],ny=options['etfilterny'],nz=options['etfilternz'])
+        [tmp_data_3d,tmp_data_2d]=qc.echo_top(reflectivity=output['ref'],heigth=output['altitude'][0,:,:]
+                                                ,rrange=output['distance'],na=na,nr=nr,ne=ne
+                                                ,undef=output['undef_ref'],nx=nx,ny=ny,nz=nz)
+
+        output['echo_top']=tmp_data_3d[:,:,:,0]
+        output['echo_depth']=tmp_data_3d[:,:,:,2]
+
         computed_etfilter = True  #In case we need any of the other variables computed in this routine.
 
-        tmp_ref=0 #Unset tmp_ref to free some memory.
-        
 
-     #Mask the pixels with echo top values under the threshold.
-     #Do not mask tose pixels where the echo top threshold in below the maximum radar height (i.e. the heigth of the maximum elevation)
-     output['cref'][ np.logical_and( tmp_max_z > options['etfiltertr'] , tmp_data_3d[:,:,:,0] < options['etfiltertr'] ) ]   = output['undef_ref']
-     output['qcref'][ np.logical_and( tmp_max_z > options['etfiltertr'] , tmp_data_3d[:,:,:,0] < options['etfiltertr'] )  ] = QCCODE_ECHOTOP
+     #Compute the corresponding weigth.
+     tmp_w = qc.multiple_1d_interpolation( field=output['echo_top'] , nx=na , ny=nr , nz=ne
+                                           , undef=output['undef_ref'] , xx=options[filter_name]['ifx']
+                                           , yy=options[filter_name]['ify'] , nxx=np.size(options[filter_name]['ifx']) )
+
+     tmp_w[ tmp_max_z < options[filter_name]['heigthtr'] ] = 0.0  #Do not consider this filter when the volume maximum heigth is below
+                                                                  #the specified threshold (i.e. pixels close to the radar)
+
+     output['wref']=output['wref'] + tmp_w * options[filter_name]['w']
+     output['qcref'][ tmp_w > 0.5 ] = options[filter_name]['code']
+     output['maxw']=output['maxw'] + options[filter_name]['w']
 
      #If requested store the auxiliary fields and data in the output dictionary.
-     if  ( options['etfilter_save'] )     : 
-        output['echo_top'] = tmp_data_3d[:,:,:,0] 
-
+     if  ( not options[filter_name]['save'] )     : 
+        output.pop('echo_top') 
+        computed_etfilter = False
 
      end=time.time()
 
-     print("The elapsed time in {:s} is {:2f}".format("echo-top filter",end-start) )
+     print("The elapsed time in {:s} is {:2f}".format(filter_name,end-start) )
+
+   #===================================================
+   # ECHO DEPTH FILTER 
+   #===================================================
+   filter_name='EchoDepthFilter'
+   if ( options[filter_name]['flag'] ) :
+     start=time.time()
+
+     if ( not computed_etfilter )     :
+     #Compute the filter field.
+
+        nx=options[filter_name]['nx']
+        ny=options[filter_name]['ny']
+        nz=options[filter_name]['nz']
+
+        tmp_max_z=np.zeros((na,nr,ne))
+
+        for ii in range(0,output['ne'])     :       #Estimate the maximum radar data height assoicated with each gate.
+           tmp_max_z[:,:,ii]=output['altitude'][:,:,output['ne']-1]
+
+        [tmp_data_3d,tmp_data_2d]=qc.echo_top(reflectivity=output['ref'],heigth=output['altitude'][0,:,:]
+                                                ,rrange=output['distance'],na=na,nr=nr,ne=ne
+                                                ,undef=output['undef_ref'],nx=nx,ny=ny,nz=nz)
+
+        output['echo_top']=tmp_data_3d[:,:,:,0]
+        output['echo_depth']=tmp_data_3d[:,:,:,2]
+
+        computed_etfilter = True  #In case we need any of the other variables computed in this routine.
+
+
+     #Compute the corresponding weigth.
+     tmp_w = qc.multiple_1d_interpolation( field=output['echo_depth'] , nx=na , ny=nr , nz=ne
+                                           , undef=output['undef_ref'] , xx=options[filter_name]['ifx']
+                                           , yy=options[filter_name]['ify'] , nxx=np.size(options[filter_name]['ifx']) )
+
+     tmp_w[ tmp_max_z < options[filter_name]['heigthtr'] ] = 0.0  #Do not consider this filter when the volume maximum heigth is below
+                                                                  #the specified threshold (i.e. pixels close to the radar)
+
+     output['wref']=output['wref'] + tmp_w * options[filter_name]['w']
+     output['qcref'][ tmp_w > 0.5 ] = options[filter_name]['code']
+     output['maxw']=output['maxw'] + options[filter_name]['w']
+
+     #If requested store the auxiliary fields and data in the output dictionary.
+     if  ( not options[filter_name]['save'] )     :
+        output.pop('echo_top')
+        computed_etfilter = False
+
+     end=time.time()
+
+     print("The elapsed time in {:s} is {:2f}".format(filter_name,end-start) )
 
    #===================================================
    # LOW ELEVATION ANGLE REFLECTIVITY FILTER
@@ -344,14 +422,15 @@ def main_qc( filename , options ) :
    #===================================================
    # RHO HV FILTER
    #===================================================
+   filter_name = 'RhoFilter'
 
-   if options['ifrhofilter']   :
+   if options[filter_name]['flag']   :
 
       start=time.time()
 
-      nx=options['rhofilternx']
-      ny=options['rhofilterny']
-      nz=options['rhofilternz']
+      nx=options[filter_name]['nx']
+      ny=options[filter_name]['ny']
+      nz=options[filter_name]['nz']
 
       if name_rho in radar.fields  :
 
@@ -359,113 +438,114 @@ def main_qc( filename , options ) :
 
          [ output['rho'] , dm , dm , dm , dm , dm  ]=order_variable( radar , name_rho , output['undef_rho']  )
 
+         #Compute the filter parameter
          output['rho_smooth']=qc.box_functions_2d(datain=output['rho'],na=na,nr=nr,ne=ne,undef=output['undef_rho']
                                                  ,boxx=nx,boxy=ny,boxz=nz,operation='MEAN',threshold=0.0)
 
-         output['cref'][ output['rho_smooth'] < options['rhofiltertr'] ] = output['undef_ref']
-         output['qcref'][output['rho_smooth'] < options['rhofiltertr'] ] = QCCODE_RHOFILTER
+
+         #Compute the corresponding weigth.
+         tmp_w = qc.multiple_1d_interpolation( field=output['rho_smooth'] , nx=na , ny=nr , nz=ne 
+                                              , undef=output['undef_rho'] , xx=options[filter_name]['ifx'] 
+                                              , yy=options[filter_name]['ify'] , nxx=np.size(options[filter_name]['ifx']) )
+
+         output['wref']=output['wref'] + tmp_w * options[filter_name]['w']
+
+         output['qcref'][ tmp_w > 0.5 ] = options[filter_name]['code']
+
+         output['maxw']=output['maxw'] + options[filter_name]['w']
+
 
       else   :
          display('Warning: could not perform RHO-HV filter because rho was not found on this file')
 
-      if [ not options['rhofilter_save'] ] :
+      if [ not options[filter_name]['save'] ] :
           output.pop('rho_smooth')
           output.pop('rho')
 
       end=time.time()
 
-      print("The elapsed time in {:s} is {:2f}".format("rho filter",end-start) )
-
-   #===================================================
-   # ECHO DEPTH FILTER 
-   #===================================================
-
-   if ( options['ifedfilter']  ) :
-
-     start=time.time()
-
-     if ( not computed_etfilter )     :
-
-        tmp_z=np.zeros((nr,ne))
-        tmp_d=np.zeros((nr,ne))
-
-        tmp_z[:]=output['altitude'][0,:,:]    #Store only one RHI section of the altitutde (we will assume that the altitude of a pixel is independent
-                                              #of the azimuth).
-        tmp_d[:]=output['distance']
-        tmp_max_z=np.zeros((na,nr,ne))
-
-        for ii in range(0,output['ne'])     :       #Estimate the maximum radar data height assoicated with each gate.
-           tmp_max_z[:,:,ii]=output['altitude'][:,:,output['ne']-1]
-
-        [tmp_data_3d,tmp_data_2d]=qc.echo_top(reflectivity=output['cref'],heigth=tmp_z,rrange=tmp_d,na=na,nr=nr,ne=ne,undef=output['undef_ref']
-                                                ,nx=options['edfilternx'],ny=options['edfilterny'],nz=options['edfilternz'])
-        computed_etfilter = True  #In case we need any of the other variables computed in this routine.
-
-     #Mask the pixels with echo depth values under the threshold.
-     #Do not mask tose pixels where the echo depth threshold in below the maximum radar height (i.e. the heigth of the maximum elevation)
-     output['cref'] [ np.logical_and( tmp_max_z > options['edfiltertr'] , tmp_data_3d[:,:,:,2] < options['edfiltertr'] ) ] = output['undef_ref']
-     output['qcref'][ np.logical_and( tmp_max_z > options['edfiltertr'] , tmp_data_3d[:,:,:,2] < options['edfiltertr'] ) ] = QCCODE_ECHODEPTH
-
-     #If requested store the auxiliary fields and data in the output dictionary.
-     if  ( options['edfilter_save'] )     :
-        output['echo_depth'] = tmp_data_3d[:,:,:,2] 
-
-     end=time.time()
-
-     print("The elapsed time in {:s} is {:2f}".format("echo-depth filter",end-start) )
+      print("The elapsed time in {:s} is {:2f}".format(filter_name,end-start) )
 
  
    #===================================================
-   # SPECKLE FILTER
+   # REFLECTIVITY SPECKLE FILTER
    #===================================================
 
-   if options['ifspfilter']  :
+   filter_name='RefSpeckleFilter'
+
+   if options[filter_name]['flag']  :
 
        start=time.time()
 
-       if options['spfilter_ref']  :
 
-          #Compute the number pixels with reflectivities over spfiltertr sourrounding each pixels in the box defined by nx,ny,nz.
-          nx=options['spfilternx']
-          ny=options['spfilterny']
-          nz=options['spfilternz']
-          tr=options['spfilterreftr']
-          output['speckle_ref']=qc.box_functions_2d(datain=output['cref'].data,na=na,nr=nr,ne=ne,undef=output['undef_ref']
-                                                   ,boxx=nx,boxy=ny,boxz=nz,operation='COUN',threshold=tr) 
+       #Compute the number pixels with reflectivities over spfiltertr sourrounding each pixels in the box defined by nx,ny,nz.
+       nx=options[filter_name]['nx']
+       ny=options[filter_name]['ny']
+       nz=options[filter_name]['nz']
+       tr=options[filter_name]['reftr']
 
-          #Set the pixels with values below the threshold as undef. 
-          output['cref'][ output['speckle_ref'] < options['spfiltertr']  ] = output['undef_ref']
-       
-          output['qcref'][ output['speckle_ref'] < options['spfiltertr'] ] = QCCODE_SPECKLE
-
-          #If the field is not included in the output then set it to 0.
-          if [ not options['spfilter_save'] ] : 
-             output.pop('speckle_ref')   
+       output['speckle_ref']=qc.box_functions_2d(datain=output['ref'].data,na=na,nr=nr,ne=ne,undef=output['undef_ref']
+                                                ,boxx=nx,boxy=ny,boxz=nz,operation='COUN',threshold=tr) 
 
 
-       if options['spfilter_v']  :
+       #Compute the corresponding weigth.
+       tmp_w = qc.multiple_1d_interpolation( field=output['speckle_ref'] , nx=na , ny=nr , nz=ne
+                                            , undef=output['undef_ref'] , xx=options[filter_name]['ifx']
+                                            , yy=options[filter_name]['ify'] , nxx=np.size(options[filter_name]['ifx']) )
 
-          #Compute the number pixels with reflectivities over spfiltertr sourrounding each pixels in the box defined by nx,ny,nz.
-          nx=options['spfilternx']
-          ny=options['spfilterny']
-          nz=options['spfilternz']
-          tr=options['spfilterreftr']
-          output['speckle_v']=qc.box_functions_2d(datain=output['cv'].data,na=na,nr=nr,ne=ne,undef=output['undef_v'] 
-                                                 ,boxx=nx,boxy=ny,boxz=nz,operation='COUN',threshold=tr)
+       output['wref']=output['wref'] + tmp_w * options[filter_name]['w']
 
-          #Set the pixels with values below the threshold as undef. 
-          output['cv'][ output['speckle_v'] < options['spfiltertr']  ] = output['undef_v']
-       
-          output['qcv'][ output['speckle_v'] < options['spfiltertr'] ] = QCCODE_SPECKLE
+       output['qcref'][ tmp_w > 0.5 ] = options[filter_name]['code']
 
-          #If the field is not included in the output then set it to 0.
-          if [ not options['spfilter_save'] ] :
-             output.pop('speckle_v')
+       output['maxw']=output['maxw'] + options[filter_name]['w']
 
+       if [ not options[filter_name]['save'] ] :
+          output.pop('speckle_ref')
 
        end=time.time()
 
-       print("The elapsed time in {:s} is {:2f}".format("speckle filter",end-start) )
+       print("The elapsed time in {:s} is {:2f}".format(filter_name,end-start) )
+
+
+   #===================================================
+   # DOPPLER SPECKLE FILTER
+   #===================================================
+
+   filter_name='DopplerSpeckleFilter'
+
+   if options[filter_name]['flag']  :
+
+       start=time.time()
+
+
+       #Compute the number pixels with reflectivities over spfiltertr sourrounding each pixels in the box defined by nx,ny,nz.
+       nx=options[filter_name]['nx']
+       ny=options[filter_name]['ny']
+       nz=options[filter_name]['nz']
+       tr=options[filter_name]['dvtr']
+
+       output['speckle_dv']=qc.box_functions_2d(datain=output['v'].data,na=na,nr=nr,ne=ne,undef=output['undef_v']
+                                                ,boxx=nx,boxy=ny,boxz=nz,operation='COUN',threshold=tr)
+
+
+       #Compute the corresponding weigth.
+       tmp_w = qc.multiple_1d_interpolation( field=output['speckle_v'] , nx=na , ny=nr , nz=ne
+                                            , undef=output['undef_v'] , xx=options[filter_name]['ifx']
+                                            , yy=options[filter_name]['ify'] , nxx=np.size(options[filter_name]['ifx']) )
+
+       output['wref']=output['wref'] + tmp_w * options[filter_name]['w']
+
+       output['qcref'][ tmp_w > 0.5 ] = options[filter_name]['code']
+
+       output['maxw']=output['maxw'] + options[filter_name]['w']
+
+       if [ not options[filter_name]['save'] ] :
+          output.pop('speckle_ref')
+
+       end=time.time()
+
+       print("The elapsed time in {:s} is {:2f}".format(filter_name,end-start) )
+
 
    #===================================================
    # ATTENUATION FILTER
@@ -554,10 +634,32 @@ def main_qc( filename , options ) :
    #TODO
 
    #===================================================
-   # LOW DOPPLER VOLOCITY FILTER
+   # TEXTURE FILTER
    #===================================================
 
    #TODO
+
+   #===================================================
+   # LOW DOPPLER VOLOCITY FILTER
+   #===================================================
+ 
+   #This filter removes reflectivity values which are close to the surface and 
+   #have a low associated doppler velocity. 
+
+   if options['ifldvfilter']  :
+
+      #Find low doppler velocity pixels (which are not undefined).
+      mask = np.logical_and(  output['vc'] != output['undef_v'] , np.abs( output['vc'] ) < options['ldvfilter_vtr'] ) 
+
+      #Combine them with the pixels that are close to the surface.
+      if  options['ldvfilter_use_terrain']    :
+          mask = np.logical_and( mask , output['altitude_agl'] < options['ldvfilter_htr'] )
+      else                                    :
+          mask = np.logical_and( mask , output['altitude'] < options['ldvfilter_htr'] )
+
+      output['cref'][mask]  = output['undef_ref']
+      output['qcref'][mask] = QCCODE_LOWDOPPLER 
+
 
    #===================================================
    # ADD CORRECTED DATA TO RADAR OBJECT

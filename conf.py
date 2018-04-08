@@ -12,6 +12,7 @@
 #======================================
 
 import os
+import numpy as np
 
 os.environ['OMP_STACKSIZE'] = "1G" # visible in this process + all children
 
@@ -31,51 +32,108 @@ options['rho_name']='RhoHV'          #Rho HV
 options['norainrefval']=-0.1
 options['undef']=-9.99e9
 
+#Fuzzy logic parameter
+
+options['w_tr']=0.5                  #When total normalized weight is greather than this value
+                                     #the pixel is flagged as missing data.
+#Each filter has associated an ify and ifx array that descrives the importance function.
+#Each filter has also a w which determines its relative importance among the other filters.
+
+
+#The weight is computed for each filter based on the importance function evaluated at the filter value.
+#The relative importance of each filter is given by the importance_w.
+
 #Dealiasing parameters (pyart)
-options['ifdealias']=True
+options['ifdealias']=False
 
 options['da_interval_split']=3
 options['da_skip_between_ray']=10
 options['da_skip_along_ray']=10
 
-#Rho filter parameters
-options['ifrhofilter']=False    #Rhohv filter
+#Rho filter parameters  ===================================================================== 
 
-options['rhofilternx']=2
-options['rhofilterny']=2
-options['rhofilternz']=0
-options['rhofiltertr']=0.5
-options['rhofilter_save']=False
+filter_name='RhoFilter'
+options[filter_name]=dict()
+options[filter_name]['flag']=False                          #Enable / disable filter
 
-#Echo top parameters           #Filter layeers with echo top below a certain threshold.
-options['ifetfilter']=False      #Echo top filter
+options[filter_name]['nx']=2                                #NX
+options[filter_name]['ny']=2                                #NY
+options[filter_name]['nz']=0                                #NZ
+options[filter_name]['save']=True                           #Save filter aux fields to output?
+options[filter_name]['ify']=np.array([1,1,0,0])             #Importance function y
+options[filter_name]['ifx']=np.array([-2,0.5,0.8,2])        #Importance function x
+options[filter_name]['w']=1.0                               #Relative parameter weigth. 
+options[filter_name]['code']=13
 
-options['etfilternx']=2        #Smooth parameter in x
-options['etfilterny']=2        #Smooth parameter in y
-options['etfilternz']=0        #Smooth parameter in z (dummy)
-options['etfiltertr']=3000     #Echo top threshold.
-options['etfilter_save']=True  #Wether echo top will be included in the output
 
-#Echo depth parameters          #Filters layers with depths below a certain threshold.
-options['ifedfilter']=False     #Echo depth filter
+#Echo top filter parameters ===================================================================
 
-options['edfilternx']=2         #Smooth parameter in x
-options['edfilterny']=2         #Smooth parameter in y
-options['edfilternz']=0         #Smooth parameter in z (dummy)
-options['edfiltertr']=3000      #Echo top threshold.
-options['edfilter_save']=True   #Wether echo top will be included in the output
+filter_name='EchoTopFilter'
+options[filter_name]=dict()
+options[filter_name]['flag']=False                          #Enable / disable filter
 
-#Speckle parameters
-options['ifspfilter']=False     #Speckle filter
+options[filter_name]['nx']=2                                #NX
+options[filter_name]['ny']=2                                #NY
+options[filter_name]['nz']=0                                #NZ
+options[filter_name]['save']=True                           #Save filter aux fields to output?
+options[filter_name]['ify']=np.array([1,1,0,0])             #Importance function y
+options[filter_name]['ifx']=np.array([0,2500,3000,2000])    #Importance function x
+options[filter_name]['w']=1.0                               #Relative parameter weigth. 
+options[filter_name]['code']=16
+options[filter_name]['heigthtr']=3000                       #Do not use this filter if volume height 
+                                                            #is lower than this threshold
 
-options['spfilternx']=2           #Box size in X NX=(2*spfilternx + 1)
-options['spfilterny']=2           #Box size in Y
-options['spfilternz']=0           #Box size in Z
-options['spfilterreftr']=5        #Reflectivity threshold
-options['spfiltertr']=0.3         #Count threshold
-options['spfilter_save']=True     #Save filter fields.
-options['spfilter_ref']=True      #Wether the filter will be applied to Ref.
-options['spfilter_v']=True        #Wether the filter will be applied to Vr
+
+#Echo depth filter parameters ===================================================================
+
+filter_name='EchoDepthFilter'
+options[filter_name]=dict()
+options[filter_name]['flag']=False                          #Enable / disable filter
+
+options[filter_name]['nx']=2                                #NX
+options[filter_name]['ny']=2                                #NY
+options[filter_name]['nz']=0                                #NZ
+options[filter_name]['save']=True                           #Save filter aux fields to output?
+options[filter_name]['ify']=np.array([1,1,0,0])             #Importance function y
+options[filter_name]['ifx']=np.array([0,2500,3000,2000])    #Importance function x
+options[filter_name]['w']=1.0                               #Relative parameter weigth. 
+options[filter_name]['code']=16
+options[filter_name]['heigthtr']=3000                       #Do not use this filter if volume height 
+
+
+#Reflectivity speckle filter  parameters ==========================================================
+
+filter_name='RefSpeckleFilter'
+options[filter_name]=dict()
+options[filter_name]['flag']=True                           #Enable / disable filter
+
+options[filter_name]['nx']=2                                #NX
+options[filter_name]['ny']=2                                #NY
+options[filter_name]['nz']=0                                #NZ
+options[filter_name]['save']=True                           #Save filter aux fields to output?
+options[filter_name]['ify']=np.array([1,1,0,0])             #Importance function y
+options[filter_name]['ifx']=np.array([0,0.2,0.4,1])         #Importance function x
+options[filter_name]['w']=1.0                               #Relative parameter weigth. 
+options[filter_name]['code']=11
+options[filter_name]['reftr']=5                             #Reflectivity threshold
+
+#Doppler speckle filter  parameters ==============================================================
+
+filter_name='DopplerSpeckleFilter'
+options[filter_name]=dict()
+options[filter_name]['flag']=True                           #Enable / disable filter
+
+options[filter_name]['nx']=2                                #NX
+options[filter_name]['ny']=2                                #NY
+options[filter_name]['nz']=0                                #NZ
+options[filter_name]['save']=True                           #Save filter aux fields to output?
+options[filter_name]['ify']=np.array([1,1,0,0])             #Importance function y
+options[filter_name]['ifx']=np.array([0,0.2,0.4,1])         #Importance function x
+options[filter_name]['w']=1.0                               #Relative parameter weigth. 
+options[filter_name]['code']=11
+options[filter_name]['dvtr']=0.2                            #Reflectivity threshold
+
+
 
 #Attenuation parameters
 options['ifattfilter']=False    #Attenuation filter
@@ -97,12 +155,16 @@ options['iflefilter']=False           #Low elevation angles filter.
 options['flfilter_minangle']=2.0     #Reflectivity with echo tops lower than this angle will be eliminated.
 
 #Dealiasing border filter 
-options['ifdabfilter']=True          #Dealiasing border filter.
-options['dabfilter_tr']=20.0         #Threshold for edge detection.
+options['ifdabfilter']=False         #Dealiasing border filter.
 options['dabfilter_boxx']=3          #Edge "expansion" in azimuth
 options['dabfilter_boxy']=3          #Edge "expansion" in range
 options['dabfilter_boxz']=0          #Edge "expansion" in elevation
 
+#Low doppler velocity filter
+options['ifldvfilter']=False          #Low doppler velocity filter.
+options['ldvfilter_vtr']=0.2          #Velocity threshold.
+options['ldvfilter_htr']=2000         #Height threshold.
+options['ldvfilter_use_terrain']=True #Wether AGL height is used. 
 
 #Detect missing parameters
 options['ifmissfilter']=False   #Missing values filter

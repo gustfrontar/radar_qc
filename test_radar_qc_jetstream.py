@@ -34,7 +34,7 @@ filename = './cfrad.20091117_174348.000_to_20091117_174737.000_PAR_SUR.nc'
 print('End of QC')
 
 plt.figure()
-plt.pcolor(qc_output['x'][:,:,0],qc_output['y'][:,:,0],qc_output['edge_intensity'][:,:,0])
+plt.pcolor(qc_output['x'][:,:,0],qc_output['y'][:,:,0],qc_output['smooth_rho'][:,:,0])
 plt.colorbar()
 plt.show()
 
