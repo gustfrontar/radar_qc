@@ -101,5 +101,24 @@ options['toporawdatapath']="/home/jruiz/share/radar_qc_da/data/terrain_data/raw/
 options['toporadardatapath']="/home/jruiz/share/radar_qc_da/data/terrain_data/radar/"
 
 
+#QC CODES
+
+#Reflectivity
+options['qccodes']=dict()
+options['qccodes']['QCCODE_ATTENUATION']=10
+options['qccodes']['QCCODE_SPECKLE']=11
+options['qccodes']['QCCODE_TEXTURE']=12
+options['qccodes']['QCCODE_RHOFILTER']=13
+options['qccodes']['QCCODE_SIGN']=14
+options['qccodes']['QCCODE_BLOCKING']=15
+options['qccodes']['QCCODE_ECHOTOP']=16
+options['qccodes']['QCCODE_ECHODEPTH']=17
+
+#Doppler velocity
+options['qccodes']['QCCODE_DEALIAS']=30
+
+#El codigo de los datos buenos para reflectividad y velocidad radial.
+options['qccodes']['QCCODE_GOOD']=0
+
 
 
