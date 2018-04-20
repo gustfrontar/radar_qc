@@ -34,14 +34,14 @@ def main_qc( filename , options ) :
    #Codigos que permitan identificar el control que actuo en cada pixel.
 
    #Para la reflectividad
-   QCCODE_ATTENUATION = 10
-   QCCODE_SPECKLE     = 11
-   QCCODE_TEXTURE     = 12
-   QCCODE_RHOFILTER   = 13
-   QCCODE_SIGN        = 14
-   QCCODE_BLOCKING    = 15
-   QCCODE_ECHOTOP     = 16
-   QCCODE_ECHODEPTH   = 17
+   QCCODE_ATTENUATION = options['qccodes']['QCCODE_ATTENUATION']
+   QCCODE_SPECKLE     = options['qccodes']['QCCODE_SPECKLE']
+   QCCODE_TEXTURE     = options['qccodes']['QCCODE_TEXTURE']
+   QCCODE_RHOFILTER   = options['qccodes']['QCCODE_RHOFILTER']
+   QCCODE_SIGN        = options['qccodes']['QCCODE_SIGN']
+   QCCODE_BLOCKING    = options['qccodes']['QCCODE_BLOCKING']
+   QCCODE_ECHOTOP     = options['qccodes']['QCCODE_ECHOTOP']
+   QCCODE_ECHODEPTH   = options['qccodes']['QCCODE_ECHODEPTH']
 
    #Para la velocidad radial
    QCCODE_DEALIAS     = 30
