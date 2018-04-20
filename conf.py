@@ -49,6 +49,12 @@ options['ifdealias']=False
 options['da_interval_split']=3
 options['da_skip_between_ray']=10
 options['da_skip_along_ray']=10
+options['da_texture_filter']=True    #Wether a texture filter will be applied before performing dealiasing.
+options['da_texture_thr']=1          #Texture filter threshold.
+options['da_texture_nx']=3
+options['da_texture_ny']=3
+options['da_texture_nz']=0
+options['da_texture_code']=44
 
 #Rho filter parameters  ===================================================================== 
 
@@ -65,8 +71,7 @@ options[filter_name]['ifx']=np.array([-2,0.5,0.8,2])        #Importance function
 options[filter_name]['w']=1.0                               #Relative parameter weigth. 
 options[filter_name]['code']=10
 options[filter_name]['force']=False                         #Wether we will reject data based on this filter alone.
-options[filter_name]['force_value']=0.7                     #Threshold for force
-
+options[filter_name]['force_value']=0.5                     #Threshold for force
 
 #Echo top filter parameters ===================================================================
 
@@ -85,7 +90,7 @@ options[filter_name]['code']=11
 options[filter_name]['heigthtr']=3000                       #Do not use this filter if volume height 
                                                             #is lower than this threshold
 options[filter_name]['force']=False                         #Wether we will reject data based on this filter alone.
-options[filter_name]['force_value']=3000                    #Threshold for force
+options[filter_name]['force_value']=0.5                     #Threshold for force
 
 #Echo depth filter parameters ===================================================================
 
@@ -103,7 +108,7 @@ options[filter_name]['w']=1.0                               #Relative parameter 
 options[filter_name]['code']=12
 options[filter_name]['heigthtr']=3000                       #Do not use this filter if volume height 
 options[filter_name]['force']=False                         #Wether we will reject data based on this filter alone.
-options[filter_name]['force_value']=3000                    #Threshold for force
+options[filter_name]['force_value']=0.5                     #Threshold for force
 
 #Reflectivity speckle filter  parameters ==========================================================
 
@@ -141,6 +146,40 @@ options[filter_name]['dvtr']=0.2                            #Reflectivity thresh
 options[filter_name]['force']=False                         #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                     #Threshold for force
 
+#Doppler texture filter  parameters ==============================================================
+
+filter_name='DopplerTextureFilter'
+options[filter_name]=dict()
+options[filter_name]['flag']=False                          #Enable / disable filter
+options[filter_name]['nx']=3                                #NX
+options[filter_name]['ny']=3                                #NY
+options[filter_name]['nz']=0                                #NZ
+options[filter_name]['save']=True                           #Save filter aux fields to output?
+options[filter_name]['ify']=np.array([0,0,1,1])             #Importance function y
+options[filter_name]['ifx']=np.array([0,50,100,200])        #Importance function x
+options[filter_name]['w']=1.0                               #Relative parameter weigth. 
+options[filter_name]['code']=15
+options[filter_name]['force']=False                         #Wether we will reject data based on this filter alone.
+options[filter_name]['force_value']=0.5                     #Threshold for force
+
+
+#Reflectivity texture filter  parameters ==============================================================
+
+filter_name='ReflectivityTextureFilter'
+options[filter_name]=dict()
+options[filter_name]['flag']=False                          #Enable / disable filter
+options[filter_name]['nx']=3                                #NX
+options[filter_name]['ny']=3                                #NY
+options[filter_name]['nz']=0                                #NZ
+options[filter_name]['save']=True                           #Save filter aux fields to output?
+options[filter_name]['ify']=np.array([0,0,1,1])             #Importance function y
+options[filter_name]['ifx']=np.array([0,50,100,200])        #Importance function x
+options[filter_name]['w']=1.0                               #Relative parameter weigth. 
+options[filter_name]['code']=15
+options[filter_name]['force']=False                         #Wether we will reject data based on this filter alone.
+options[filter_name]['force_value']=0.5                     #Threshold for force
+
+
 #Attenuation parameters           ==============================================================
 filter_name='Attenuation'
 options[filter_name]=dict()
@@ -155,11 +194,11 @@ options[filter_name]['w']=1.0                               #Relative parameter 
 options[filter_name]['code']=15
 options[filter_name]['attcalerror']=1.0                     #Calibration error
 options[filter_name]['force']=False                         #Wether we will reject data based on this filter alone.
-options[filter_name]['force_value']=20                      #Threshold for force
+options[filter_name]['force_value']=0.5                     #Threshold for force
 
 #Blocking parameters               ==============================================================
 #This filter is not part of the Fuzzy logic algorithm.
-filter_name='BlFilter'
+filter_name='BlockingFilter'
 options[filter_name]=dict()
 options[filter_name]=False                        #Blocking filter
 options[filter_name]['blocking_correction']=True  #Wether correction will be applied for partially blocked beams.
@@ -168,21 +207,71 @@ options[filter_name]['save']=True                 #Save blocking factor into qc_
 
 
 #Low elevation angles filter parameters ==============================================================
-options['iflefilter']=False                       #Low elevation angles filter.
+filter_name='LowElevFilter'
+options[filter_name]=dict()
+options[filter_name]['flag']=True                           #Low Elevation angle filter
+options[filter_name]['nx']=0                                #NX
+options[filter_name]['ny']=0                                #NY
+options[filter_name]['nz']=0                                #NZ
+options[filter_name]['save']=True                           #Save filter aux fields to output?
+options[filter_name]['min_angle']=2.0                       #Minimun angle
+options[filter_name]['w']=1.0                               #Relative parameter weigth. 
+options[filter_name]['code']=16
+options[filter_name]['force']=False                         #Wether we will reject data based on this filter alone.
+options[filter_name]['force_value']=0.5                     #Threshold for force
 
-options['flfilter_minangle']=2.0     #Reflectivity with echo tops lower than this angle will be eliminated.
+#Low doppler velocity filter            ==============================================================
+filter_name='LowDopplerFilter'
+options[filter_name]=dict()
+options[filter_name]['flag']=True                              #Low Doppler Velocity filter
+options[filter_name]['nx']=0                                   #NX
+options[filter_name]['ny']=0                                   #NY
+options[filter_name]['nz']=0                                   #NZ
+options[filter_name]['save']=True                              #Save filter aux fields to output?
+options[filter_name]['ify']=np.array([0,0,1,1,0,0])            #Importance function y
+options[filter_name]['ifx']=np.array([-200,-1,-0.5,0.5,1,200]) #Importance function x
+options[filter_name]['w']=1.0                                  #Relative parameter weigth. 
+options[filter_name]['code']= 1
+options[filter_name]['force']=False                            #Wether we will reject data based on this filter alone.
+options[filter_name]['force_value']=0.5                        #Threshold for force
+options[filter_name]['height_thr']=2000                        #Height threshold.
+options[filter_name]['use_terrain']=True                       #Wether AGL height is used.
 
-#Dealiasing border filter 
-options['ifdabfilter']=False         #Dealiasing border filter.
-options['dabfilter_boxx']=3          #Edge "expansion" in azimuth
-options['dabfilter_boxy']=3          #Edge "expansion" in range
-options['dabfilter_boxz']=0          #Edge "expansion" in elevation
+#Dealiasing border filter            ==============================================================
+filter_name='DealiasingBorderFilter'
+ptions[filter_name]=dict()
+options[filter_name]['flag']=True                              #Low Doppler Velocity filter
+options[filter_name]['nx']=3                                   #NX
+options[filter_name]['ny']=3                                   #NY
+options[filter_name]['nz']=3                                   #NZ
+options[filter_name]['save']=True                              #Save filter aux fields to output?
+options[filter_name]['w']=1.0                                  #Relative parameter weigth. 
+options[filter_name]['code']= 1
+options[filter_name]['force']=False                            #Wether we will reject data based on this filter alone.
+options[filter_name]['force_value']=0.5                        #Threshold for force
 
-#Low doppler velocity filter
-options['ifldvfilter']=False          #Low doppler velocity filter.
-options['ldvfilter_vtr']=0.2          #Velocity threshold.
-options['ldvfilter_htr']=2000         #Height threshold.
-options['ldvfilter_use_terrain']=True #Wether AGL height is used. 
+#Doppler Noise filter            ==============================================================
+filter_name='DopplerNoiseFilter'
+options[filter_name]=dict()
+options[filter_name]['flag']=True                              #Low Doppler Velocity filter
+options[filter_name]['nx']=1                                   #NX
+options[filter_name]['ny']=1                                   #NY
+options[filter_name]['nz']=0                                   #NZ
+options[filter_name]['nx2']=10                                 #NX
+options[filter_name]['ny2']=10                                 #NY
+options[filter_name]['nz2']=0                                  #NZ
+options[filter_name]['threshold_1']=4
+options[filter_name]['threshold_2']=15       
+options[filter_name]['save']=True                              #Save filter aux fields to output?
+options[filter_name]['ify_1']=np.array([0,0,1,1])              #Importance function y
+options[filter_name]['ifx_1']=np.array([0,2,6,10])             #Importance function x
+options[filter_name]['ify_2']=np.array([0,0,1,1])              #Importance function y
+options[filter_name]['ifx_2']=np.array([0,10,15,20])           #Importance function x
+options[filter_name]['w']=1.0                                  #Relative parameter weigth. 
+options[filter_name]['code']= 1
+options[filter_name]['force']=False                            #Wether we will reject data based on this filter alone.
+options[filter_name]['force_value']=0.5                        #Threshold for force
+
 
 #Detect missing parameters
 options['ifmissfilter']=False   #Missing values filter

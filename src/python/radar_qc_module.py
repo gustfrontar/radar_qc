@@ -46,7 +46,8 @@ def main_qc( filename , options ) :
    #Get the nyquist velocity
    nyquistv=radar.get_nyquist_vel(0,check_uniform=True)
 
-   output['maxw']=0.0
+   output['maxw_ref']=0.0
+   output['maxw_v']  =0.0
 
    #===================================================
    # RESHAPE VARIABLES
@@ -198,15 +199,24 @@ def main_qc( filename , options ) :
 
    print("The elapsed time in {:s} is {:2f}".format("topography interpolation",end-start) )
 
-   #===================================================
-   # VR TEXTURE (PRE-DEALIASING FILTER)
-   #===================================================
  
-   #TODO
-
    #===================================================
    # DEALIASING 
    #===================================================
+
+   if ( options['da_texture_filter']  :
+
+      #Perform a texture filter before applying the dealiasing to the velocity field.
+      #This is required to avoid applying the dealiasing algorithm to noisy data. 
+
+      output['da_dv_texture']=qc.compute_texture(output['v'],na,nr,ne,output['undef_v'],options['da_texture_nx'],options['da_texture_ny'],options['da_texture_nz'])
+
+      output['v'][ output['da_dv_texture'] > options['da_texture_thr'] ] = output['undef_v']
+      output['qc_v'][ output['da_dv_texture'] > options['da_texture_thr'] ] = conf['da_texture_code']
+
+      #TODO: Check if a masked array is required here as the output
+      radar.fields[name_v]['data']=order_variable_inv(  radar , output['v'] , output['index'] , output['undef_v'] )  :
+
 
    if ( options['ifdealias'] and (name_v in radar.fields) ) : 
      
@@ -240,7 +250,9 @@ def main_qc( filename , options ) :
    # DEALIASING BORDER FILTER
    #===================================================
 
-   if options['ifdabfilter']  and options['ifdealias'] :
+   filter_name='DealiasingBorderFilter'  
+
+   if options[filter_name]['flag']  and options['ifdealias'] :
 
      #Use a simple edge detection routine to detect the borders between dealiased and non-dealiased regions.
      #Flag this grid points and eliminate all the non-dealiased corrected pixels near by.
@@ -256,16 +268,24 @@ def main_qc( filename , options ) :
         v_nyquist = 40.0 #Put some value that can detect strong jumps in the doppler velocity field.
 
      [ output['edge_intensity'] , output['edge_mask'] ]=qc.simple_edge_filter( field=tmp_diff , nx=na,ny=nr,nz=ne,undef=output['undef_v'],
-                                                                               nboxx=options['dabfilter_boxx'],nboxy=options['dabfilter_boxy'],
-                                                                               nboxz=options['dabfilter_boxz'],edge_tr=v_nyquist )
+                                                                               nboxx=options[filter_name]['nx'],nboxy=options[filter_name]['ny'],
+                                                                               nboxz=options[filter_name]['nz'],edge_tr=v_nyquist )
 
 
      #Find the pixels which are close to a dealiased region but which has not been corrected by the dealiasing.
-     mask = np.logical_and( ouput['edge_mask'] , tmp_diff == 0 ) 
+     tmp_w = np.logical_and( ouput['edge_mask'] , tmp_diff == 0 ).astype(int) 
 
-     outout['cv'][ mask ]  = output['undef_v'] 
-     output['qcv'][ mask ] = QCCODE_DABFILTER
+   
+     output['wv']=output['wv'] + tmp_w * options[filter_name]['w']
+     output['qcv'][ tmp_w > 0.5 ] = options[filter_name]['code']
+     output['maxw_v']=output['maxw_v'] + options[filter_name]['w']
 
+     #If requested store the auxiliary fields and data in the output dictionary.
+     if  ( not options[filter_name]['save'] )     :
+        output.pop('edge_intensity')
+        output.pop('edge_mask')
+
+     end=time.time()
 
    #===================================================
    # ECHO TOP FILTER  
@@ -306,7 +326,7 @@ def main_qc( filename , options ) :
 
      output['wref']=output['wref'] + tmp_w * options[filter_name]['w']
      output['qcref'][ tmp_w > 0.5 ] = options[filter_name]['code']
-     output['maxw']=output['maxw'] + options[filter_name]['w']
+     output['maxw_ref']=output['maxw_ref'] + options[filter_name]['w']
 
      #If requested store the auxiliary fields and data in the output dictionary.
      if  ( not options[filter_name]['save'] )     : 
@@ -356,7 +376,7 @@ def main_qc( filename , options ) :
 
      output['wref']=output['wref'] + tmp_w * options[filter_name]['w']
      output['qcref'][ tmp_w > 0.5 ] = options[filter_name]['code']
-     output['maxw']=output['maxw'] + options[filter_name]['w']
+     output['maxw_ref']=output['maxw_ref'] + options[filter_name]['w']
 
      #If requested store the auxiliary fields and data in the output dictionary.
      if  ( not options[filter_name]['save'] )     :
@@ -380,26 +400,34 @@ def main_qc( filename , options ) :
    #for data assimilation since that information is usually not enough to adequatelly constrain
    #the evolution of the convective cells.
 
-   if options['iflefilter']  & name_ref in radar.fields  :
+   filter_name='LowElevFilter'
+
+   if options[filter_name]['flag']  & name_ref in radar.fields  :
 
       start=time.time()
 
       #Get the angles that will be used based on the selected threshold.
-      tmp_angles= output['elevations'][ output['elevations'] < options['flfilter_minangle']]
+      tmp_angles= output['elevations'][ output['elevations'] < options[filter_name]['filter_minangle']]
       tmp_n_angles = np.size( tmp_angles )
+
+      tmp_ref_smooth=qc.box_functions_2d(datain=output['ref'],na=na,nr=nr,ne=ne,undef=output['undef_ref']
+                                               ,boxx=nx,boxy=ny,boxz=nz,operation='MEAN',threshold=0.0)
       
-      for ia in range( 0 , tmp_n_angles )  :
-         tmp_mask=np.logical_and( output['cref'][:,:,ia] > configuration['norainrefval'] , output['cref'][:,:,tmp_n_angles] <= options['norainrefval'] )
-         output['cref'][ mask ]= output['undef_ref']
-         output['qcref'][ mask ]=QCCODE_LOWANGLE
+      for ie in range( 0 , tmp_n_angles )  :
+         tmp_w=np.logical_and( output['ref'][:,:,ie] > configuration['norainrefval'] , tmp_ref_smooth[:,:,tmp_n_angles] <= options['norainrefval'] )
+
+         output['wref'][:,:,ie]=output['wref'][:,:,ie] + tmp_w.astype(int) * options[filter_name]['w']
+         output['qcref'][:,:,ie][tmp_mask] = options[filter_name]['code']
+
+      output['maxw_ref']=output['maxw_ref'] + options[filter_name]['w']
 
       end=time.time()
       print("The elapsed time in {:s} is {:2f}".format("low elevation angle filter",end-start) )
 
-
    #===================================================
    # RHO HV FILTER
    #===================================================
+
    filter_name = 'RhoFilter'
 
    if options[filter_name]['flag']  :
@@ -430,7 +458,7 @@ def main_qc( filename , options ) :
 
          if name_ref in radar.fields :
             output['qcref'][ tmp_w > 0.5 ] = options[filter_name]['code']
-            output['maxw']=output['maxw'] + options[filter_name]['w']
+            output['maxw_ref']=output['maxw_ref'] + options[filter_name]['w']
 
       else   :
          display('Warning: could not perform RHO-HV filter because rho was not found on this file')
@@ -474,7 +502,7 @@ def main_qc( filename , options ) :
 
        output['qcref'][ tmp_w > 0.5 ] = options[filter_name]['code']
 
-       output['maxw']=output['maxw'] + options[filter_name]['w']
+       output['maxw_ref']=output['maxw_ref'] + options[filter_name]['w']
 
        if [ not options[filter_name]['save'] ] :
           output.pop('speckle_ref')
@@ -514,7 +542,7 @@ def main_qc( filename , options ) :
 
        output['qcv'][ tmp_w > 0.5 ] = options[filter_name]['code']
 
-       output['maxw']=output['maxw'] + options[filter_name]['w']
+       output['maxw_ref']=output['maxw_ref'] + options[filter_name]['w']
 
        if [ not options[filter_name]['save'] ] :
           output.pop('speckle_ref')
@@ -522,7 +550,6 @@ def main_qc( filename , options ) :
        end=time.time()
 
        print("The elapsed time in {:s} is {:2f}".format(filter_name,end-start) )
-
 
    #===================================================
    # ATTENUATION FILTER
@@ -549,21 +576,20 @@ def main_qc( filename , options ) :
 
       output['qcref'][ tmp_w > 0.5 ] = options[filter_name]['code']
 
-      output['maxw']=output['maxw'] + options[filter_name]['w']
+      output['maxw_ref']=output['maxw_ref'] + options[filter_name]['w']
 
       if  not options['attfilter_save']  :
           output.pop('attenuation')
 
-
       end=time.time()
 
-      print("The elapsed time in {:s} is {:2f}".format("attenuation filter",end-start) )
+      print("The elapsed time in {:s} is {:2f}".format(filter_name,end-start) )
 
    #===================================================
    # TOPOGRAPHY BLOCKING FILTER
    #===================================================
 
-   filter_name='BlFilter'  #This is not included in the fuzzy logic algorithm
+   filter_name='BlockingFilter'  #This is not included in the fuzzy logic algorithm
 
    if options[filter_name]['flag']   :
 
@@ -608,14 +634,86 @@ def main_qc( filename , options ) :
 
       end=time.time()
 
-      print("The elapsed time in {:s} is {:2f}".format("blocking filter",end-start) )
+      print("The elapsed time in {:s} is {:2f}".format(filter_name,end-start) )
 
+   #===================================================
+   # MISSING VALUE FILTER
+   #===================================================
+
+   #TODO
 
    #===================================================
    # DOPPLER NOISE FILTER
    #===================================================
 
-   #TODO
+   filter_name='DopplerNoiseFilter'
+
+   if options[filter_name]['flag'] & name_v in radar.fields :
+
+     nx=options[filter_name]['nx']
+     ny=options[filter_name]['ny']
+     nz=options[filter_name]['nz']
+
+     nx2=options[filter_name]['nx2']
+     ny2=options[filter_name]['ny2']
+     nz2=options[filter_name]['nz2']
+
+     tr_1=options[filter_name]['threshold_1']
+     tr_2=options[filter_name]['threshold_2']
+
+     tmp_dv_1=np.copy(output['v'])
+     tmp_dv_2=np.copy(output['v'])
+
+     for ip in range(0,options[filter_name]['nfilterpass']) :
+
+       output['distance_1']=qc.compute_distance(tmp_dv_1,tmp_dv_2,na,nr,ne,output['undef_v'],nx,ny,nz)
+
+       tmp_dv_2=np.copy(output['v']) 
+
+       tmp_dv_2[ output['distance_1'] > tr_1 ]=output['undef_v']
+
+     #Compute the corresponding weigth.
+     tmp_w = qc.multiple_1d_interpolation( field=output['distance_1'], nx=na , ny=nr , nz=ne
+                                           , undef=output['undef_v'] , xx=options[filter_name]['ifx']
+                                           , yy=options[filter_name]['ify_1'] , nxx=np.size(options[filter_name]['ifx_1']) )
+
+     output['wv']=output['wv'] + tmp_w * options[filter_name]['w'] 
+
+     output['qcv'][ tmp_w > 0.5 ] = options[filter_name]['code']
+
+
+     tmp_dv_1[ output['distance_1'] > tr_1 | output['distance_1']==output['undef_v'] ]=ouput['undef_v']
+
+     tmp_dv_2=np.copy(tmp_dv_1)
+
+     for ip in range(0,options[filter_name]['nfilterpass']) :
+
+       output['distance_2']=qc.compute_distance(tmp_dv_1,tmp_dv_2,na,nr,ne,output['undef_v'],nx2,ny2,nz2)
+
+       tmp_dv_2=np.copy(output['v'])
+
+       tmp_dv_2[ output['distance_2'] > tr_2 ]=output['undef_v']
+
+
+     #Compute the corresponding weigth.
+     tmp_w = qc.multiple_1d_interpolation( field=output['distance_2'] , nx=na , ny=nr , nz=ne
+                                           , undef=output['undef_v'] , xx=options[filter_name]['ifx_2']
+                                           , yy=options[filter_name]['ify_2'] , nxx=np.size(options[filter_name]['ifx_2']) )
+
+     output['wv']=output['wv'] + tmp_w * options[filter_name]['w']
+
+     output['qcv'][ tmp_w > 0.5 ] = options[filter_name]['code']
+
+     output['maxw_v']=output['maxw_v'] + options[filter_name]['w']
+
+     if  not options[filter_name]['save']  :
+          output.pop('distance_1')
+          output.pop('distance_2')
+
+     end=time.time()
+
+
+     print("The elapsed time in {:s} is {:2f}".format(filter_name,end-start) )
 
    #===================================================
    # INTERFERENCE FILTER
@@ -624,10 +722,98 @@ def main_qc( filename , options ) :
    #TODO
 
    #===================================================
-   # TEXTURE FILTER
+   # DETECT MISSING REFLECTIVITY VALUES
    #===================================================
 
-   #TODO
+   filter_name='MissingRefFilter'
+
+   if options[filter_name]['flag'] & name_ref in radar.fields  :
+
+      options['missing_mask'] = qc.detect_missing(  output['ref'],na,nr,ne,output['undef_ref'],output['norainrefval']
+                                                   ,options[filter_name]['threshold'] , output[filter_name]['nmissing_max'] )
+
+      tmp_w = options['missing_mask'].astype(int)
+
+      output['wref']=output['wref'] + tmp_w * options[filter_name]['w']
+
+      output['qcref'][ tmp_w > 0.5 ] = options[filter_name]['code']
+
+      output['maxw_ref']=output['maxw_ref'] + options[filter_name]['w']
+
+      if  not options[filter_name]['save']  :
+           output.pop('missing_mask')
+
+      end=time.time()
+
+      print("The elapsed time in {:s} is {:2f}".format(filter_name,end-start) )
+
+   #===================================================
+   # REFLECTIIVTY TEXTURE FILTER
+   #===================================================
+
+   filter_name='ReflectivityTextureFilter'
+
+   if  options[filter_name]['flag'] & name_ref in radar.fields  : 
+
+     nx=options[filter_name]['nx']
+     ny=options[filter_name]['ny']
+     nz=options[filter_name]['nz']
+     output['texture_ref']=qc.compute_texture(output['ref'],na,nr,ne,output['undef_ref'],nx,ny,nz)
+
+     #Compute the corresponding weigth.
+     tmp_w = qc.multiple_1d_interpolation( field=output['texture_ref'] , nx=na , ny=nr , nz=ne
+                                           , undef=output['undef_ref'] , xx=options[filter_name]['ifx']
+                                           , yy=options[filter_name]['ify'] , nxx=np.size(options[filter_name]['ifx']) )
+
+
+     output['wref']=output['wref'] + tmp_w * options[filter_name]['w']
+
+     output['qcref'][ tmp_w > 0.5 ] = options[filter_name]['code']
+
+     output['maxw_ref']=output['maxw_ref'] + options[filter_name]['w']
+
+     if  not options[filter_name]['save']  :
+          output.pop('texture_v')
+
+     end=time.time()
+
+     #TODO:Consider the possibility to add a flag to apply this filter to the doppler velocity as well.
+
+     print("The elapsed time in {:s} is {:2f}".format(filter_name,end-start) )
+
+   #===================================================
+   # DOPPER VELOCITY TEXTURE FILTER
+   #===================================================
+
+   filter_name='DopplerTextureFilter'
+
+   if  options[filter_name]['flag'] & name_ref in radar.fields  :
+
+     nx=options[filter_name]['nx']
+     ny=options[filter_name]['ny']
+     nz=options[filter_name]['nz']
+     output['texture_v']=qc.compute_texture(output['v'],na,nr,ne,output['undef_v'],nx,ny,nz)
+
+     #Compute the corresponding weigth.
+     tmp_w = qc.multiple_1d_interpolation( field=output['texture_v'] , nx=na , ny=nr , nz=ne
+                                           , undef=output['undef_v'] , xx=options[filter_name]['ifx']
+                                           , yy=options[filter_name]['ify'] , nxx=np.size(options[filter_name]['ifx']) )
+
+
+     output['wv']=output['wv'] + tmp_w * options[filter_name]['w']
+
+     output['qcv'][ tmp_w > 0.5 ] = options[filter_name]['code']
+
+     output['maxw_v']=output['maxw_v'] + options[filter_name]['w']
+
+     if  not options[filter_name]['save']  :
+          output.pop('texture_v')
+
+     end=time.time()
+
+     #TODO:Consider the possibility to add a flag to apply this filter to the doppler velocity as well.
+
+     print("The elapsed time in {:s} is {:2f}".format(filter_name,end-start) )
 
    #===================================================
    # LOW DOPPLER VOLOCITY FILTER
@@ -636,20 +822,35 @@ def main_qc( filename , options ) :
    #This filter removes reflectivity values which are close to the surface and 
    #have a low associated doppler velocity. 
 
-   if options['ifldvfilter']  :
+   filter_name='LowDopplerFilter'
 
-      #Find low doppler velocity pixels (which are not undefined).
-      mask = np.logical_and(  output['vc'] != output['undef_v'] , np.abs( output['vc'] ) < options['ldvfilter_vtr'] ) 
+   if options[filter_name]['flag'] & name_dv in radar.fields  :
 
-      #Combine them with the pixels that are close to the surface.
-      if  options['ldvfilter_use_terrain']    :
-          mask = np.logical_and( mask , output['altitude_agl'] < options['ldvfilter_htr'] )
+
+      #Compute the corresponding weigth.
+      tmp_w = qc.multiple_1d_interpolation( field=output['v'] , nx=na , ny=nr , nz=ne
+                                            , undef=output['undef_v'] , xx=options[filter_name]['ifx']
+                                            , yy=options[filter_name]['ify'] , nxx=np.size(options[filter_name]['ifx']) )
+
+      #The filter will not produce any effect below a certain height
+      if  options[filter_name]['use_terrain']    :
+          tmp_w[ np.logical_and( mask , output['altitude_agl'] < options['height_thr']  ) ] = 0.0
       else                                    :
-          mask = np.logical_and( mask , output['altitude'] < options['ldvfilter_htr'] )
+          tmp_w[ np.logical_and( mask , output['altitude'] < options['height_thr']  ) ] = 0.0
 
-      output['cref'][mask]  = output['undef_ref']
-      output['qcref'][mask] = QCCODE_LOWDOPPLER 
+      output['wref']=output['wref'] + tmp_w * options[filter_name]['w']
+      output['wv']  =output['wv']   + tmp_w * options[filter_name]['w']
 
+      if name_dv in radar.fields  :
+          output['qcv'][ tmp_w > 0.5 ] = options[filter_name]['code']
+
+      if name_ref in radar.fields  :
+          output['qcref'][ tmp_w > 0.5 ] = options[filter_name]['code']
+
+      output['maxw_ref']=output['maxw_ref'] + options[filter_name]['w']
+      output['maxw_v']=output['maxw_v'] + options[filter_name]['w']
+
+      end=time.time()
 
    #===================================================
    # ADD CORRECTED DATA TO RADAR OBJECT

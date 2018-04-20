@@ -163,7 +163,7 @@ attenuation=-10*log(attenuation)  !Compute PIA
 END SUBROUTINE GET_ATTENUATION
 
 
-SUBROUTINE COMPUTE_TDBZ(var,na,nr,ne,undef,nx,ny,nz,texture)
+SUBROUTINE COMPUTE_TEXTURE(var,na,nr,ne,undef,nx,ny,nz,texture)
 !This routine performs the radar QC computing the requested fields.
 IMPLICIT NONE
 INTEGER     ,INTENT(IN) :: na , nr , ne    !Grid dimension
@@ -194,7 +194,7 @@ tmp_data_3d=undef
  CALL BOX_FUNCTIONS_2D(tmp_data_3d,na,nr,ne,undef,nx,ny,nz,'MEAN',0.0d0,texture)
 
 RETURN
-END SUBROUTINE COMPUTE_TDBZ
+END SUBROUTINE COMPUTE_TEXTURE
 
 SUBROUTINE COMPUTE_SIGN(var,na,nr,ne,undef,nx,ny,nz,varsign)
 !This routine computes the sign parameter
@@ -977,6 +977,102 @@ ENDDO
 
 
 END SUBROUTINE MULTIPLE_1D_INTERPOLATION
+
+SUBROUTINE COMPUTE_DISTANCE(var,var2,nx,ny,nz,undef,nx_box,ny_box,nz_box,dist)
+
+IMPLICIT NONE
+INTEGER,INTENT(IN)       :: nx , ny , nz
+INTEGER,INTENT(IN)       :: nx_box , ny_box , nz_box
+REAL(r_size),INTENT(IN)  :: var(nx,ny,nz) 
+REAL(r_size),INTENT(IN)  :: var2(nx,ny,nz)
+REAL(r_size),INTENT(IN)  :: undef
+REAL(r_size),INTENT(OUT) :: dist(nx,ny,nz)
+INTEGER                  :: box_size , ii , jj , kk , ndata
+INTEGER                  :: imin , imax , jmin , jmax , kmin , kmax
+INTEGER                  :: i,j,k
+
+dist=0.0d0
+
+!$OMP PARALLEL DO SCHEDULE(DYNAMIC) PRIVATE(ii,jj,kk,imin,imax,jmin,jmax,kmin,kmax,ndata,i,j,k)
+DO ii=1,nx
+  DO jj=1,ny
+    DO kk=1,nz
+
+       imax=min(i+nx_box,nx)
+       imin=max(i-nx_box,1 )
+
+       jmax=min(j+ny_box,ny)
+       jmin=max(j-ny_box,1 )
+
+       kmax=min(k+nz_box,nz)
+       kmin=max(k-nz_box,1 )
+
+       ndata=0
+
+       DO i=imin,imax
+        DO j=jmin,jmax
+         DO k=kmin,kmax
+           IF( var(i,j,k) /= undef )THEN
+              ndata=ndata+1
+              dist(ii,jj,kk) = dist(ii,jj,kk) + var2(i,j,k)
+           ENDIF
+         ENDDO
+       ENDDO
+     ENDDO
+
+     !Compute the difference between the mean of var2 in a local box
+     !and the value of var at the center point of the local box.
+     IF( ndata >= 1 )THEN
+        dist(ii,jj,kk)= abs( dist(ii,jj,kk)/ndata - var(i,j,k) )
+     ELSE
+        dist(ii,jj,kk)= undef
+     ENDIF
+
+    ENDDO
+  ENDDO
+ENDDO
+!$OMP END PARALLEL DO
+END SUBROUTINE COMPUTE_DISTANCE
+
+
+SUBROUTINE DETECT_MISSING(ref , na , nr , ne , undef , min_ref , threshold , nmissing_max , missing_mask )
+IMPLICIT NONE
+INTEGER , INTENT(IN)       :: na , nr , ne , nmissing_max
+REAL(r_size) , INTENT(IN)  :: ref(na,nr,ne) , undef , min_ref , threshold
+LOGICAL , INTENT(OUT)      :: missing_mask(na,nr,ne)
+
+INTEGER                    :: ia , ir , ie , nmissing
+LOGICAL                    :: ismissing
+
+missing_mask=.False.
+
+!$OMP PARALLEL DO SCHEDULE(DYNAMIC) PRIVATE(ia,ie,ir,ismissing,nmissing)
+DO ia = 1 , na
+  DO ie = 1 , ne
+     ismissing=.False.
+     nmissing=1;
+   
+     DO ir = 2 , nr
+         if( abs( ref(ia,ir-1,ie) - ref(ia,ir,ie) ) > threshold .and. ref(ia,ir,ie) <= min_ref )then
+             ismissing=.True.
+             nmissing=1
+         endif
+         if( ismissing .and. ref(ia,ir,ie) > min_ref )then
+             ismissing=.False.
+         endif
+         if( nmissing > nmissing_max )then
+             ismissing=.False.
+         endif
+         if( ismissing )then
+            missing_mask=.True.
+            nmissing=nmissing+1
+         endif
+    ENDDO
+  ENDDO
+ENDDO
+!$OMP END PARALLEL DO
+
+END SUBROUTINE DETECT_MISSING
 
 !-----------------------------------------------------------------------
 ! (X,Y) --> (i,j) conversion (General pourpuse interpolation)
