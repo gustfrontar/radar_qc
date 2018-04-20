@@ -2,7 +2,6 @@
 # Author: Rapid Refresh Argentina Team
 # License: BSD 3 clause
 
-
 def main_qc( filename , options ) :
 
    import sys
@@ -31,28 +30,6 @@ def main_qc( filename , options ) :
 
 #  Constant parameters
 
-   #Codigos que permitan identificar el control que actuo en cada pixel.
-
-   #Para la reflectividad
-   QCCODE_ATTENUATION = options['qccodes']['QCCODE_ATTENUATION']
-   QCCODE_SPECKLE     = options['qccodes']['QCCODE_SPECKLE']
-   QCCODE_TEXTURE     = options['qccodes']['QCCODE_TEXTURE']
-   QCCODE_RHOFILTER   = options['qccodes']['QCCODE_RHOFILTER']
-   QCCODE_SIGN        = options['qccodes']['QCCODE_SIGN']
-   QCCODE_BLOCKING    = options['qccodes']['QCCODE_BLOCKING']
-   QCCODE_ECHOTOP     = options['qccodes']['QCCODE_ECHOTOP']
-   QCCODE_ECHODEPTH   = options['qccodes']['QCCODE_ECHODEPTH']
-
-   QCCODE_LOWANGLE    = options['qccodes']['QCCODE_LOWANGLE']
-   QCCODE_LOWDOPPLER  = options['qccodes']['QCCODE_LOWDOPPLER']
-   
-
-   #Para la velocidad radial
-   QCCODE_DEALIAS     = options['qccodes']['QCCODE_DEALIAS']
-   QCCODE_DABFILTER   = options['qccodes']['QCCODE_DABFILTER']
-
-   #El codigo de los datos buenos para reflectividad y velocidad radial.
-   QCCODE_GOOD        = options['qccodes']['QCCODE_GOOD']
 
    #Shortcut to variable names
    name_v=options['v_name']
@@ -294,7 +271,7 @@ def main_qc( filename , options ) :
    # ECHO TOP FILTER  
    #===================================================
    filter_name='EchoTopFilter'
-   if ( options[filter_name]['flag'] ) :
+   if ( options[filter_name]['flag'] & name_ref in radar.fields  :
      start=time.time()
 
      if ( not computed_etfilter )     :
@@ -344,7 +321,7 @@ def main_qc( filename , options ) :
    # ECHO DEPTH FILTER 
    #===================================================
    filter_name='EchoDepthFilter'
-   if ( options[filter_name]['flag'] ) :
+   if ( options[filter_name]['flag'] & name_ref in radar.fields ) :
      start=time.time()
 
      if ( not computed_etfilter )     :
@@ -403,7 +380,7 @@ def main_qc( filename , options ) :
    #for data assimilation since that information is usually not enough to adequatelly constrain
    #the evolution of the convective cells.
 
-   if options['iflefilter']    :
+   if options['iflefilter']  & name_ref in radar.fields  :
 
       start=time.time()
 
@@ -425,7 +402,7 @@ def main_qc( filename , options ) :
    #===================================================
    filter_name = 'RhoFilter'
 
-   if options[filter_name]['flag']   :
+   if options[filter_name]['flag']  :
 
       start=time.time()
 
@@ -451,10 +428,9 @@ def main_qc( filename , options ) :
 
          output['wref']=output['wref'] + tmp_w * options[filter_name]['w']
 
-         output['qcref'][ tmp_w > 0.5 ] = options[filter_name]['code']
-
-         output['maxw']=output['maxw'] + options[filter_name]['w']
-
+         if name_ref in radar.fields :
+            output['qcref'][ tmp_w > 0.5 ] = options[filter_name]['code']
+            output['maxw']=output['maxw'] + options[filter_name]['w']
 
       else   :
          display('Warning: could not perform RHO-HV filter because rho was not found on this file')
@@ -474,7 +450,7 @@ def main_qc( filename , options ) :
 
    filter_name='RefSpeckleFilter'
 
-   if options[filter_name]['flag']  :
+   if options[filter_name]['flag']  & name_ref in radar.fields :
 
        start=time.time()
 
@@ -514,7 +490,7 @@ def main_qc( filename , options ) :
 
    filter_name='DopplerSpeckleFilter'
 
-   if options[filter_name]['flag']  :
+   if options[filter_name]['flag'] & name_dv in radar.fields :
 
        start=time.time()
 
@@ -536,7 +512,7 @@ def main_qc( filename , options ) :
 
        output['wref']=output['wref'] + tmp_w * options[filter_name]['w']
 
-       output['qcref'][ tmp_w > 0.5 ] = options[filter_name]['code']
+       output['qcv'][ tmp_w > 0.5 ] = options[filter_name]['code']
 
        output['maxw']=output['maxw'] + options[filter_name]['w']
 
@@ -552,19 +528,28 @@ def main_qc( filename , options ) :
    # ATTENUATION FILTER
    #===================================================
 
-   if options['ifattfilter']   :
+   filter_name='Attenuation'
+
+   if options[filter_name]['flag'] & name_ref in radar.fields :
       
       start=time.time()
 
       beaml=radar.range['data'][1]-radar.range['data'][0] #Get beam length
 
       output['attenuation']=qc.get_attenuation(var=output['cref'],na=na,nr=nr,ne=ne,undef=output['undef_ref']
-                                               ,beaml=beaml,cal_error=options['attcalerror'])
+                                               ,beaml=beaml,cal_error=options[filter_name]['attcalerror'])
 
-      #Set the pixels with values below the threshold as undef. 
-      output['cref'][ output['attenuation'] < options['attfiltertr']  ] = output['undef_ref']
+      #Compute the corresponding weigth.
+      tmp_w = qc.multiple_1d_interpolation( field=output['attenuation'] , nx=na , ny=nr , nz=ne
+                                            , undef=output['undef_ref'] , xx=options[filter_name]['ifx']
+                                            , yy=options[filter_name]['ify'] , nxx=np.size(options[filter_name]['ifx']) )
 
-      output['qcref'][ output['attenuation'] < options['attfiltertr'] ] = QCCODE_ATTENUATION
+
+      output['wref']=output['wref'] + tmp_w * options[filter_name]['w']
+
+      output['qcref'][ tmp_w > 0.5 ] = options[filter_name]['code']
+
+      output['maxw']=output['maxw'] + options[filter_name]['w']
 
       if  not options['attfilter_save']  :
           output.pop('attenuation')
@@ -578,7 +563,9 @@ def main_qc( filename , options ) :
    # TOPOGRAPHY BLOCKING FILTER
    #===================================================
 
-   if options['ifblfilter']   :
+   filter_name='BlFilter'  #This is not included in the fuzzy logic algorithm
+
+   if options[filter_name]['flag']   :
 
       start=time.time()
 
@@ -590,7 +577,7 @@ def main_qc( filename , options ) :
 
 
       #Compute correction 
-      if options['blocking_correction']  :
+      if options[filter_name]['blocking_correction'] & name_ref in radar.fields  :
          #Correct partially blocked precipitation echoes.
          mask=np.logical_and( output['blocking'] > 0.1 , output['blocking'] <= 0.3 )
          mask=np.logical_and( mask , output['cref'] > options['norainrefval'] )
@@ -608,11 +595,13 @@ def main_qc( filename , options ) :
          output['cref'][mask] = output['cref'][mask] + 3.0
 
       #Set the pixels with values below the threshold as undef. 
-      output['cref'][ output['blocking'] > options['blocking_threshold']  ] = output['undef_ref']
-      output['cv'][ output['blocking']   > options['blocking_threshold']  ] = output['undef_v']
+      if name_ref in radar.fields :
+          output['cref'][ output['blocking'] > options[filter_name]['blocking_threshold']  ] = output['undef_ref']
+          output['qcref'][ output['blocking'] > options[filter_name]['blocking_threshold'] ] = options[filter_name]['code']
 
-      output['qcref'][ output['blocking'] > options['blocking_threshold'] ] = QCCODE_BLOCKING
-      output['qcv']  [ output['blocking'] > options['blocking_threshold'] ] = QCCODE_BLOCKING
+      if name_dv in radar.fields :
+          output['cv'][ output['blocking']   > options[filter_name]['blocking_threshold']  ] = output['undef_v']
+          output['qcv']  [ output['blocking'] > options[filter_name]['blocking_threshold'] ] = options[filter_name]['code']
 
       if  not options['blocking_save']  :
           output.pop('blocking')  
