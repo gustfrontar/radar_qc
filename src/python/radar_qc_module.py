@@ -275,10 +275,13 @@ def main_qc( filename , options ) :
      #Find the pixels which are close to a dealiased region but which has not been corrected by the dealiasing.
      tmp_w = np.logical_and( ouput['edge_mask'] , tmp_diff == 0 ).astype(int) 
 
-   
-     output['wv']=output['wv'] + tmp_w * options[filter_name]['w']
-     output['qcv'][ tmp_w > 0.5 ] = options[filter_name]['code']
-     output['maxw_v']=output['maxw_v'] + options[filter_name]['w']
+     if not options[filter_name]['force']   :   
+       output['wv']=output['wv'] + tmp_w * options[filter_name]['w']
+       output['qcv'][ tmp_w > 0.5 ] = options[filter_name]['code']
+       output['maxw_v']=output['maxw_v'] + options[filter_name]['w']
+     else                                   :
+       output['cv'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_v']
+       output['qcv'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
 
      #If requested store the auxiliary fields and data in the output dictionary.
      if  ( not options[filter_name]['save'] )     :
@@ -324,9 +327,14 @@ def main_qc( filename , options ) :
      tmp_w[ tmp_max_z < options[filter_name]['heigthtr'] ] = 0.0  #Do not consider this filter when the volume maximum heigth is below
                                                                   #the specified threshold (i.e. pixels close to the radar)
 
-     output['wref']=output['wref'] + tmp_w * options[filter_name]['w']
-     output['qcref'][ tmp_w > 0.5 ] = options[filter_name]['code']
-     output['maxw_ref']=output['maxw_ref'] + options[filter_name]['w']
+     if not options[filter_name]['force']   :
+       output['wv']=output['wref'] + tmp_w * options[filter_name]['w']
+       output['qcref'][ tmp_w > 0.5 ] = options[filter_name]['code']
+       output['maxw_ref']=output['maxw_ref'] + options[filter_name]['w']
+     else                                   :
+       output['cref'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_ref']
+       output['qcref'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
+
 
      #If requested store the auxiliary fields and data in the output dictionary.
      if  ( not options[filter_name]['save'] )     : 
@@ -374,9 +382,14 @@ def main_qc( filename , options ) :
      tmp_w[ tmp_max_z < options[filter_name]['heigthtr'] ] = 0.0  #Do not consider this filter when the volume maximum heigth is below
                                                                   #the specified threshold (i.e. pixels close to the radar)
 
-     output['wref']=output['wref'] + tmp_w * options[filter_name]['w']
-     output['qcref'][ tmp_w > 0.5 ] = options[filter_name]['code']
-     output['maxw_ref']=output['maxw_ref'] + options[filter_name]['w']
+     if not options[filter_name]['force']   :
+       output['wref']=output['wref'] + tmp_w * options[filter_name]['w']
+       output['qcref'][ tmp_w > 0.5 ] = options[filter_name]['code']
+       output['maxw_ref']=output['maxw_ref'] + options[filter_name]['w']
+     else                                   :
+       output['cref'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_ref']
+       output['qcref'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
+
 
      #If requested store the auxiliary fields and data in the output dictionary.
      if  ( not options[filter_name]['save'] )     :
@@ -412,14 +425,18 @@ def main_qc( filename , options ) :
 
       tmp_ref_smooth=qc.box_functions_2d(datain=output['ref'],na=na,nr=nr,ne=ne,undef=output['undef_ref']
                                                ,boxx=nx,boxy=ny,boxz=nz,operation='MEAN',threshold=0.0)
-      
+     
+      tmp_w=np.zeros([na,nr,ne]) 
       for ie in range( 0 , tmp_n_angles )  :
-         tmp_w=np.logical_and( output['ref'][:,:,ie] > configuration['norainrefval'] , tmp_ref_smooth[:,:,tmp_n_angles] <= options['norainrefval'] )
+         tmp_w[:,:,ie]=np.logical_and( output['ref'][:,:,ie] > configuration['norainrefval'] , tmp_ref_smooth[:,:,tmp_n_angles] <= options['norainrefval'] )
 
-         output['wref'][:,:,ie]=output['wref'][:,:,ie] + tmp_w.astype(int) * options[filter_name]['w']
-         output['qcref'][:,:,ie][tmp_mask] = options[filter_name]['code']
-
-      output['maxw_ref']=output['maxw_ref'] + options[filter_name]['w']
+      if not options[filter_name]['force']   :
+         output['wref']=output['wref'] + tmp_w * options[filter_name]['w']
+         output['qcref'][ tmp_w > 0.5 ] = options[filter_name]['code']
+         output['maxw_ref']=output['maxw_ref'] + options[filter_name]['w']
+      else                                   :
+         output['cref'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_ref']
+         output['qcref'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
 
       end=time.time()
       print("The elapsed time in {:s} is {:2f}".format("low elevation angle filter",end-start) )
@@ -457,8 +474,13 @@ def main_qc( filename , options ) :
          output['wref']=output['wref'] + tmp_w * options[filter_name]['w']
 
          if name_ref in radar.fields :
-            output['qcref'][ tmp_w > 0.5 ] = options[filter_name]['code']
-            output['maxw_ref']=output['maxw_ref'] + options[filter_name]['w']
+            if not options[filter_name]['force']   :
+               output['wref']=output['wref'] + tmp_w * options[filter_name]['w']
+               output['qcref'][ tmp_w > 0.5 ] = options[filter_name]['code']
+               output['maxw_ref']=output['maxw_ref'] + options[filter_name]['w']
+            else                                   :
+               output['cref'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_ref']
+               output['qcref'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
 
       else   :
          display('Warning: could not perform RHO-HV filter because rho was not found on this file')
@@ -498,11 +520,16 @@ def main_qc( filename , options ) :
                                             , undef=output['undef_ref'] , xx=options[filter_name]['ifx']
                                             , yy=options[filter_name]['ify'] , nxx=np.size(options[filter_name]['ifx']) )
 
-       output['wref']=output['wref'] + tmp_w * options[filter_name]['w']
 
-       output['qcref'][ tmp_w > 0.5 ] = options[filter_name]['code']
+       if not options[filter_name]['force']   :
+          output['wref']=output['wref'] + tmp_w * options[filter_name]['w']
+          output['qcref'][ tmp_w > 0.5 ] = options[filter_name]['code']
+          output['maxw_ref']=output['maxw_ref'] + options[filter_name]['w']
+       else                                   :
+          output['cref'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_ref']
+          output['qcref'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
 
-       output['maxw_ref']=output['maxw_ref'] + options[filter_name]['w']
+
 
        if [ not options[filter_name]['save'] ] :
           output.pop('speckle_ref')
@@ -538,14 +565,16 @@ def main_qc( filename , options ) :
                                             , undef=output['undef_v'] , xx=options[filter_name]['ifx']
                                             , yy=options[filter_name]['ify'] , nxx=np.size(options[filter_name]['ifx']) )
 
-       output['wref']=output['wref'] + tmp_w * options[filter_name]['w']
-
-       output['qcv'][ tmp_w > 0.5 ] = options[filter_name]['code']
-
-       output['maxw_ref']=output['maxw_ref'] + options[filter_name]['w']
+       if not options[filter_name]['force']   :
+          output['wv']=output['wv'] + tmp_w * options[filter_name]['w']
+          output['qcv'][ tmp_w > 0.5 ] = options[filter_name]['code']
+          output['maxw_v']=output['maxw_v'] + options[filter_name]['w']
+       else                                   :
+          output['cv'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_v']
+          output['qcv'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
 
        if [ not options[filter_name]['save'] ] :
-          output.pop('speckle_ref')
+          output.pop('speckle_dv')
 
        end=time.time()
 
@@ -571,12 +600,13 @@ def main_qc( filename , options ) :
                                             , undef=output['undef_ref'] , xx=options[filter_name]['ifx']
                                             , yy=options[filter_name]['ify'] , nxx=np.size(options[filter_name]['ifx']) )
 
-
-      output['wref']=output['wref'] + tmp_w * options[filter_name]['w']
-
-      output['qcref'][ tmp_w > 0.5 ] = options[filter_name]['code']
-
-      output['maxw_ref']=output['maxw_ref'] + options[filter_name]['w']
+      if not options[filter_name]['force']   :
+         output['wref']=output['wref'] + tmp_w * options[filter_name]['w']
+         output['qcref'][ tmp_w > 0.5 ] = options[filter_name]['code']
+         output['maxw_ref']=output['maxw_ref'] + options[filter_name]['w']
+      else                                   :
+         output['cref'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_ref']
+         output['qcref'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
 
       if  not options['attfilter_save']  :
           output.pop('attenuation')
@@ -637,12 +667,6 @@ def main_qc( filename , options ) :
       print("The elapsed time in {:s} is {:2f}".format(filter_name,end-start) )
 
    #===================================================
-   # MISSING VALUE FILTER
-   #===================================================
-
-   #TODO
-
-   #===================================================
    # DOPPLER NOISE FILTER
    #===================================================
 
@@ -677,9 +701,13 @@ def main_qc( filename , options ) :
                                            , undef=output['undef_v'] , xx=options[filter_name]['ifx']
                                            , yy=options[filter_name]['ify_1'] , nxx=np.size(options[filter_name]['ifx_1']) )
 
-     output['wv']=output['wv'] + tmp_w * options[filter_name]['w'] 
 
-     output['qcv'][ tmp_w > 0.5 ] = options[filter_name]['code']
+     if not options[filter_name]['force']   :
+       output['wv']=output['wv'] + tmp_w * options[filter_name]['w']
+       output['qcv'][ tmp_w > 0.5 ] = options[filter_name]['code']
+     else                                   :
+       output['cv'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_v']
+       output['qcv'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
 
 
      tmp_dv_1[ output['distance_1'] > tr_1 | output['distance_1']==output['undef_v'] ]=ouput['undef_v']
@@ -700,11 +728,13 @@ def main_qc( filename , options ) :
                                            , undef=output['undef_v'] , xx=options[filter_name]['ifx_2']
                                            , yy=options[filter_name]['ify_2'] , nxx=np.size(options[filter_name]['ifx_2']) )
 
-     output['wv']=output['wv'] + tmp_w * options[filter_name]['w']
-
-     output['qcv'][ tmp_w > 0.5 ] = options[filter_name]['code']
-
-     output['maxw_v']=output['maxw_v'] + options[filter_name]['w']
+     if not options[filter_name]['force']   :
+       output['wv']=output['wv'] + tmp_w * options[filter_name]['w']
+       output['qcv'][ tmp_w > 0.5 ] = options[filter_name]['code']
+       output['maxw_ref']=output['maxw_ref'] + options[filter_name]['w']
+     else                                   :
+       output['cv'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_v']
+       output['qcv'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
 
      if  not options[filter_name]['save']  :
           output.pop('distance_1')
@@ -734,11 +764,13 @@ def main_qc( filename , options ) :
 
       tmp_w = options['missing_mask'].astype(int)
 
-      output['wref']=output['wref'] + tmp_w * options[filter_name]['w']
-
-      output['qcref'][ tmp_w > 0.5 ] = options[filter_name]['code']
-
-      output['maxw_ref']=output['maxw_ref'] + options[filter_name]['w']
+      if not options[filter_name]['force']   :
+         output['wref']=output['wref'] + tmp_w * options[filter_name]['w']
+         output['qcref'][ tmp_w > 0.5 ] = options[filter_name]['code']
+         output['maxw_ref']=output['maxw_ref'] + options[filter_name]['w']
+      else                                   :
+         output['cref'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_ref']
+         output['qcref'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
 
       if  not options[filter_name]['save']  :
            output.pop('missing_mask')
@@ -766,11 +798,13 @@ def main_qc( filename , options ) :
                                            , yy=options[filter_name]['ify'] , nxx=np.size(options[filter_name]['ifx']) )
 
 
-     output['wref']=output['wref'] + tmp_w * options[filter_name]['w']
-
-     output['qcref'][ tmp_w > 0.5 ] = options[filter_name]['code']
-
-     output['maxw_ref']=output['maxw_ref'] + options[filter_name]['w']
+     if not options[filter_name]['force']   :
+        output['wref']=output['wref'] + tmp_w * options[filter_name]['w']
+        output['qcref'][ tmp_w > 0.5 ] = options[filter_name]['code']
+        output['maxw_ref']=output['maxw_ref'] + options[filter_name]['w']
+     else                                   :
+        output['cref'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_ref']
+        output['qcref'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
 
      if  not options[filter_name]['save']  :
           output.pop('texture_v')
@@ -799,12 +833,14 @@ def main_qc( filename , options ) :
                                            , undef=output['undef_v'] , xx=options[filter_name]['ifx']
                                            , yy=options[filter_name]['ify'] , nxx=np.size(options[filter_name]['ifx']) )
 
+     if not options[filter_name]['force']   :
+        output['wv']=output['wv'] + tmp_w * options[filter_name]['w']
+        output['qcv'][ tmp_w > 0.5 ] = options[filter_name]['code']
+        output['maxw_v']=output['maxw_v'] + options[filter_name]['w']
+     else                                   :
+        output['cv'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_v']
+        output['qcv'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
 
-     output['wv']=output['wv'] + tmp_w * options[filter_name]['w']
-
-     output['qcv'][ tmp_w > 0.5 ] = options[filter_name]['code']
-
-     output['maxw_v']=output['maxw_v'] + options[filter_name]['w']
 
      if  not options[filter_name]['save']  :
           output.pop('texture_v')
@@ -838,19 +874,31 @@ def main_qc( filename , options ) :
       else                                    :
           tmp_w[ np.logical_and( mask , output['altitude'] < options['height_thr']  ) ] = 0.0
 
-      output['wref']=output['wref'] + tmp_w * options[filter_name]['w']
-      output['wv']  =output['wv']   + tmp_w * options[filter_name]['w']
+      if name_ref in radar.fields   :
+         if not options[filter_name]['force']   :
+         
+            output['wref']=output['wref'] + tmp_w * options[filter_name]['w']
+            output['qcref'][ tmp_w > 0.5 ] = options[filter_name]['code']
+            output['maxw_ref']=output['maxw_ref'] + options[filter_name]['w']
+         else                                   :
+            output['cref'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_ref']
+            output['qcref'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
 
-      if name_dv in radar.fields  :
-          output['qcv'][ tmp_w > 0.5 ] = options[filter_name]['code']
+      if name_dv in radar.fields   :
+         if not options[filter_name]['force']   :
 
-      if name_ref in radar.fields  :
-          output['qcref'][ tmp_w > 0.5 ] = options[filter_name]['code']
+            output['wv']=output['wv'] + tmp_w * options[filter_name]['w']
+            output['qcv'][ tmp_w > 0.5 ] = options[filter_name]['code']
+            output['maxw_v']=output['maxw_v'] + options[filter_name]['w']
+         else                                   :
+            output['cv'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_v']
+            output['qcv'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
 
-      output['maxw_ref']=output['maxw_ref'] + options[filter_name]['w']
-      output['maxw_v']=output['maxw_v'] + options[filter_name]['w']
+
 
       end=time.time()
+
+      print("The elapsed time in {:s} is {:2f}".format(filter_name,end-start) )
 
    #===================================================
    # ADD CORRECTED DATA TO RADAR OBJECT
