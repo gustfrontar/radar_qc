@@ -30,7 +30,6 @@ def main_qc( filename , options ) :
 
 #  Constant parameters
 
-
    #Shortcut to variable names
    name_v=options['v_name']
    name_ref=options['ref_name']
@@ -899,6 +898,18 @@ def main_qc( filename , options ) :
       end=time.time()
 
       print("The elapsed time in {:s} is {:2f}".format(filter_name,end-start) )
+
+   #===================================================
+   # COMPUTE THE FINAL WEIGHT AND APPLY FUZZY LOGIC QC
+   #===================================================
+
+   output['wref']=output['wref'] / output['maxw_ref'] 
+   output['wv'] =output['wv'] / output['maxw_v']
+
+   #All the grid points where the probability of non-meteorological echoes
+   #is greather than 0.5 will be flagged as missing.
+   output['cref'][ output['wref'] > 0.5 ] = output['undef_ref']
+   output['cv'][output['wv'] > 0.5 ] = output['undef_v']
 
    #===================================================
    # ADD CORRECTED DATA TO RADAR OBJECT
