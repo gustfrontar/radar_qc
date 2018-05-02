@@ -128,7 +128,6 @@ options[filter_name]['reftr']=5                             #Reflectivity thresh
 options[filter_name]['force']=False                         #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                     #Threshold for force
 
-
 #Doppler speckle filter  parameters ==============================================================
 
 filter_name='DopplerSpeckleFilter'
@@ -162,7 +161,6 @@ options[filter_name]['code']=15
 options[filter_name]['force']=False                         #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                     #Threshold for force
 
-
 #Reflectivity texture filter  parameters ==============================================================
 
 filter_name='ReflectivityTextureFilter'
@@ -175,10 +173,9 @@ options[filter_name]['save']=True                           #Save filter aux fie
 options[filter_name]['ify']=np.array([0,0,1,1])             #Importance function y
 options[filter_name]['ifx']=np.array([0,50,100,200])        #Importance function x
 options[filter_name]['w']=1.0                               #Relative parameter weigth. 
-options[filter_name]['code']=15
+options[filter_name]['code']=16
 options[filter_name]['force']=False                         #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                     #Threshold for force
-
 
 #Attenuation parameters           ==============================================================
 filter_name='Attenuation'
@@ -191,7 +188,7 @@ options[filter_name]['save']=True                           #Save filter aux fie
 options[filter_name]['ify']=np.array([0,0,1,1])             #Importance function y
 options[filter_name]['ifx']=np.array([0,15,25,1])           #Importance function x
 options[filter_name]['w']=1.0                               #Relative parameter weigth. 
-options[filter_name]['code']=15
+options[filter_name]['code']=17
 options[filter_name]['attcalerror']=1.0                     #Calibration error
 options[filter_name]['force']=False                         #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                     #Threshold for force
@@ -200,10 +197,10 @@ options[filter_name]['force_value']=0.5                     #Threshold for force
 #This filter is not part of the Fuzzy logic algorithm.
 filter_name='BlockingFilter'
 options[filter_name]=dict()
-options[filter_name]=False                        #Blocking filter
-options[filter_name]['blocking_correction']=True  #Wether correction will be applied for partially blocked beams.
-options[filter_name]['blocking_threshold']=0.5    #Beams with blocking above this threshold will be eliminated.
-options[filter_name]['save']=True                 #Save blocking factor into qc_output dictionary.
+options[filter_name]=False                          #Blocking filter
+options[filter_name]['blocking_correction']=True    #Wether correction will be applied for partially blocked beams.
+options[filter_name]['blocking_threshold']=0.5      #Beams with blocking above this threshold will be eliminated.
+options[filter_name]['save']=True                   #Save blocking factor into qc_output dictionary.
 
 
 #Low elevation angles filter parameters ==============================================================
@@ -216,7 +213,7 @@ options[filter_name]['nz']=0                                #NZ
 options[filter_name]['save']=True                           #Save filter aux fields to output?
 options[filter_name]['min_angle']=2.0                       #Minimun angle
 options[filter_name]['w']=1.0                               #Relative parameter weigth. 
-options[filter_name]['code']=16
+options[filter_name]['code']=18
 options[filter_name]['force']=False                         #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                     #Threshold for force
 
@@ -231,11 +228,28 @@ options[filter_name]['save']=True                              #Save filter aux 
 options[filter_name]['ify']=np.array([0,0,1,1,0,0])            #Importance function y
 options[filter_name]['ifx']=np.array([-200,-1,-0.5,0.5,1,200]) #Importance function x
 options[filter_name]['w']=1.0                                  #Relative parameter weigth. 
-options[filter_name]['code']= 1
+options[filter_name]['code']= 19
 options[filter_name]['force']=False                            #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                        #Threshold for force
 options[filter_name]['height_thr']=2000                        #Height threshold.
 options[filter_name]['use_terrain']=True                       #Wether AGL height is used.
+
+#Interference filter            ==============================================================
+#This filter is not included in the Fuzzy-logic approach.
+filter_name='InterferenceFilter'
+ptions[filter_name]=dict()
+options[filter_name]['flag']=False                             #Interference filter
+options[filter_name]['save']=True                              #Save filter aux fields to output?
+options[filter_name]['code']= 20
+options[filter_name]['offset']=100                  #Number of ranges that will be discarded in the interference fit process.
+options[filter_name]['att']=0.01                    #Atmospheric gases attenuation constant.
+options[filter_name]['npass_filter']=3              #Number of passes of the azimuthal continuity filter.
+options[filter_name]['percent_valid_threshold']=0.4 #Rays with valid pixels over this percentaje will be examinated.
+options[filter_name]['corr_threshold']=0.6          #Rays that correlates well with the interference pattern will be flagged as 
+                                                    #contaminated.
+options[filter_name]['dbz_threshold']=5.0           #Reflectivity threshold to count pixels which are close to the interference pattern.
+options[filter_name]['percent_ref_threshold']=0.6   #If more than this percent of the ray correlates well with the interference pattern, then
+                                                    #the ray is flagged as contaminated by interference.
 
 #Dealiasing border filter            ==============================================================
 filter_name='DealiasingBorderFilter'
@@ -272,15 +286,11 @@ options[filter_name]['code']= 1
 options[filter_name]['force']=False                            #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                        #Threshold for force
 
-
 #Detect missing parameters
 options['ifmissfilter']=False   #Missing values filter
-
 
 #Topography parameters
 
 options['toporawdatapath']="/home/jruiz/share/radar_qc_da/data/terrain_data/raw/"
 options['toporadardatapath']="/home/jruiz/share/radar_qc_da/data/terrain_data/radar/"
-
-
 

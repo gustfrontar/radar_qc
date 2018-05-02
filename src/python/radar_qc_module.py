@@ -270,7 +270,6 @@ def main_qc( filename , options ) :
                                                                                nboxx=options[filter_name]['nx'],nboxy=options[filter_name]['ny'],
                                                                                nboxz=options[filter_name]['nz'],edge_tr=v_nyquist )
 
-
      #Find the pixels which are close to a dealiased region but which has not been corrected by the dealiasing.
      tmp_w = np.logical_and( ouput['edge_mask'] , tmp_diff == 0 ).astype(int) 
 
@@ -316,7 +315,6 @@ def main_qc( filename , options ) :
         output['echo_depth']=tmp_data_3d[:,:,:,2]
 
         computed_etfilter = True  #In case we need any of the other variables computed in this routine.
-
 
      #Compute the corresponding weigth.
      tmp_w = qc.multiple_1d_interpolation( field=output['echo_top'] , nx=na , ny=nr , nz=ne
@@ -673,6 +671,8 @@ def main_qc( filename , options ) :
 
    if options[filter_name]['flag'] & name_v in radar.fields :
 
+     start=time.time()
+
      nx=options[filter_name]['nx']
      ny=options[filter_name]['ny']
      nz=options[filter_name]['nz']
@@ -748,7 +748,23 @@ def main_qc( filename , options ) :
    # INTERFERENCE FILTER
    #===================================================
 
-   #TODO
+   #Clean rays affected by interference.
+
+   filter_name = 'InterferenceFilter'
+
+   if options[filter_name]['flag'] & name_ref in radar.fields :
+
+      start=time.time()
+
+      tmp_ref=np.copy( output['cref'] )
+
+      output['cref'] = interference_filter ( output['cref'] , output['undef_ref'] , options['norainrefval'] 
+                                            , radar.range['data'] , conf[filter_name] ) 
+
+      output['qc_ref'][ np.abs( tmp_ref - output['cref'] > 0 ]=options['filter_name']['code']
+
+ 
+      print("The elapsed time in {:s} is {:2f}".format(filter_name,end-start) )  
 
    #===================================================
    # DETECT MISSING REFLECTIVITY VALUES
@@ -757,6 +773,8 @@ def main_qc( filename , options ) :
    filter_name='MissingRefFilter'
 
    if options[filter_name]['flag'] & name_ref in radar.fields  :
+
+      start=time.time()
 
       options['missing_mask'] = qc.detect_missing(  output['ref'],na,nr,ne,output['undef_ref'],output['norainrefval']
                                                    ,options[filter_name]['threshold'] , output[filter_name]['nmissing_max'] )
@@ -1054,6 +1072,94 @@ def order_variable_inv (  radar , var , order_index , undef )  :
              output_var[ia,order_index[ia,ie]]=var[ia,:,ie] 
 
     return output_var
+
+
+def interference_filter ( ref , undef , min_ref , r , my_conf )  :
+
+   #ref a 3D array with the reflectivity in the na,nr,ne grid.
+   #undef: value corresponding to the missing value in the reflectivity field.
+   #min_ref: value corresponding to the no-rain value in the reflectivity field.
+   #r : radar range (vector)
+   #my_conf : configuration for this filter.
+
+   na=ref.shape[0]
+   nr=ref.shape[1]
+   ne=ref.shape[2]
+
+   tmp_ref=np.copy( ref ) 
+
+   offset=my_conf['offset']
+   att=my_conf['att']
+   npass_filter=my_conf['npass_filter']
+   percent_valid_threshold=my_conf['percent_valid_threshold']
+   corr_threshold=my_conf['corr_threshold']
+   ref_threshold=my_conf['ref_threshold']
+   percent_ref_threshold=my_conf['percent_ref_threshold']
+
+   tmp_ref[:,0:offset,:]=undef
+
+   #Main loops
+
+   for k in range(ne)  :
+
+      for i in range(na)  :
+
+         tmp_mask=tmp_ref[i,:,k] != undef :
+         dbm= tmp_ref[i,:,k][tmp_mask]  - 20*np.log10( r[tmp_mask] ) - 2*att*r[tmp_mask]
+         raux=r[tmp_mask]
+
+         if np.sum( tmp_mask.astype(int)/nr ) > percent_valid_threshold   :
+            #TODO reemplazar por una regresion robusta que sea menos sensible
+            #a los outliers.
+            p=np.polyfit(raux,dbm,1)
+            tmpcorr=np.corrcoef(raux,dbm)
+            corrcoef=tmpcorr[0,1]
+            a=p[0]
+            b=p[1]
+
+         else:
+            a=0.0
+            b=0.0
+
+         dbzrayo=a*r+b + 20*np.log10( r ) + 2*att*r
+
+         #Consider the grid points that are close to the fitted interference reflectivity.
+         tmp_mask = np.abs( dbzrayo - tmp_ref[i,:,j]) < refthreshold 
+
+         if( corrcoef > corr_threshold & np.sum( tmp_mask.astype(int) )/nr > percent_ref_threshold )  :
+         #This means that this ray is likely to be contaminated by interference.
+
+            ref[i,:,k][ tmp_mask ] = undef
+
+            zrayo = np.power(10.0,dbzrayo/10.0) 
+            z     = np.power(10.0,ref[i,:,j])
+
+            #If the reflectivity is far from the fitted interference, and is greather than the fitted
+            #Interference, then correct the power substracting the interference power.         
+            ref[i,:,k][ np.logical_and( !tmp_mask , z - zrayo > 0.0  ) ] = 10.0 * np.log10( z - zrayo )
+ 
+            #If the reflectivity is far from the fitted interference, and is smaller than the fitted interference
+            #then set that pixel as an undef pixel.
+            ref[i,:,k][ np.logical_and( !tmp_mask , z - zrayo <= 0.0 ) ] = undef
+
+   #Additional filter for the remaining echoes
+   #consider cyclic boundary conditions in azimuth.
+   for ifilter in range( npass_filter )  :
+
+      for k in range(ne) :
+
+         for i in range(na) :
+            if i> 2 & i < nrays-1  :
+ 
+               #If we have reflectivity in only one ray but not in the neighbors this suggest an interference pattern.
+               tmp_mask = np.logical_and( ref[i-1,:,k] <= min_ref , ref[i+1,:,k] <= min_ref ) 
+               ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
+
+               tmp_mask = np.logical_and( ref[i-2,:,k] <= min_ref , ref[i+2,:,k] <= min_ref )
+               ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
+
+
+   return ref
 
 
 #Read topography data

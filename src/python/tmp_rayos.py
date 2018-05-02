@@ -51,13 +51,6 @@ tmp[ np.logical_and(vr > -6 , vr < 6) ]=-32
 cref=np.zeros((nrays,nbins))
 cref[:,:]=-32.0
  
-#fig=plt.figure(1,figsize=(10,8))
-#plt.pcolor(ref[200:250,:],vmin=-32,vmax=70,cmap=plt.cm.jet)
-#plt.show()
-#fig=plt.figure(1,figsize=(10,8))
-#plt.pcolor(vr[200:250,:],vmin=-6,vmax=6,cmap=plt.cm.jet)
-#plt.show()
- 
 offset=100
 att=0.01
  
@@ -142,32 +135,7 @@ for ifilter in range(npassfilter):
                     if cref[i,j] == -32.0:
                         cref[i,j]=0.10*cref[i-3,j]+0.90*cref[i+1,j]
                
-                 
-                 
-               
-        #zrayo[i,j]  = np.power(10,dbzrayo[i,j]/10.0)
-        #z[i,j]      = np.power(10,ref[i,j]/10.0)           
-        #cref[i,j]= z[i,j]-zrayo[i,j] 
-        #if cref[i,j] < 0.0:
-        #   cref[i,j]=-32.0
-        #else:
-        #   cref[i,j]=10.0*np.log10(cref[i,j])
- 
  
 cref[ cref < -32.0]=-32.0
                                  
     
-#fig=plt.figure(1,figsize=(10,8))
-#plt.pcolor(ref[:,:],vmin=-32,vmax=70,cmap=plt.cm.jet)
-#plt.show()
- 
-#fig=plt.figure(1,figsize=(10,8))
-#plt.pcolor(cref[:,:],vmin=-32,vmax=70,cmap=plt.cm.jet)
-#plt.show()
-##fig=plt.figure(1,figsize=(10,8))
-##plt.pcolor(vr[200:250,:],vmin=-6,vmax=6,cmap=plt.cm.jet)
-##plt.show()    
-#fig=plt.figure(1,figsize=(10,8))
-#plt.plot(dbzrayo[20,:])
-#plt.plot(ref[20,:])
-#plt.show()
