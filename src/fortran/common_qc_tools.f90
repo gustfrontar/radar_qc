@@ -1,4 +1,7 @@
-MODULE QC_CONST
+!MODULE QC_CONST
+MODULE QC
+ IMPLICIT NONE
+ PUBLIC
 !=======================================================================
 !
 ! [PURPOSE:]  Constants for QC
@@ -39,9 +42,9 @@ MODULE QC_CONST
 
 !  REAL(r_size) , ALLOCATABLE  :: QCARRAY(:,:,:)  !Array to store qccodes
 
-END MODULE QC_CONST
+!END MODULE QC_CONST
 
-MODULE QC
+!MODULE QC
 !=======================================================================
 !
 ! [PURPOSE:] Common quality control parameters computation
@@ -51,9 +54,9 @@ MODULE QC
 !
 !=======================================================================
 !$USE OMP_LIB
-  USE qc_const
-  IMPLICIT NONE
-  PUBLIC
+!  USE qc_const
+!  IMPLICIT NONE
+!  PUBLIC
 
  CONTAINS
 
@@ -352,7 +355,7 @@ SUBROUTINE  ECHO_TOP(reflectivity,heigth,rrange,na,nr,ne,undef,nx,ny,nz,output_d
 !the parameters are computed.
 !Then the result is interpolated back to the original radar grid.
 
-use qc_const
+!use qc_const
 
 
 IMPLICIT NONE
@@ -502,7 +505,7 @@ SUBROUTINE ECHO_TOP_SUB(reflectivity,z,nz,undef,output_3d,output_2d,max_levs,thr
 !each cloud layer.
 !It also returns the vertical profile of the vertical gradient of the reflectivity field.
 
-use qc_const
+!use qc_const
 
 IMPLICIT NONE
 INTEGER      , PARAMETER :: NPAR_ECHO_TOP_3D=6 , NPAR_ECHO_TOP_2D=7 !Number of parameters in output arrays.
@@ -1080,7 +1083,7 @@ END SUBROUTINE DETECT_MISSING
 !-----------------------------------------------------------------------
 SUBROUTINE com_xy2ij(nx,ny,fx,fy,datax,datay,dist_min_x,dist_min_y,ratio,nearestn,undef)
 
-  use qc_const
+  !use qc_const
 
   IMPLICIT NONE
   ! --- inout variables

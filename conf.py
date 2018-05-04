@@ -197,7 +197,7 @@ options[filter_name]['force_value']=0.5                     #Threshold for force
 #This filter is not part of the Fuzzy logic algorithm.
 filter_name='BlockingFilter'
 options[filter_name]=dict()
-options[filter_name]=False                          #Blocking filter
+options[filter_name]['flag']=False                  #Blocking filter
 options[filter_name]['blocking_correction']=True    #Wether correction will be applied for partially blocked beams.
 options[filter_name]['blocking_threshold']=0.5      #Beams with blocking above this threshold will be eliminated.
 options[filter_name]['save']=True                   #Save blocking factor into qc_output dictionary.
@@ -237,7 +237,7 @@ options[filter_name]['use_terrain']=True                       #Wether AGL heigh
 #Interference filter            ==============================================================
 #This filter is not included in the Fuzzy-logic approach.
 filter_name='InterferenceFilter'
-ptions[filter_name]=dict()
+options[filter_name]=dict()
 options[filter_name]['flag']=False                             #Interference filter
 options[filter_name]['save']=True                              #Save filter aux fields to output?
 options[filter_name]['code']= 20
@@ -253,7 +253,7 @@ options[filter_name]['percent_ref_threshold']=0.6   #If more than this percent o
 
 #Dealiasing border filter            ==============================================================
 filter_name='DealiasingBorderFilter'
-ptions[filter_name]=dict()
+options[filter_name]=dict()
 options[filter_name]['flag']=True                              #Low Doppler Velocity filter
 options[filter_name]['nx']=3                                   #NX
 options[filter_name]['ny']=3                                   #NY

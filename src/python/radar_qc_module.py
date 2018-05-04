@@ -13,15 +13,12 @@ def main_qc( filename , options ) :
    import matplotlib.pyplot as plt
    import pyart
    from common_qc_tools  import qc  #Fortran code routines.
-   from common_qc_tools  import qc_const
    from scipy.interpolate import interp2d
-   import common_gdem_functions as cgf
    import netCDF4
    import os
 
    import matplotlib.pyplot as plt
 
-   qc_const.undef = options['undef']   #This set the undef value for the fortran routines.
    undef          = options['undef']   #This set the undef value for the rest of the script.
 
    output=dict() #Initialize output dictionary.
@@ -203,7 +200,7 @@ def main_qc( filename , options ) :
    # DEALIASING 
    #===================================================
 
-   if ( options['da_texture_filter']  :
+   if options['da_texture_filter']  :
 
       #Perform a texture filter before applying the dealiasing to the velocity field.
       #This is required to avoid applying the dealiasing algorithm to noisy data. 
@@ -214,10 +211,10 @@ def main_qc( filename , options ) :
       output['qc_v'][ output['da_dv_texture'] > options['da_texture_thr'] ] = conf['da_texture_code']
 
       #TODO: Check if a masked array is required here as the output
-      radar.fields[name_v]['data']=order_variable_inv(  radar , output['v'] , output['index'] , output['undef_v'] )  :
+      radar.fields[name_v]['data']=order_variable_inv(  radar , output['v'] , output['index'] , output['undef_v'] ) 
 
 
-   if ( options['ifdealias'] and (name_v in radar.fields) ) : 
+   if options['ifdealias'] and ( name_v in radar.fields ) : 
      
      start=time.time()
 
@@ -292,7 +289,7 @@ def main_qc( filename , options ) :
    # ECHO TOP FILTER  
    #===================================================
    filter_name='EchoTopFilter'
-   if ( options[filter_name]['flag'] & name_ref in radar.fields  :
+   if options[filter_name]['flag'] & name_ref in radar.fields  :
      start=time.time()
 
      if ( not computed_etfilter )     :
@@ -761,7 +758,7 @@ def main_qc( filename , options ) :
       output['cref'] = interference_filter ( output['cref'] , output['undef_ref'] , options['norainrefval'] 
                                             , radar.range['data'] , conf[filter_name] ) 
 
-      output['qc_ref'][ np.abs( tmp_ref - output['cref'] > 0 ]=options['filter_name']['code']
+      output['qc_ref'][ np.abs( tmp_ref - output['cref'] ) > 0 ]=options['filter_name']['code']
 
  
       print("The elapsed time in {:s} is {:2f}".format(filter_name,end-start) )  
@@ -1104,7 +1101,7 @@ def interference_filter ( ref , undef , min_ref , r , my_conf )  :
 
       for i in range(na)  :
 
-         tmp_mask=tmp_ref[i,:,k] != undef :
+         tmp_mask = tmp_ref[i,:,k] != undef 
          dbm= tmp_ref[i,:,k][tmp_mask]  - 20*np.log10( r[tmp_mask] ) - 2*att*r[tmp_mask]
          raux=r[tmp_mask]
 
@@ -1136,11 +1133,13 @@ def interference_filter ( ref , undef , min_ref , r , my_conf )  :
 
             #If the reflectivity is far from the fitted interference, and is greather than the fitted
             #Interference, then correct the power substracting the interference power.         
-            ref[i,:,k][ np.logical_and( !tmp_mask , z - zrayo > 0.0  ) ] = 10.0 * np.log10( z - zrayo )
+            tmp_mask2 = np.logical_and( np.logical_not( tmp_mask ), z - zrayo > 0.0  ) 
+            ref[i,:,k][ tmp_mask2 ] = ( 10.0*np.log10( z - zrayo ) )[ tmp_mask2 ]
  
             #If the reflectivity is far from the fitted interference, and is smaller than the fitted interference
             #then set that pixel as an undef pixel.
-            ref[i,:,k][ np.logical_and( !tmp_mask , z - zrayo <= 0.0 ) ] = undef
+           
+            ref[i,:,k][ np.logical_and( np.logical_not( tmp_mask ) , z - zrayo <= 0.0 ) ] = undef
 
    #Additional filter for the remaining echoes
    #consider cyclic boundary conditions in azimuth.

@@ -23,7 +23,7 @@ import conf
 
 
 # read in the file, create a RadarMapDisplay object
-filename = './cfrad.20091117_174348.000_to_20091117_174737.000_PAR_SUR.nc'
+filename='./cfrad.20091117_174348.000_to_20091117_174737.000_PAR_SUR.nc'
 
 #Performs QC operations based on options
 [radar , qc_output] = rqc.main_qc( filename , conf.options )
