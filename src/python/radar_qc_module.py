@@ -205,14 +205,18 @@ def main_qc( filename , options ) :
       #Perform a texture filter before applying the dealiasing to the velocity field.
       #This is required to avoid applying the dealiasing algorithm to noisy data. 
 
-      output['da_dv_texture']=qc.compute_texture(output['v'],na,nr,ne,output['undef_v'],options['da_texture_nx'],options['da_texture_ny'],options['da_texture_nz'])
+      #output['da_dv_texture']=qc.compute_texture(var=output['v'],na=na,nr=nr,ne=ne,
+      #                                           undef=output['undef_v'],
+      #                                           nx=options['da_texture_nx'],
+      #                                           ny=options['da_texture_ny'],
+      #                                           nz=options['da_texture_nz'])
 
-      output['v'][ output['da_dv_texture'] > options['da_texture_thr'] ] = output['undef_v']
-      output['qc_v'][ output['da_dv_texture'] > options['da_texture_thr'] ] = conf['da_texture_code']
+      #output['v'][ output['da_dv_texture'] > options['da_texture_thr'] ] = output['undef_v']
+      #output['qcv'][ output['da_dv_texture'] > options['da_texture_thr'] ] = options['da_texture_code']
 
       #TODO: Check if a masked array is required here as the output
-      radar.fields[name_v]['data']=order_variable_inv(  radar , output['v'] , output['index'] , output['undef_v'] ) 
-
+      #radar.fields[name_v]['data']=order_variable_inv(  radar , output['v'] , output['index'] , output['undef_v'] ) 
+      print('pepe')
 
    if options['ifdealias'] and ( name_v in radar.fields ) : 
      
@@ -289,7 +293,7 @@ def main_qc( filename , options ) :
    # ECHO TOP FILTER  
    #===================================================
    filter_name='EchoTopFilter'
-   if options[filter_name]['flag'] & name_ref in radar.fields  :
+   if options[filter_name]['flag'] & ( name_ref in radar.fields ) :
      start=time.time()
 
      if ( not computed_etfilter )     :
@@ -343,7 +347,7 @@ def main_qc( filename , options ) :
    # ECHO DEPTH FILTER 
    #===================================================
    filter_name='EchoDepthFilter'
-   if ( options[filter_name]['flag'] & name_ref in radar.fields ) :
+   if options[filter_name]['flag'] & ( name_ref in radar.fields ) :
      start=time.time()
 
      if ( not computed_etfilter )     :
@@ -409,12 +413,16 @@ def main_qc( filename , options ) :
 
    filter_name='LowElevFilter'
 
-   if options[filter_name]['flag']  & name_ref in radar.fields  :
+   if options[filter_name]['flag']  & ( name_ref in radar.fields ) :
 
       start=time.time()
 
+      nx=options[filter_name]['nx']
+      ny=options[filter_name]['ny']
+      nz=options[filter_name]['nz']
+
       #Get the angles that will be used based on the selected threshold.
-      tmp_angles= output['elevations'][ output['elevations'] < options[filter_name]['filter_minangle']]
+      tmp_angles= output['elevations'][ output['elevations'] < options[filter_name]['min_angle']]
       tmp_n_angles = np.size( tmp_angles )
 
       tmp_ref_smooth=qc.box_functions_2d(datain=output['ref'],na=na,nr=nr,ne=ne,undef=output['undef_ref']
@@ -422,7 +430,7 @@ def main_qc( filename , options ) :
      
       tmp_w=np.zeros([na,nr,ne]) 
       for ie in range( 0 , tmp_n_angles )  :
-         tmp_w[:,:,ie]=np.logical_and( output['ref'][:,:,ie] > configuration['norainrefval'] , tmp_ref_smooth[:,:,tmp_n_angles] <= options['norainrefval'] )
+         tmp_w[:,:,ie]=np.logical_and( output['ref'][:,:,ie] > options['norainrefval'] , tmp_ref_smooth[:,:,tmp_n_angles] <= options['norainrefval'] )
 
       if not options[filter_name]['force']   :
          output['wref']=output['wref'] + tmp_w * options[filter_name]['w']
@@ -433,7 +441,7 @@ def main_qc( filename , options ) :
          output['qcref'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
 
       end=time.time()
-      print("The elapsed time in {:s} is {:2f}".format("low elevation angle filter",end-start) )
+      print("The elapsed time in {:s} is {:2f}".format(filter_name,end-start) )
 
    #===================================================
    # RHO HV FILTER
@@ -494,7 +502,7 @@ def main_qc( filename , options ) :
 
    filter_name='RefSpeckleFilter'
 
-   if options[filter_name]['flag']  & name_ref in radar.fields :
+   if options[filter_name]['flag']  & ( name_ref in radar.fields ) :
 
        start=time.time()
 
@@ -539,7 +547,7 @@ def main_qc( filename , options ) :
 
    filter_name='DopplerSpeckleFilter'
 
-   if options[filter_name]['flag'] & name_dv in radar.fields :
+   if options[filter_name]['flag'] & ( name_v in radar.fields ) :
 
        start=time.time()
 
@@ -550,7 +558,7 @@ def main_qc( filename , options ) :
        nz=options[filter_name]['nz']
        tr=options[filter_name]['dvtr']
 
-       output['speckle_dv']=qc.box_functions_2d(datain=output['v'].data,na=na,nr=nr,ne=ne,undef=output['undef_v']
+       output['speckle_v']=qc.box_functions_2d(datain=output['v'].data,na=na,nr=nr,ne=ne,undef=output['undef_v']
                                                 ,boxx=nx,boxy=ny,boxz=nz,operation='COUN',threshold=tr)
 
 
@@ -568,7 +576,7 @@ def main_qc( filename , options ) :
           output['qcv'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
 
        if [ not options[filter_name]['save'] ] :
-          output.pop('speckle_dv')
+          output.pop('speckle_v')
 
        end=time.time()
 
@@ -580,7 +588,7 @@ def main_qc( filename , options ) :
 
    filter_name='Attenuation'
 
-   if options[filter_name]['flag'] & name_ref in radar.fields :
+   if options[filter_name]['flag'] & ( name_ref in radar.fields ) :
       
       start=time.time()
 
@@ -649,7 +657,7 @@ def main_qc( filename , options ) :
           output['cref'][ output['blocking'] > options[filter_name]['blocking_threshold']  ] = output['undef_ref']
           output['qcref'][ output['blocking'] > options[filter_name]['blocking_threshold'] ] = options[filter_name]['code']
 
-      if name_dv in radar.fields :
+      if name_v in radar.fields :
           output['cv'][ output['blocking']   > options[filter_name]['blocking_threshold']  ] = output['undef_v']
           output['qcv']  [ output['blocking'] > options[filter_name]['blocking_threshold'] ] = options[filter_name]['code']
 
@@ -666,7 +674,7 @@ def main_qc( filename , options ) :
 
    filter_name='DopplerNoiseFilter'
 
-   if options[filter_name]['flag'] & name_v in radar.fields :
+   if options[filter_name]['flag'] & ( name_v in radar.fields ) :
 
      start=time.time()
 
@@ -684,7 +692,7 @@ def main_qc( filename , options ) :
      tmp_dv_1=np.copy(output['v'])
      tmp_dv_2=np.copy(output['v'])
 
-     for ip in range(0,options[filter_name]['nfilterpass']) :
+     for ip in range(0,options[filter_name]['n_filter_pass']) :
 
        output['distance_1']=qc.compute_distance(tmp_dv_1,tmp_dv_2,na,nr,ne,output['undef_v'],nx,ny,nz)
 
@@ -710,7 +718,7 @@ def main_qc( filename , options ) :
 
      tmp_dv_2=np.copy(tmp_dv_1)
 
-     for ip in range(0,options[filter_name]['nfilterpass']) :
+     for ip in range(0,options[filter_name]['n_filter_pass']) :
 
        output['distance_2']=qc.compute_distance(tmp_dv_1,tmp_dv_2,na,nr,ne,output['undef_v'],nx2,ny2,nz2)
 
@@ -749,7 +757,7 @@ def main_qc( filename , options ) :
 
    filter_name = 'InterferenceFilter'
 
-   if options[filter_name]['flag'] & name_ref in radar.fields :
+   if options[filter_name]['flag'] & ( name_ref in radar.fields ) :
 
       start=time.time()
 
@@ -769,7 +777,7 @@ def main_qc( filename , options ) :
 
    filter_name='MissingRefFilter'
 
-   if options[filter_name]['flag'] & name_ref in radar.fields  :
+   if options[filter_name]['flag'] & ( name_ref in radar.fields ) :
 
       start=time.time()
 
@@ -799,7 +807,7 @@ def main_qc( filename , options ) :
 
    filter_name='ReflectivityTextureFilter'
 
-   if  options[filter_name]['flag'] & name_ref in radar.fields  : 
+   if  options[filter_name]['flag'] & ( name_ref in radar.fields ) : 
 
      nx=options[filter_name]['nx']
      ny=options[filter_name]['ny']
@@ -835,7 +843,7 @@ def main_qc( filename , options ) :
 
    filter_name='DopplerTextureFilter'
 
-   if  options[filter_name]['flag'] & name_ref in radar.fields  :
+   if  options[filter_name]['flag'] & ( name_ref in radar.fields ) :
 
      nx=options[filter_name]['nx']
      ny=options[filter_name]['ny']
@@ -874,7 +882,7 @@ def main_qc( filename , options ) :
 
    filter_name='LowDopplerFilter'
 
-   if options[filter_name]['flag'] & name_dv in radar.fields  :
+   if options[filter_name]['flag'] & ( name_v in radar.fields ) :
 
 
       #Compute the corresponding weigth.
@@ -898,7 +906,7 @@ def main_qc( filename , options ) :
             output['cref'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_ref']
             output['qcref'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
 
-      if name_dv in radar.fields   :
+      if name_v in radar.fields   :
          if not options[filter_name]['force']   :
 
             output['wv']=output['wv'] + tmp_w * options[filter_name]['w']
@@ -1032,7 +1040,7 @@ def order_variable ( radar , var_name , undef )  :
             order_time[iaz,ilev] = np.nanmean( timelev[ az_index ] )
             azimuth_exact[iaz,ilev] = np.nanmean( azlev[ az_index ] )
             azimuth_exact[iaz,ilev] = np.nanmean( azlev[ az_index ] )
-            order_index[iaz,ilev] = az_index[0]  #If multiple levels corresponds to a single azimuth / elevation chose the first one.
+            order_index[iaz,ilev] = np.where(az_index)[0][0] #If multiple levels corresponds to a single azimuth / elevation chose the first one.
 
    order_var[ np.isnan( order_var ) ]= undef
    order_index[ np.isnan( order_index ) ]=undef
@@ -1057,16 +1065,15 @@ def order_variable_inv (  radar , var , order_index , undef )  :
 
     nb=radar.azimuth['data'].shape[0]
 
-    output_var=np.ones((na,nb)) * undef 
-       
-
+    output_var=np.ones((nb,nr)) * undef 
+    
     for ia in range(0,na)  :
 
        for ie in range(0,ne)  :
 
           if ( not order_index[ia,ie] == undef )  :
      
-             output_var[ia,order_index[ia,ie]]=var[ia,:,ie] 
+              output_var[int(order_index[ia,ie]),:]=var[ia,:,ie] 
 
     return output_var
 

@@ -276,6 +276,7 @@ options[filter_name]['ny2']=10                                 #NY
 options[filter_name]['nz2']=0                                  #NZ
 options[filter_name]['threshold_1']=4
 options[filter_name]['threshold_2']=15       
+options[filter_name]['n_filter_pass']=3                        #Filter repetition
 options[filter_name]['save']=True                              #Save filter aux fields to output?
 options[filter_name]['ify_1']=np.array([0,0,1,1])              #Importance function y
 options[filter_name]['ifx_1']=np.array([0,2,6,10])             #Importance function x

@@ -9,7 +9,7 @@ export F2PY=f2py
 #export F2PY=f2py3
 
 export FFLAGS='-fopenmp -lgomp -O3 -fPIC'
-#export FFLAGS='-g -fPIC'
+#export FFLAGS='-g -fbacktrace -fPIC'
 
 rm *.o *.mod *.so
 
