@@ -28,9 +28,12 @@ def main_qc( filename , options ) :
 #  Constant parameters
 
    #Shortcut to variable names
-   name_v=options['v_name']
-   name_ref=options['ref_name']
-   name_rho=options['rho_name']
+   name_v   =options['name_v']
+   name_ref =options['name_ref']
+   name_rho =options['name_rho']
+
+   name_cref=options['name_cref']
+   name_cv  =options['name_cv']
 
    radar = pyart.io.read(filename)
 
@@ -56,7 +59,7 @@ def main_qc( filename , options ) :
    if name_ref in radar.fields :
         start=time.time()
 
-        output['undef_ref']=radar.fields[options['ref_name']]['_FillValue']
+        output['undef_ref']=radar.fields[name_ref]['_FillValue']
 
         [ output['ref'] , output['az'] , output['level'] , output['time'] , output['index'] , output['az_exact'] ]=order_variable( radar , name_ref , output['undef_ref'] )
         na=output['ref'].shape[0]
@@ -86,7 +89,7 @@ def main_qc( filename , options ) :
 
         start=time.time()
 
-        output['undef_v']=radar.fields[options['v_name']]['_FillValue']
+        output['undef_v']=radar.fields[ name_v ]['_FillValue']
 
         [ output['v'] , output['az'] , output['level'] , output['time'] , output['index'] , output['az_exact']  ]=order_variable( radar , name_v , output['undef_v']  )
  
@@ -124,6 +127,7 @@ def main_qc( filename , options ) :
    [ output['altitude'] , dm , dm , dm , dm , dm ] = order_variable( radar , 'altitude' , undef )
    [ output['x']        , dm , dm , dm , dm , dm ] = order_variable( radar , 'x' , undef ) 
    [ output['y']        , dm , dm , dm , dm , dm ] = order_variable( radar , 'y' , undef )
+
 
    #Compute distance to radar for the first azimuth (we assume that distance to radar will be the same.
    #for all other azimuths.
@@ -200,51 +204,62 @@ def main_qc( filename , options ) :
    # DEALIASING 
    #===================================================
 
-   if options['da_texture_filter']  :
+   filter_name='Dealiasing'
+   if options[filter_name]['flag']  and ( name_v in radar.fields ) :
+      start=time.time()
 
-      #Perform a texture filter before applying the dealiasing to the velocity field.
-      #This is required to avoid applying the dealiasing algorithm to noisy data. 
+      if options[filter_name]['texture_filter']  :
 
-      #output['da_dv_texture']=qc.compute_texture(var=output['v'],na=na,nr=nr,ne=ne,
-      #                                           undef=output['undef_v'],
-      #                                           nx=options['da_texture_nx'],
-      #                                           ny=options['da_texture_ny'],
-      #                                           nz=options['da_texture_nz'])
+         #Perform a texture filter before applying the dealiasing to the velocity field.
+         #This is required to avoid applying the dealiasing algorithm to noisy data. 
 
-      #output['v'][ output['da_dv_texture'] > options['da_texture_thr'] ] = output['undef_v']
-      #output['qcv'][ output['da_dv_texture'] > options['da_texture_thr'] ] = options['da_texture_code']
+         output['dv_texture']=qc.compute_texture(var=output['v'],na=na,nr=nr,ne=ne,
+                                                 undef=output['undef_v'],
+                                                 nx=options[filter_name]['nx'],
+                                                 ny=options[filter_name]['ny'],
+                                                 nz=options[filter_name]['nz'])
 
-      #TODO: Check if a masked array is required here as the output
-      #radar.fields[name_v]['data']=order_variable_inv(  radar , output['v'] , output['index'] , output['undef_v'] ) 
-      print('pepe')
+         output['cv'][ output['dv_texture'] > options[filter_name]['texture_thr'] ] = output['undef_v']
+         output['qcv'][ output['dv_texture'] > options[filter_name]['texture_thr'] ] = options[filter_name]['texture_code']
 
-   if options['ifdealias'] and ( name_v in radar.fields ) : 
-     
-     start=time.time()
+         print( output['index'] )
+         print( output['time'] )
 
-     #Uso una de las funciones de dealiasing de pyart con los parametros por defecto
-     winddealias=pyart.correct.region_dealias.dealias_region_based(radar, interval_splits=options['da_interval_split'],interval_limits=None, 
-                 skip_between_rays=options['da_skip_between_ray'], skip_along_ray=options['da_skip_along_ray'],centered=True,nyquist_vel=None,
-                 check_nyquist_uniform=True,gatefilter=False,rays_wrap_around=True,keep_original=False,set_limits=True,
-                 vel_field=name_v,corr_vel_field=None)
+         tmp = order_variable_inv(  radar , output['v'] , output['index'] , output['undef_v'] )
 
-     #Add wind dealias to the radar objetc.
-     radar.fields['Vda']                  = winddealias
-     radar.fields['Vda']['coordinates']   = radar.fields[name_v]['coordinates']
-     radar.fields['Vda']['units']         = radar.fields[name_v]['units']
-     radar.fields['Vda']['long_name']     = radar.fields[name_v]['long_name']
-     radar.fields['Vda']['standard_name'] = radar.fields[name_v]['standard_name']
+         radar.fields[ name_cv ] = dict()
 
-     output['v']=np.copy( output['cv'] )
-     #Re-order dealiased wind data.
-     [ output['cv'] , output['az'] , output['level'] , output['time'] , output['index'] , output['az_exact']  ]=order_variable( radar , 'Vda' , output['undef_v']  )
+         radar.fields[ name_cv ] = radar.fields[ name_v ]
 
-     mask=np.logical_and( output['cv'] != output['v'] , output['cv'] != output['undef_v'] )
-     output['qcv'][ mask ]=QCCODE_DEALIAS
+         radar.fields[name_cv]['data']= np.ma.masked_array( tmp , tmp==output['undef_v'] ) 
 
-     end=time.time()
+      ##Uso una de las funciones de dealiasing de pyart con los parametros por defecto
+      #radar.fields[ name_cv ]['data']=pyart.correct.region_dealias.dealias_region_based(radar,interval_splits=options[filter_name]['interval_split'],interval_limits=None, 
+      #           skip_between_rays=options[filter_name]['skip_between_ray'],skip_along_ray=options[filter_name]['skip_along_ray'],centered=True,nyquist_vel=None,
+      #           check_nyquist_uniform=True,gatefilter=False,rays_wrap_around=True,keep_original=False,set_limits=True,
+      #           vel_field=name_cv,corr_vel_field=None)['data']
 
-     print("The elapsed time in {:s} is {:2f}".format("dealiasing",end-start) )
+      ##Replace cv wind by dealiased winds.
+      ##radar.fields[ name_cv ]['data'] = winddealias['data']
+
+      ##Re-order dealiased wind data.
+      [ output['cv'] , output['az'] , output['level'] , output['time'] , output['index'] , output['az_exact']  ]=order_variable( radar , name_cv , output['undef_v']  )
+    
+      #mask=np.logical_and( output['cv'] != output['v'] , output['cv'] != output['undef_v'] )
+      #output['qcv'][ mask ]=options[filter_name]['code']
+
+      end=time.time()
+
+      print("The elapsed time in {:s} is {:2f}".format("dealiasing",end-start) )
+
+
+   #===================================================
+   # MODEL FILTER 
+   #===================================================
+
+     #TODO
+     #TODO
+      
 
    #===================================================
    # DEALIASING BORDER FILTER
@@ -272,7 +287,7 @@ def main_qc( filename , options ) :
                                                                                nboxz=options[filter_name]['nz'],edge_tr=v_nyquist )
 
      #Find the pixels which are close to a dealiased region but which has not been corrected by the dealiasing.
-     tmp_w = np.logical_and( ouput['edge_mask'] , tmp_diff == 0 ).astype(int) 
+     tmp_w = np.logical_and( output['edge_mask'] , tmp_diff == 0 ).astype(int) 
 
      if not options[filter_name]['force']   :   
        output['wv']=output['wv'] + tmp_w * options[filter_name]['w']
@@ -459,7 +474,7 @@ def main_qc( filename , options ) :
 
       if name_rho in radar.fields  :
 
-         output['undef_rho']=radar.fields[options['rho_name']]['_FillValue']
+         output['undef_rho']=radar.fields[ name_rho ]['_FillValue']
 
          [ output['rho'] , dm , dm , dm , dm , dm  ]=order_variable( radar , name_rho , output['undef_rho']  )
 
@@ -694,7 +709,8 @@ def main_qc( filename , options ) :
 
      for ip in range(0,options[filter_name]['n_filter_pass']) :
 
-       output['distance_1']=qc.compute_distance(tmp_dv_1,tmp_dv_2,na,nr,ne,output['undef_v'],nx,ny,nz)
+       output['distance_1']=qc.compute_distance(tmp_dv_1,tmp_dv_2,nx=na,ny=nr,nz=ne,
+                                                undef=output['undef_v'],nx_box=nx,ny_box=ny,nz_box=nz)
 
        tmp_dv_2=np.copy(output['v']) 
 
@@ -702,7 +718,7 @@ def main_qc( filename , options ) :
 
      #Compute the corresponding weigth.
      tmp_w = qc.multiple_1d_interpolation( field=output['distance_1'], nx=na , ny=nr , nz=ne
-                                           , undef=output['undef_v'] , xx=options[filter_name]['ifx']
+                                           , undef=output['undef_v'] , xx=options[filter_name]['ifx_1']
                                            , yy=options[filter_name]['ify_1'] , nxx=np.size(options[filter_name]['ifx_1']) )
 
 
@@ -714,13 +730,14 @@ def main_qc( filename , options ) :
        output['qcv'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
 
 
-     tmp_dv_1[ output['distance_1'] > tr_1 | output['distance_1']==output['undef_v'] ]=ouput['undef_v']
+     tmp_dv_1[ np.logical_or( output['distance_1'] > tr_1 , output['distance_1']==output['undef_v'] ) ]=output['undef_v']
 
      tmp_dv_2=np.copy(tmp_dv_1)
 
      for ip in range(0,options[filter_name]['n_filter_pass']) :
 
-       output['distance_2']=qc.compute_distance(tmp_dv_1,tmp_dv_2,na,nr,ne,output['undef_v'],nx2,ny2,nz2)
+       output['distance_2']=qc.compute_distance(tmp_dv_1,tmp_dv_2,nx=na,ny=nr,nz=ne,
+                                                undef=output['undef_v'],nx_box=nx2,ny_box=ny2,nz_box=nz2)
 
        tmp_dv_2=np.copy(output['v'])
 
@@ -766,7 +783,7 @@ def main_qc( filename , options ) :
       output['cref'] = interference_filter ( output['cref'] , output['undef_ref'] , options['norainrefval'] 
                                             , radar.range['data'] , conf[filter_name] ) 
 
-      output['qc_ref'][ np.abs( tmp_ref - output['cref'] ) > 0 ]=options['filter_name']['code']
+      output['qc_ref'][ np.abs( tmp_ref - output['cref'] ) > 0 ]=options[filter_name]['code']
 
  
       print("The elapsed time in {:s} is {:2f}".format(filter_name,end-start) )  
@@ -781,8 +798,9 @@ def main_qc( filename , options ) :
 
       start=time.time()
 
-      options['missing_mask'] = qc.detect_missing(  output['ref'],na,nr,ne,output['undef_ref'],output['norainrefval']
-                                                   ,options[filter_name]['threshold'] , output[filter_name]['nmissing_max'] )
+      options['missing_mask'] = qc.detect_missing(  output['ref'],na=na,nr=nr,ne=ne,undef=output['undef_ref']
+                                                   ,min_ref=options['norainrefval'],threshold=options[filter_name]['threshold'] 
+                                                   ,nmissing_max=options[filter_name]['nmissing_max'] )
 
       tmp_w = options['missing_mask'].astype(int)
 
@@ -833,7 +851,6 @@ def main_qc( filename , options ) :
 
      end=time.time()
 
-     #TODO:Consider the possibility to add a flag to apply this filter to the doppler velocity as well.
 
      print("The elapsed time in {:s} is {:2f}".format(filter_name,end-start) )
 
@@ -892,9 +909,9 @@ def main_qc( filename , options ) :
 
       #The filter will not produce any effect below a certain height
       if  options[filter_name]['use_terrain']    :
-          tmp_w[ np.logical_and( mask , output['altitude_agl'] < options['height_thr']  ) ] = 0.0
+          tmp_w[ output['altitude_agl'] < options[filter_name]['height_thr'] ] = 0.0
       else                                    :
-          tmp_w[ np.logical_and( mask , output['altitude'] < options['height_thr']  ) ] = 0.0
+          tmp_w[ output['altitude'] < options[filter_name]['height_thr'] ] = 0.0
 
       if name_ref in radar.fields   :
          if not options[filter_name]['force']   :
@@ -917,7 +934,6 @@ def main_qc( filename , options ) :
             output['qcv'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
 
 
-
       end=time.time()
 
       print("The elapsed time in {:s} is {:2f}".format(filter_name,end-start) )
@@ -938,7 +954,26 @@ def main_qc( filename , options ) :
    # ADD CORRECTED DATA TO RADAR OBJECT
    #===================================================
 
-   #TODO
+   if name_ref in radar.fields :
+
+      tmp=order_variable_inv( radar , output['cref'] , output['index'] , output['undef_ref'] )
+
+      radar.fields[ name_cref ] = dict()
+
+      radar.fields[ name_cref ] = radar.fields[ name_ref ] 
+
+      radar.fields[ name_cref ]['data']=np.ma.masked_array(tmp , tmp==output['undef_ref'] )
+
+   if name_v in radar.fields :
+
+      tmp=order_variable_inv( radar , output['cv'] , output['index'] , output['undef_v'] )
+
+      radar.fields[ name_cv ]= dict()
+
+      radar.fields[ name_cv ]= radar.fields[ name_v ] 
+
+      radar.fields[ name_cv ]['data']=np.ma.masked_array(tmp , tmp==output['undef_v'] )
+
 
    #===================================================
    # END
@@ -1017,6 +1052,10 @@ def order_variable ( radar , var_name , undef )  :
    for ilev in range(0, nel) :
 
       levmask= radar.elevation['data'] == levels[ilev] 
+
+      min_index = np.min( np.where( levmask ) )
+
+
       #Find the azimuths corresponding to the current elevation.
       azlev=azimuth[ levmask ]
       timelev=time[ levmask ]
@@ -1030,6 +1069,7 @@ def order_variable ( radar , var_name , undef )  :
          order_var[0,:,ilev] = np.nanmean( varlev[az_index,:] , 0 )
          order_time[0,ilev] = np.nanmean( timelev[ az_index ] )
          azimuth_exact[0,ilev] = np.nanmean( azlev[ az_index ] )
+         order_index[0,ilev]   = np.where( az_index )[0][0] + min_index
 
       #Para los que vienen despues.
       for iaz in range(1,naz) :
@@ -1039,8 +1079,7 @@ def order_variable ( radar , var_name , undef )  :
             order_var[iaz,:,ilev] = np.nanmean( varlev[az_index,:] , 0 )
             order_time[iaz,ilev] = np.nanmean( timelev[ az_index ] )
             azimuth_exact[iaz,ilev] = np.nanmean( azlev[ az_index ] )
-            azimuth_exact[iaz,ilev] = np.nanmean( azlev[ az_index ] )
-            order_index[iaz,ilev] = np.where(az_index)[0][0] #If multiple levels corresponds to a single azimuth / elevation chose the first one.
+            order_index[iaz,ilev] = np.where(az_index)[0][0] + min_index #If multiple levels corresponds to a single azimuth / elevation chose the first one.
 
    order_var[ np.isnan( order_var ) ]= undef
    order_index[ np.isnan( order_index ) ]=undef

@@ -17,6 +17,8 @@ import netCDF4
 import radar_qc_module as rqc
 import os
 
+import qc_plot_tools as qcpt
+
 import conf
 
 #=======================================
@@ -30,8 +32,12 @@ filename='./cfrad.20091117_174348.000_to_20091117_174737.000_PAR_SUR.nc'
 
 print('End of QC')
 
-plt.figure()
-plt.pcolor(qc_output['x'][:,:,0],qc_output['y'][:,:,0],qc_output['blocking'][:,:,0])
-plt.colorbar()
-plt.show()
+
+qcpt.plot_dealiasing( qc_output , conf.options , figname='DealiasingTest.png')
+
+
+
+
+
+
 

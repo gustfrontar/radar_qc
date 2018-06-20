@@ -23,14 +23,26 @@ options = {}
 
 #General
 
-options['ref_name']='dBZ'            #Reflectivity
-options['cref_name']='CdBZ'          #Corrected reflectivity (qc output)
-options['v_name']='V'                #Dopper velocity
-options['cv_name']='CV'              #Corrected wind (qc ouput)
-options['rho_name']='RhoHV'          #Rho HV
+options['name_ref'] ='dBZ'              #Reflectivity
+options['name_cref']='CdBZ'             #Corrected reflectivity (qc output)
+options['name_v']   ='V'                #Dopper velocity
+options['name_cv']  ='CV'               #Corrected wind (qc ouput)
+options['name_rho'] ='RhoHV'            #Rho HV
+
+options['name_model_ref_max']='dBZ_model_max'   #Maximum reflectivity from the model ensemble.
+options['name_model_ref_min']='dBZ_model_min'   #Minimum reflectivity from the model ensemble.
+options['name_model_ref_std']='dBZ_model_std'   #Standard deviation of reflectivity from the model ensemble.
+options['name_model_v_max']  ='V_model_max'     #Maximum doppler velocity from the model ensemble.
+options['name_model_v_min']  ='V_model_min'     #Minimum doppler velocity from the model ensemble.
+options['name_model_v_std']  ='V_model_std'     #Standard deviation of reflectivity from the model ensemble.
 
 options['norainrefval']=-0.1
 options['undef']=-9.99e9
+
+#I/O options
+
+options['qced_to_file']=False        #Write QCed data to the input file.
+
 
 #Fuzzy logic parameter
 
@@ -43,18 +55,23 @@ options['w_tr']=0.5                  #When total normalized weight is greather t
 #The weight is computed for each filter based on the importance function evaluated at the filter value.
 #The relative importance of each filter is given by the importance_w.
 
-#Dealiasing parameters (pyart)
-options['ifdealias']=False
 
-options['da_interval_split']=3
-options['da_skip_between_ray']=10
-options['da_skip_along_ray']=10
-options['da_texture_filter']=True    #Wether a texture filter will be applied before performing dealiasing.
-options['da_texture_thr']=1          #Texture filter threshold.
-options['da_texture_nx']=3
-options['da_texture_ny']=3
-options['da_texture_nz']=0
-options['da_texture_code']=44
+#Dealiasing fliter parameters =============================================================
+#Dealiasing parameters (pyart)
+filter_name='Dealiasing'
+
+options[filter_name]=dict()
+options[filter_name]['flag']=True
+options[filter_name]['interval_split']=3
+options[filter_name]['skip_between_ray']=10
+options[filter_name]['skip_along_ray']=10
+options[filter_name]['texture_filter']=True    #Wether a texture filter will be applied before performing dealiasing.
+options[filter_name]['texture_thr']=1          #Texture filter threshold.
+options[filter_name]['nx']=3
+options[filter_name]['ny']=3
+options[filter_name]['nz']=0
+options[filter_name]['texture_code']=44
+options[filter_name]['code']=43
 
 #Rho filter parameters  ===================================================================== 
 
@@ -70,6 +87,29 @@ options[filter_name]['ify']=np.array([1,1,0,0])             #Importance function
 options[filter_name]['ifx']=np.array([-2,0.5,0.8,2])        #Importance function x
 options[filter_name]['w']=1.0                               #Relative parameter weigth. 
 options[filter_name]['code']=10
+options[filter_name]['force']=False                         #Wether we will reject data based on this filter alone.
+options[filter_name]['force_value']=0.5                     #Threshold for force
+
+#Model filter parameters  ===================================================================== 
+
+filter_name='ModelFilter'
+options[filter_name]=dict()
+options[filter_name]['flag']=False                          #Enable / disable filter
+
+
+options[filter_name]['Enable_for_dBZ']=True                 #Enable / disable for reflectivity (filter has to be enabled)
+options[filter_name]['Enable_for_Vr']=True                  #Enable / disable for doppler velocity (filter has to be enabled)
+options[filter_name]['nx']=2                                #NX (smooth parameter)
+options[filter_name]['ny']=2                                #NY (smooth parameter)
+options[filter_name]['nz']=0                                #NZ (smooth parameter)
+options[filter_name]['ref_error']=5.0                       #Estimated obs error for reflectivity
+options[filter_name]['v_error']=2.0                         #Estimated obs error for doppler velocity
+options[filter_name]['save']=True                           #Save filter aux fields to output?
+options[filter_name]['uncertainty_metric']=0                # 0 - use range (max/min) , 1 - use spread
+options[filter_name]['ify']=np.array([1,1,0,0,1,1])         #Importance function y
+options[filter_name]['ifx']=np.array([-100,-2,-1,1,2,100])  #Importance function x
+options[filter_name]['w']=1.0                               #Relative parameter weigth. 
+options[filter_name]['code']=25
 options[filter_name]['force']=False                         #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                     #Threshold for force
 
@@ -114,7 +154,7 @@ options[filter_name]['force_value']=0.5                     #Threshold for force
 
 filter_name='RefSpeckleFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=True                           #Enable / disable filter
+options[filter_name]['flag']=False                           #Enable / disable filter
 
 options[filter_name]['nx']=2                                #NX
 options[filter_name]['ny']=2                                #NY
@@ -132,7 +172,7 @@ options[filter_name]['force_value']=0.5                     #Threshold for force
 
 filter_name='DopplerSpeckleFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=True                           #Enable / disable filter
+options[filter_name]['flag']=False                           #Enable / disable filter
 options[filter_name]['nx']=2                                #NX
 options[filter_name]['ny']=2                                #NY
 options[filter_name]['nz']=0                                #NZ
@@ -180,7 +220,7 @@ options[filter_name]['force_value']=0.5                     #Threshold for force
 #Attenuation parameters           ==============================================================
 filter_name='Attenuation'
 options[filter_name]=dict()
-options[filter_name]['flag']=False    #Attenuation filter
+options[filter_name]['flag']=False                          #Enable / Disable filter
 options[filter_name]['nx']=0                                #NX
 options[filter_name]['ny']=0                                #NY
 options[filter_name]['nz']=0                                #NZ
@@ -197,16 +237,16 @@ options[filter_name]['force_value']=0.5                     #Threshold for force
 #This filter is not part of the Fuzzy logic algorithm.
 filter_name='BlockingFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=False                  #Blocking filter
-options[filter_name]['blocking_correction']=True    #Wether correction will be applied for partially blocked beams.
-options[filter_name]['blocking_threshold']=0.5      #Beams with blocking above this threshold will be eliminated.
-options[filter_name]['save']=True                   #Save blocking factor into qc_output dictionary.
+options[filter_name]['flag']=False                          #Enable / Disable filter
+options[filter_name]['blocking_correction']=True            #Wether correction will be applied for partially blocked beams.
+options[filter_name]['blocking_threshold']=0.5              #Beams with blocking above this threshold will be eliminated.
+options[filter_name]['save']=True                           #Save blocking factor into qc_output dictionary.
 
 
 #Low elevation angles filter parameters ==============================================================
 filter_name='LowElevFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=True                           #Low Elevation angle filter
+options[filter_name]['flag']=False                           #Enable / Disable filter
 options[filter_name]['nx']=0                                #NX
 options[filter_name]['ny']=0                                #NY
 options[filter_name]['nz']=0                                #NZ
@@ -220,11 +260,11 @@ options[filter_name]['force_value']=0.5                     #Threshold for force
 #Low doppler velocity filter            ==============================================================
 filter_name='LowDopplerFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=True                              #Low Doppler Velocity filter
-options[filter_name]['nx']=0                                   #NX
-options[filter_name]['ny']=0                                   #NY
-options[filter_name]['nz']=0                                   #NZ
-options[filter_name]['save']=True                              #Save filter aux fields to output?
+options[filter_name]['flag']=False                           #Enable / Disable filter
+options[filter_name]['nx']=0                                #NX
+options[filter_name]['ny']=0                                #NY
+options[filter_name]['nz']=0                                #NZ
+options[filter_name]['save']=True                           #Save filter aux fields to output?
 options[filter_name]['ify']=np.array([0,0,1,1,0,0])            #Importance function y
 options[filter_name]['ifx']=np.array([-200,-1,-0.5,0.5,1,200]) #Importance function x
 options[filter_name]['w']=1.0                                  #Relative parameter weigth. 
@@ -238,23 +278,23 @@ options[filter_name]['use_terrain']=True                       #Wether AGL heigh
 #This filter is not included in the Fuzzy-logic approach.
 filter_name='InterferenceFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=False                             #Interference filter
+options[filter_name]['flag']=False                             #Enable / Disable filter
 options[filter_name]['save']=True                              #Save filter aux fields to output?
 options[filter_name]['code']= 20
-options[filter_name]['offset']=100                  #Number of ranges that will be discarded in the interference fit process.
-options[filter_name]['att']=0.01                    #Atmospheric gases attenuation constant.
-options[filter_name]['npass_filter']=3              #Number of passes of the azimuthal continuity filter.
-options[filter_name]['percent_valid_threshold']=0.4 #Rays with valid pixels over this percentaje will be examinated.
-options[filter_name]['corr_threshold']=0.6          #Rays that correlates well with the interference pattern will be flagged as 
-                                                    #contaminated.
-options[filter_name]['dbz_threshold']=5.0           #Reflectivity threshold to count pixels which are close to the interference pattern.
-options[filter_name]['percent_ref_threshold']=0.6   #If more than this percent of the ray correlates well with the interference pattern, then
-                                                    #the ray is flagged as contaminated by interference.
+options[filter_name]['offset']=100                             #Number of ranges that will be discarded in the interference fit process.
+options[filter_name]['att']=0.01                               #Atmospheric gases attenuation constant.
+options[filter_name]['npass_filter']=3                         #Number of passes of the azimuthal continuity filter.
+options[filter_name]['percent_valid_threshold']=0.4            #Rays with valid pixels over this percentaje will be examinated.
+options[filter_name]['corr_threshold']=0.6                     #Rays that correlates well with the interference pattern will be flagged as 
+                                                               #contaminated.
+options[filter_name]['dbz_threshold']=5.0                      #Reflectivity threshold to count pixels which are close to the interference pattern.
+options[filter_name]['percent_ref_threshold']=0.6              #If more than this percent of the ray correlates well with the interference pattern, then
+                                                               #the ray is flagged as contaminated by interference.
 
 #Dealiasing border filter            ==============================================================
 filter_name='DealiasingBorderFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=True                              #Low Doppler Velocity filter
+options[filter_name]['flag']=False                              #Enable / Disable filter
 options[filter_name]['nx']=3                                   #NX
 options[filter_name]['ny']=3                                   #NY
 options[filter_name]['nz']=3                                   #NZ
@@ -267,7 +307,7 @@ options[filter_name]['force_value']=0.5                        #Threshold for fo
 #Doppler Noise filter            ==============================================================
 filter_name='DopplerNoiseFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=True                              #Low Doppler Velocity filter
+options[filter_name]['flag']=False                              #Enable / Disable filter
 options[filter_name]['nx']=1                                   #NX
 options[filter_name]['ny']=1                                   #NY
 options[filter_name]['nz']=0                                   #NZ
@@ -287,8 +327,20 @@ options[filter_name]['code']= 1
 options[filter_name]['force']=False                            #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                        #Threshold for force
 
-#Detect missing parameters
-options['ifmissfilter']=False   #Missing values filter
+#Missing reflectivity filter ==================================================================
+#Detects holes in high reflectivity regions. 
+filter_name='MissingRefFilter'
+options[filter_name]=dict()
+options[filter_name]['flag']=False                              #Enable / Disable filter
+options[filter_name]['threshold']=10                           #Threshold to detect sudden jumps in reflectivity between two consecutive pixels.
+options[filter_name]['nmissing_max']=15                        #Maximum number of missing values in a radial beam.
+options[filter_name]['save']=True                              #Save filter aux fields to output?
+options[filter_name]['w']=1.0                                  #Relative parameter weigth. 
+options[filter_name]['code']= 22
+options[filter_name]['force']=False                            #Wether we will reject data based on this filter alone.
+options[filter_name]['force_value']=0.5                        #Threshold for force
+
+
 
 #Topography parameters
 
