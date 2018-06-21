@@ -61,11 +61,11 @@ options['w_tr']=0.5                  #When total normalized weight is greather t
 filter_name='Dealiasing'
 
 options[filter_name]=dict()
-options[filter_name]['flag']=True
+options[filter_name]['flag']=False
 options[filter_name]['interval_split']=3
 options[filter_name]['skip_between_ray']=10
 options[filter_name]['skip_along_ray']=10
-options[filter_name]['texture_filter']=True    #Wether a texture filter will be applied before performing dealiasing.
+options[filter_name]['texture_filter']=False    #Wether a texture filter will be applied before performing dealiasing.
 options[filter_name]['texture_thr']=1          #Texture filter threshold.
 options[filter_name]['nx']=3
 options[filter_name]['ny']=3
@@ -154,7 +154,7 @@ options[filter_name]['force_value']=0.5                     #Threshold for force
 
 filter_name='RefSpeckleFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=False                           #Enable / disable filter
+options[filter_name]['flag']=True                           #Enable / disable filter
 
 options[filter_name]['nx']=2                                #NX
 options[filter_name]['ny']=2                                #NY
@@ -172,7 +172,7 @@ options[filter_name]['force_value']=0.5                     #Threshold for force
 
 filter_name='DopplerSpeckleFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=False                           #Enable / disable filter
+options[filter_name]['flag']=False                          #Enable / disable filter
 options[filter_name]['nx']=2                                #NX
 options[filter_name]['ny']=2                                #NY
 options[filter_name]['nz']=0                                #NZ
@@ -246,25 +246,25 @@ options[filter_name]['save']=True                           #Save blocking facto
 #Low elevation angles filter parameters ==============================================================
 filter_name='LowElevFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=False                           #Enable / Disable filter
-options[filter_name]['nx']=0                                #NX
-options[filter_name]['ny']=0                                #NY
-options[filter_name]['nz']=0                                #NZ
-options[filter_name]['save']=True                           #Save filter aux fields to output?
-options[filter_name]['min_angle']=2.0                       #Minimun angle
-options[filter_name]['w']=1.0                               #Relative parameter weigth. 
+options[filter_name]['flag']=False                             #Enable / Disable filter
+options[filter_name]['nx']=0                                   #NX
+options[filter_name]['ny']=0                                   #NY
+options[filter_name]['nz']=0                                   #NZ
+options[filter_name]['save']=True                              #Save filter aux fields to output?
+options[filter_name]['min_angle']=2.0                          #Minimun angle
+options[filter_name]['w']=1.0                                  #Relative parameter weigth. 
 options[filter_name]['code']=18
-options[filter_name]['force']=False                         #Wether we will reject data based on this filter alone.
-options[filter_name]['force_value']=0.5                     #Threshold for force
+options[filter_name]['force']=False                            #Wether we will reject data based on this filter alone.
+options[filter_name]['force_value']=0.5                        #Threshold for force
 
 #Low doppler velocity filter            ==============================================================
 filter_name='LowDopplerFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=False                           #Enable / Disable filter
-options[filter_name]['nx']=0                                #NX
-options[filter_name]['ny']=0                                #NY
-options[filter_name]['nz']=0                                #NZ
-options[filter_name]['save']=True                           #Save filter aux fields to output?
+options[filter_name]['flag']=False                             #Enable / Disable filter
+options[filter_name]['nx']=0                                   #NX
+options[filter_name]['ny']=0                                   #NY
+options[filter_name]['nz']=0                                   #NZ
+options[filter_name]['save']=True                              #Save filter aux fields to output?
 options[filter_name]['ify']=np.array([0,0,1,1,0,0])            #Importance function y
 options[filter_name]['ifx']=np.array([-200,-1,-0.5,0.5,1,200]) #Importance function x
 options[filter_name]['w']=1.0                                  #Relative parameter weigth. 
@@ -294,7 +294,7 @@ options[filter_name]['percent_ref_threshold']=0.6              #If more than thi
 #Dealiasing border filter            ==============================================================
 filter_name='DealiasingBorderFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=False                              #Enable / Disable filter
+options[filter_name]['flag']=False                             #Enable / Disable filter
 options[filter_name]['nx']=3                                   #NX
 options[filter_name]['ny']=3                                   #NY
 options[filter_name]['nz']=3                                   #NZ
@@ -307,7 +307,7 @@ options[filter_name]['force_value']=0.5                        #Threshold for fo
 #Doppler Noise filter            ==============================================================
 filter_name='DopplerNoiseFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=False                              #Enable / Disable filter
+options[filter_name]['flag']=False                             #Enable / Disable filter
 options[filter_name]['nx']=1                                   #NX
 options[filter_name]['ny']=1                                   #NY
 options[filter_name]['nz']=0                                   #NZ
@@ -331,7 +331,7 @@ options[filter_name]['force_value']=0.5                        #Threshold for fo
 #Detects holes in high reflectivity regions. 
 filter_name='MissingRefFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=False                              #Enable / Disable filter
+options[filter_name]['flag']=False                             #Enable / Disable filter
 options[filter_name]['threshold']=10                           #Threshold to detect sudden jumps in reflectivity between two consecutive pixels.
 options[filter_name]['nmissing_max']=15                        #Maximum number of missing values in a radial beam.
 options[filter_name]['save']=True                              #Save filter aux fields to output?

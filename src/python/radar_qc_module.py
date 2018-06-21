@@ -222,10 +222,7 @@ def main_qc( filename , options ) :
          output['cv'][ output['dv_texture'] > options[filter_name]['texture_thr'] ] = output['undef_v']
          output['qcv'][ output['dv_texture'] > options[filter_name]['texture_thr'] ] = options[filter_name]['texture_code']
 
-         print( output['index'] )
-         print( output['time'] )
-
-         tmp = order_variable_inv(  radar , output['v'] , output['index'] , output['undef_v'] )
+         tmp = order_variable_inv(  radar , output['cv'] , output['index'] , output['undef_v'] )
 
          radar.fields[ name_cv ] = dict()
 
@@ -233,20 +230,30 @@ def main_qc( filename , options ) :
 
          radar.fields[name_cv]['data']= np.ma.masked_array( tmp , tmp==output['undef_v'] ) 
 
-      ##Uso una de las funciones de dealiasing de pyart con los parametros por defecto
-      #radar.fields[ name_cv ]['data']=pyart.correct.region_dealias.dealias_region_based(radar,interval_splits=options[filter_name]['interval_split'],interval_limits=None, 
-      #           skip_between_rays=options[filter_name]['skip_between_ray'],skip_along_ray=options[filter_name]['skip_along_ray'],centered=True,nyquist_vel=None,
-      #           check_nyquist_uniform=True,gatefilter=False,rays_wrap_around=True,keep_original=False,set_limits=True,
-      #           vel_field=name_cv,corr_vel_field=None)['data']
+      else   :
 
-      ##Replace cv wind by dealiased winds.
-      ##radar.fields[ name_cv ]['data'] = winddealias['data']
+          radar.fields[ name_cv ] = dict()
 
-      ##Re-order dealiased wind data.
+          radar.fields[ name_cv ] = radar.fields[ name_v ]
+
+          tmp = order_variable_inv(  radar , output['cv'] , output['index'] , output['undef_v'] )
+
+          radar.fields[name_cv]['data']= np.ma.masked_array( tmp , tmp==output['undef_v'] )
+
+      #Uso una de las funciones de dealiasing de pyart con los parametros por defecto
+      winddealias=pyart.correct.region_dealias.dealias_region_based(radar,interval_splits=options[filter_name]['interval_split'],interval_limits=None, 
+                 skip_between_rays=options[filter_name]['skip_between_ray'],skip_along_ray=options[filter_name]['skip_along_ray'],centered=True,nyquist_vel=None,
+                 check_nyquist_uniform=True,gatefilter=False,rays_wrap_around=True,keep_original=False,set_limits=True,
+                 vel_field=name_cv,corr_vel_field=None)
+
+      #Replace cv wind by dealiased winds.
+      radar.fields[ name_cv ]['data'] = winddealias['data']
+
+      #Re-order dealiased wind data.
       [ output['cv'] , output['az'] , output['level'] , output['time'] , output['index'] , output['az_exact']  ]=order_variable( radar , name_cv , output['undef_v']  )
     
-      #mask=np.logical_and( output['cv'] != output['v'] , output['cv'] != output['undef_v'] )
-      #output['qcv'][ mask ]=options[filter_name]['code']
+      mask=np.logical_and( output['cv'] != output['v'] , output['cv'] != output['undef_v'] )
+      output['qcv'][ mask ]=options[filter_name]['code']
 
       end=time.time()
 
@@ -341,7 +348,7 @@ def main_qc( filename , options ) :
                                                                   #the specified threshold (i.e. pixels close to the radar)
 
      if not options[filter_name]['force']   :
-       output['wv']=output['wref'] + tmp_w * options[filter_name]['w']
+       output['wref']=output['wref'] + tmp_w * options[filter_name]['w']
        output['qcref'][ tmp_w > 0.5 ] = options[filter_name]['code']
        output['maxw_ref']=output['maxw_ref'] + options[filter_name]['w']
      else                                   :
@@ -502,7 +509,8 @@ def main_qc( filename , options ) :
       else   :
          display('Warning: could not perform RHO-HV filter because rho was not found on this file')
 
-      if [ not options[filter_name]['save'] ] :
+      print( options[filter_name]['save'] )
+      if ( not options[filter_name]['save'] ) :
           output.pop('rho_smooth')
           output.pop('rho')
 
@@ -548,7 +556,7 @@ def main_qc( filename , options ) :
 
 
 
-       if [ not options[filter_name]['save'] ] :
+       if ( not options[filter_name]['save'] ) :
           output.pop('speckle_ref')
 
        end=time.time()
@@ -590,7 +598,7 @@ def main_qc( filename , options ) :
           output['cv'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_v']
           output['qcv'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
 
-       if [ not options[filter_name]['save'] ] :
+       if ( not options[filter_name]['save'] ) :
           output.pop('speckle_v')
 
        end=time.time()
@@ -625,7 +633,7 @@ def main_qc( filename , options ) :
          output['cref'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_ref']
          output['qcref'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
 
-      if  not options['attfilter_save']  :
+      if  ( not options[filter_name]['save'] )  :
           output.pop('attenuation')
 
       end=time.time()
@@ -676,7 +684,7 @@ def main_qc( filename , options ) :
           output['cv'][ output['blocking']   > options[filter_name]['blocking_threshold']  ] = output['undef_v']
           output['qcv']  [ output['blocking'] > options[filter_name]['blocking_threshold'] ] = options[filter_name]['code']
 
-      if  not options['blocking_save']  :
+      if  ( not options[filter_name]['save'] ) :
           output.pop('blocking')  
 
       end=time.time()
