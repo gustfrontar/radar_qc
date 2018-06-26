@@ -25,7 +25,8 @@ import conf
 
 
 # read in the file, create a RadarMapDisplay object
-filename='./cfrad.20091117_174348.000_to_20091117_174737.000_PAR_SUR.nc'
+filename='./cfrad.20091117_174348.000_to_20091117_174737.000_PAR_SUR.nc'    #Ejemplo Parana
+#filename='./cfrad.20170926_171335.0000_to_20170926_171446.0000_RMA1_0122_03.nc'  #Ejemplo Cordoba
 
 #Performs QC operations based on options
 [radar , qc_output] = rqc.main_qc( filename , conf.options )
@@ -33,7 +34,7 @@ filename='./cfrad.20091117_174348.000_to_20091117_174737.000_PAR_SUR.nc'
 print('End of QC')
 
 
-elev=0
+elev=9
 
 if conf.options['Dealiasing']['flag']  :
    qcpt.plot_dealiasing( qc_output , conf.options , figname='DealiasingTest.png' , elev=elev)
@@ -45,9 +46,16 @@ if conf.options['EchoDepthFilter']['flag'] :
    qcpt.plot_echodepthfilter( qc_output , conf.options , figname='EchoDepthFilter.png' , elev=elev )
 if conf.options['RefSpeckleFilter']['flag'] :
    qcpt.plot_refspecklefilter( qc_output , conf.options , figname='RefSpeckleFilter.png' , elev=elev )
-
-
-
+if conf.options['DopplerSpeckleFilter']['flag'] :
+   qcpt.plot_dopplerspecklefilter( qc_output , conf.options , figname='DopplerSpeckleFilter.png' , elev=elev )
+if conf.options['DopplerTextureFilter']['flag'] :
+   qcpt.plot_dopplertexturefilter( qc_output , conf.options , figname='DopplerTextureFilter.png' , elev=elev )
+if conf.options['ReflectivityTextureFilter']['flag'] :
+   qcpt.plot_reflectivitytexturefilter( qc_output , conf.options , figname='ReflectivityTextureFilter.png' , elev=elev )
+if conf.options['AttenuationFilter']['flag'] :
+   qcpt.plot_attenuationfilter( qc_output , conf.options , figname='AttenuationFilter.png' , elev=elev )
+if conf.options['BlockingFilter']['flag'] :
+   qcpt.plot_blockingfilter( qc_output , conf.options , figname='BlockingFilter.png' , elev=elev )
 
 
 

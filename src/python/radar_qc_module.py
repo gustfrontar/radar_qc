@@ -537,13 +537,15 @@ def main_qc( filename , options ) :
        tr=options[filter_name]['reftr']
 
        output['speckle_ref']=qc.box_functions_2d(datain=output['ref'].data,na=na,nr=nr,ne=ne,undef=output['undef_ref']
-                                                ,boxx=nx,boxy=ny,boxz=nz,operation='COUN',threshold=tr) 
+                                                ,boxx=nx,boxy=ny,boxz=nz,operation='COU2',threshold=tr) 
 
 
        #Compute the corresponding weigth.
        tmp_w = qc.multiple_1d_interpolation( field=output['speckle_ref'] , nx=na , ny=nr , nz=ne
                                             , undef=output['undef_ref'] , xx=options[filter_name]['ifx']
                                             , yy=options[filter_name]['ify'] , nxx=np.size(options[filter_name]['ifx']) )
+
+       tmp_w[ output['ref'] == output['undef_ref'] ] = 0.0 #If a grid point is already undef leave it as it is.
 
 
        if not options[filter_name]['force']   :
@@ -581,14 +583,21 @@ def main_qc( filename , options ) :
        nz=options[filter_name]['nz']
        tr=options[filter_name]['dvtr']
 
-       output['speckle_v']=qc.box_functions_2d(datain=output['v'].data,na=na,nr=nr,ne=ne,undef=output['undef_v']
-                                                ,boxx=nx,boxy=ny,boxz=nz,operation='COUN',threshold=tr)
+
+       tmp=np.abs(output['v'].data)
+
+       tmp[ output['v'] == output['undef_v'] ] = output['undef_v']
+
+       output['speckle_v']=qc.box_functions_2d(datain=tmp,na=na,nr=nr,ne=ne,undef=output['undef_v']
+                                                ,boxx=nx,boxy=ny,boxz=nz,operation='COU2',threshold=tr)
 
 
        #Compute the corresponding weigth.
        tmp_w = qc.multiple_1d_interpolation( field=output['speckle_v'] , nx=na , ny=nr , nz=ne
                                             , undef=output['undef_v'] , xx=options[filter_name]['ifx']
                                             , yy=options[filter_name]['ify'] , nxx=np.size(options[filter_name]['ifx']) )
+
+       tmp_w[ output['v'] == output['undef_v'] ]=0.0 #Pixels which are already flagged as undef should remain undef.
 
        if not options[filter_name]['force']   :
           output['wv']=output['wv'] + tmp_w * options[filter_name]['w']
@@ -609,7 +618,7 @@ def main_qc( filename , options ) :
    # ATTENUATION FILTER
    #===================================================
 
-   filter_name='Attenuation'
+   filter_name='AttenuationFilter'
 
    if options[filter_name]['flag'] & ( name_ref in radar.fields ) :
       
@@ -617,8 +626,10 @@ def main_qc( filename , options ) :
 
       beaml=radar.range['data'][1]-radar.range['data'][0] #Get beam length
 
-      output['attenuation']=qc.get_attenuation(var=output['cref'],na=na,nr=nr,ne=ne,undef=output['undef_ref']
-                                               ,beaml=beaml,cal_error=options[filter_name]['attcalerror'])
+      output['attenuation']=qc.get_attenuation( var=output['cref'],na=na,nr=nr,ne=ne,undef=output['undef_ref']
+                                                ,beaml=beaml,cal_error=options[filter_name]['attcalerror']
+                                                ,is_power=options[filter_name]['is_power']
+                                                ,coefs=options[filter_name]['att_coefs'] )
 
       #Compute the corresponding weigth.
       tmp_w = qc.multiple_1d_interpolation( field=output['attenuation'] , nx=na , ny=nr , nz=ne
@@ -651,14 +662,14 @@ def main_qc( filename , options ) :
       start=time.time()
 
       output['blocking']=qc.compute_blocking( radarz=output['altitude'] , topo=output['topo'] , na=na , nr=nr , ne=ne      ,
-                                              undef=output['undef']                                                        ,
+                                              undef=output['undef_ref']                                                    ,
                                               radar_beam_width_v=radar.instrument_parameters['radar_beam_width_v']['data'] , 
                                               beam_length=radar.range['meters_between_gates']                              , 
-                                              radarrange=radar.range['data'] , radarelev=options['elevations'] )  
+                                              radarrange=radar.range['data'] , radarelev=output['elevations'] )  
 
 
       #Compute correction 
-      if options[filter_name]['blocking_correction'] & name_ref in radar.fields  :
+      if options[filter_name]['blocking_correction'] & ( name_ref in radar.fields )  :
          #Correct partially blocked precipitation echoes.
          mask=np.logical_and( output['blocking'] > 0.1 , output['blocking'] <= 0.3 )
          mask=np.logical_and( mask , output['cref'] > options['norainrefval'] )
@@ -838,7 +849,17 @@ def main_qc( filename , options ) :
      nx=options[filter_name]['nx']
      ny=options[filter_name]['ny']
      nz=options[filter_name]['nz']
-     output['texture_ref']=qc.compute_texture(output['ref'],na,nr,ne,output['undef_ref'],nx,ny,nz)
+     output['texture_ref']=qc.compute_texture(var=output['ref'],na=na,nr=nr,ne=ne,undef=output['undef_ref'],nx=nx,ny=ny,nz=nz)
+
+
+     if options[filter_name]['use_smooth_ref'] :
+        output['smooth_ref']=qc.box_functions_2d(datain=output['ref'],na=na,nr=nr,ne=ne,undef=output['undef_ref'],
+                                                 boxx=0,boxy=0,boxz=0,operation='MEAN',threshold=0.0)
+
+        #High reflectivity cores will not be affected by texture filter.
+        output['texture_ref'][ output['smooth_ref'] >= options[filter_name]['smooth_ref_tr']  ]= 0.0
+
+     output['texture_ref'][output['ref']==output['undef_ref']] = 0.0
 
      #Compute the corresponding weigth.
      tmp_w = qc.multiple_1d_interpolation( field=output['texture_ref'] , nx=na , ny=nr , nz=ne
@@ -873,7 +894,7 @@ def main_qc( filename , options ) :
      nx=options[filter_name]['nx']
      ny=options[filter_name]['ny']
      nz=options[filter_name]['nz']
-     output['texture_v']=qc.compute_texture(output['v'],na,nr,ne,output['undef_v'],nx,ny,nz)
+     output['texture_v']=qc.compute_texture(var=output['v'],na=na,nr=nr,ne=ne,undef=output['undef_v'],nx=nx,ny=ny,nz=nz)
 
      #Compute the corresponding weigth.
      tmp_w = qc.multiple_1d_interpolation( field=output['texture_v'] , nx=na , ny=nr , nz=ne
@@ -893,8 +914,6 @@ def main_qc( filename , options ) :
           output.pop('texture_v')
 
      end=time.time()
-
-     #TODO:Consider the possibility to add a flag to apply this filter to the doppler velocity as well.
 
      print("The elapsed time in {:s} is {:2f}".format(filter_name,end-start) )
 
@@ -949,14 +968,20 @@ def main_qc( filename , options ) :
    #===================================================
    # COMPUTE THE FINAL WEIGHT AND APPLY FUZZY LOGIC QC
    #===================================================
+   if output['maxw_ref'] == 0    :
+      output['wref'][:]=0.0
+   else                          :
+      output['wref']=output['wref'] / output['maxw_ref']
 
-   output['wref']=output['wref'] / output['maxw_ref'] 
-   output['wv'] =output['wv'] / output['maxw_v']
+   if output['maxw_v'] == 0      :
+      output['wv'][:]=0.0
+   else                          :
+      output['wv']=output['wv'] / output['maxw_v']
 
    #All the grid points where the probability of non-meteorological echoes
    #is greather than 0.5 will be flagged as missing.
-   output['cref'][ output['wref'] > 0.5 ] = output['undef_ref']
-   output['cv'][output['wv'] > 0.5 ] = output['undef_v']
+   output['cref'][ output['wref'] > options['w_tr'] ] = output['undef_ref']
+   output['cv'][output['wv'] > options['w_tr'] ] = output['undef_v']
 
    #===================================================
    # ADD CORRECTED DATA TO RADAR OBJECT

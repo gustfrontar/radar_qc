@@ -92,9 +92,9 @@ RETURN
 END SUBROUTINE RHO_FILTER
 
 
-SUBROUTINE GET_ATTENUATION(var,na,nr,ne,undef,beaml,cal_error,attenuation)
+SUBROUTINE GET_ATTENUATION(var,na,nr,ne,undef,beaml,cal_error,coefs,is_power,attenuation)
 
-!%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+!==========================================================================================
 !  This function estimates the attenuation percentaje due to metereological
 !  echoes and also computes a correction.
 !  Input:
@@ -110,12 +110,14 @@ SUBROUTINE GET_ATTENUATION(var,na,nr,ne,undef,beaml,cal_error,attenuation)
 !  To avoid the very well known instability of the forward attenuation
 !  computation algorithm the algorithm is stopped when the attenuation
 !  factor reaches a certain threshold. 
-!%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+!===========================================================================================
 
 IMPLICIT NONE
 INTEGER     ,INTENT(IN)    :: na,nr,ne
-REAL(r_size),INTENT(IN)    :: var(na,nr,ne) !Input reflectivity
+REAL(r_size),INTENT(IN)    :: var(na,nr,ne) !Input reflectivity in dBZ
 REAL(r_size),INTENT(IN)    :: undef
+LOGICAL     ,INTENT(IN)    :: is_power      !If input data is in mm^6/m^3 the set this to true.
+REAL(r_size),INTENT(IN)    :: coefs(4)
 REAL(r_size),INTENT(OUT)   :: attenuation(na,nr,ne) !Attenuation factor.
 REAL(r_size),INTENT(IN)    :: beaml  !Beam length (m)
 REAL(r_size)               :: a_coef , b_coef , c_coef , d_coef , alfa , beta  !Attenuation parameters
@@ -124,29 +126,44 @@ REAL(r_size)               :: tmp_data_3d(na,nr,ne)
 INTEGER                    :: ia,ir,ie
 REAL(r_size)               :: power(2) , mean_k
 
+!Coefficients for C-Band radars based on
+!Quantification of Path-Integrated Attenuation for X- and C-Band Weather
+!Radar Systems Operating in Mediterranean Heavy Rainfall
+!Delrieu, Andreiu, Creutin 1999 , Journal of Applied Meteorology
+!a_coef=543
+!b_coef=1.36
+!c_coef=1.55e-3
+!d_coef=1.30
 
-a_coef=543;
-b_coef=1.36;
-c_coef=1.55e-3;
-d_coef=1.30;
+a_coef=coefs(1)
+b_coef=coefs(2)
+c_coef=coefs(3)
+d_coef=coefs(4)
+
+!Formulation of PIA is based on the equations presented in.
+!Quantitative analysis of X-band weather radar attenuation
+!correction accuracy
+!A. Berne and R. Uijlenhoet , 2006
+!Nat. Hazards Earth Syst. Sci.
 
 alfa=(c_coef**d_coef)/(a_coef**(d_coef/b_coef))
 beta=(d_coef/b_coef)
 
 
-tmp_data_3d=10.0d0**(var/10);
+tmp_data_3d=10.0d0**(var/10)
 where( var == undef )
      tmp_data_3d=0.0d0
 endwhere
 
-!%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+!==========================================================================
 ! Iterative algorithm to compute attenuation. Based on the forward
 ! attenuation estimation of HB.
-!%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+!==========================================================================
 
 !We iterate forward in the range direction.
-attenuation(:,1,:)=1.0d0
+attenuation(:,1,:)=1.0d0*cal_error
 
+!$OMP PARALLEL DO SCHEDULE(DYNAMIC) PRIVATE(ia,ie,ir,mean_k)
 DO ia=1,na
  DO ie=1,ne
   DO ir=1,nr-1
@@ -155,13 +172,14 @@ DO ia=1,na
 
     mean_k=1.0d-3*(alfa*( (0.5)*(tmp_data_3d(ia,ir,ie)+tmp_data_3d(ia,ir+1,ie)) )**beta ) 
     !Compute mean k between ir and ir+1 (k is dbz/m);
-    attenuation(ia,ir+1,ie)=attenuation(ia,ir,ie)*exp(-0.46d0*mean_k*beaml)*cal_error
+    attenuation(ia,ir+1,ie)=attenuation(ia,ir,ie)*exp(-0.46d0*mean_k*beaml)
 
    ENDDO
  ENDDO
 ENDDO
+!$OMP END PARALLEL DO
 
-attenuation=-10*log(attenuation)  !Compute PIA
+attenuation=-10.0d0*log10(attenuation)  !Compute PIA (in dBZ)
 
 END SUBROUTINE GET_ATTENUATION
 
@@ -286,10 +304,16 @@ DO kk=1,ne
               IF( bii < 1 )ii_index=bii+na
               IF( bii > na)ii_index=bii-na 
               IF( OPERATION == 'MEA2' .AND. bii== ii .AND. bjj==jj .AND. bkk==kk)CYCLE !We will not count the center of the box.
+
+              IF( OPERATION /= 'COU2' )THEN !For COU2 operation count all the data even those flagged as undef.
                 IF( datain(ii_index,bjj,bkk) /= UNDEF )THEN
                   NITEMS=NITEMS + 1
                   tmp_field(NITEMS)=datain(ii_index,bjj,bkk)
                 ENDIF
+              ELSE
+                NITEMS=NITEMS+1   
+                tmp_field(NITEMS)=datain(ii_index,bjj,bkk)
+              ENDIF
             ENDIF
          ENDDO
        ENDDO
@@ -319,16 +343,21 @@ DO kk=1,ne
          dataout(ii,jj,kk)=SQRT(tmp_var - tmp_mean**2 )
         ENDIF
 
-      ELSEIF( OPERATION == 'COUN')THEN
+      ELSEIF( OPERATION == 'COUN' .OR. OPERATION == 'COU2' )THEN
         !Count values over a certain threshold (note that undef values will be 
         !always below the threshold.
         data_count=0
-        DO iin=1,NITEMS
-           IF( tmp_field( iin ) >= threshold )THEN
-             data_count = data_count + 1
-           ENDIF
-        ENDDO
-        dataout(ii,jj,kk)= REAL( data_count , r_size ) / REAL( NITEMS , r_size )
+        IF(  NITEMS > 0 )THEN
+          DO iin=1,NITEMS
+             IF( tmp_field( iin ) >= threshold .AND. tmp_field( iin ) /= UNDEF )THEN
+               data_count = data_count + 1
+             ENDIF
+          ENDDO
+          dataout(ii,jj,kk)= REAL( data_count , r_size ) / REAL( NITEMS , r_size )
+        ELSE
+          dataout(ii,jj,kk) = 0.0d0
+
+        ENDIF
 
       ELSEIF( OPERATION == 'MAXN')THEN
         !Local maximum tacking care of undef values.
@@ -763,8 +792,8 @@ DO ii=1,na
                blocking(ii,jj:nr,kk)=( min_norm_h * SQRT( 1 - min_norm_h ** 2) - ASIN( min_norm_h ) + pi/2.0d0 )/pi
             ELSE
                blocking(ii,jj:nr,kk)=1.0d0
-               !This beam is toatally blocked so we exit the loop.
-               exit
+               !This beam is totally blocked so we exit the loop.
+               EXIT
             ENDIF
           ENDIF
        ENDIF

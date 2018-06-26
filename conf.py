@@ -95,8 +95,6 @@ options[filter_name]['force_value']=0.5                     #Threshold for force
 filter_name='ModelFilter'
 options[filter_name]=dict()
 options[filter_name]['flag']=False                          #Enable / disable filter
-
-
 options[filter_name]['Enable_for_dBZ']=True                 #Enable / disable for reflectivity (filter has to be enabled)
 options[filter_name]['Enable_for_Vr']=True                  #Enable / disable for doppler velocity (filter has to be enabled)
 options[filter_name]['nx']=2                                #NX (smooth parameter)
@@ -118,13 +116,12 @@ options[filter_name]['force_value']=0.5                     #Threshold for force
 filter_name='EchoTopFilter'
 options[filter_name]=dict()
 options[filter_name]['flag']=False                          #Enable / disable filter
-
 options[filter_name]['nx']=2                                #NX
 options[filter_name]['ny']=2                                #NY
 options[filter_name]['nz']=0                                #NZ
 options[filter_name]['save']=True                           #Save filter aux fields to output?
 options[filter_name]['ify']=np.array([1,1,0,0])             #Importance function y
-options[filter_name]['ifx']=np.array([0,2500,3000,2000])    #Importance function x
+options[filter_name]['ifx']=np.array([0,2500,3000,20000])   #Importance function x
 options[filter_name]['w']=1.0                               #Relative parameter weigth. 
 options[filter_name]['code']=11
 options[filter_name]['heigthtr']=3000                       #Do not use this filter if volume height 
@@ -137,13 +134,12 @@ options[filter_name]['force_value']=0.5                     #Threshold for force
 filter_name='EchoDepthFilter'
 options[filter_name]=dict()
 options[filter_name]['flag']=False                          #Enable / disable filter
-
 options[filter_name]['nx']=2                                #NX
 options[filter_name]['ny']=2                                #NY
 options[filter_name]['nz']=0                                #NZ
 options[filter_name]['save']=True                           #Save filter aux fields to output?
 options[filter_name]['ify']=np.array([1,1,0,0])             #Importance function y
-options[filter_name]['ifx']=np.array([0,2500,3000,2000])    #Importance function x
+options[filter_name]['ifx']=np.array([0,2500,3000,20000])   #Importance function x
 options[filter_name]['w']=1.0                               #Relative parameter weigth. 
 options[filter_name]['code']=12
 options[filter_name]['heigthtr']=3000                       #Do not use this filter if volume height 
@@ -154,8 +150,7 @@ options[filter_name]['force_value']=0.5                     #Threshold for force
 
 filter_name='RefSpeckleFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=True                           #Enable / disable filter
-
+options[filter_name]['flag']=False                          #Enable / disable filter
 options[filter_name]['nx']=2                                #NX
 options[filter_name]['ny']=2                                #NY
 options[filter_name]['nz']=0                                #NZ
@@ -181,7 +176,7 @@ options[filter_name]['ify']=np.array([1,1,0,0])             #Importance function
 options[filter_name]['ifx']=np.array([0,0.2,0.4,1])         #Importance function x
 options[filter_name]['w']=1.0                               #Relative parameter weigth. 
 options[filter_name]['code']=14
-options[filter_name]['dvtr']=0.2                            #Reflectivity threshold
+options[filter_name]['dvtr']=0.0                            #Wind threshold.
 options[filter_name]['force']=False                         #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                     #Threshold for force
 
@@ -190,12 +185,12 @@ options[filter_name]['force_value']=0.5                     #Threshold for force
 filter_name='DopplerTextureFilter'
 options[filter_name]=dict()
 options[filter_name]['flag']=False                          #Enable / disable filter
-options[filter_name]['nx']=3                                #NX
-options[filter_name]['ny']=3                                #NY
+options[filter_name]['nx']=1                                #NX
+options[filter_name]['ny']=2                                #NY
 options[filter_name]['nz']=0                                #NZ
 options[filter_name]['save']=True                           #Save filter aux fields to output?
 options[filter_name]['ify']=np.array([0,0,1,1])             #Importance function y
-options[filter_name]['ifx']=np.array([0,50,100,200])        #Importance function x
+options[filter_name]['ifx']=np.array([0,2.5,10,200])        #Importance function x
 options[filter_name]['w']=1.0                               #Relative parameter weigth. 
 options[filter_name]['code']=15
 options[filter_name]['force']=False                         #Wether we will reject data based on this filter alone.
@@ -206,19 +201,21 @@ options[filter_name]['force_value']=0.5                     #Threshold for force
 filter_name='ReflectivityTextureFilter'
 options[filter_name]=dict()
 options[filter_name]['flag']=False                          #Enable / disable filter
-options[filter_name]['nx']=3                                #NX
-options[filter_name]['ny']=3                                #NY
-options[filter_name]['nz']=0                                #NZ
+options[filter_name]['nx']=3                                #NX for texture smoothing
+options[filter_name]['ny']=5                                #NY for texture smoothing
+options[filter_name]['nz']=0                                #NZ for texture smoothing
+options[filter_name]['use_smooth_ref']=True                 #Wether high reflectivity cores will be protected.
+options[filter_name]['smooth_ref_tr']=15.0                  #Reflectivity above this threshold wont be affected by this filter.
 options[filter_name]['save']=True                           #Save filter aux fields to output?
 options[filter_name]['ify']=np.array([0,0,1,1])             #Importance function y
-options[filter_name]['ifx']=np.array([0,50,100,200])        #Importance function x
+options[filter_name]['ifx']=np.array([0,15,20,200])         #Importance function x
 options[filter_name]['w']=1.0                               #Relative parameter weigth. 
 options[filter_name]['code']=16
 options[filter_name]['force']=False                         #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                     #Threshold for force
 
 #Attenuation parameters           ==============================================================
-filter_name='Attenuation'
+filter_name='AttenuationFilter'
 options[filter_name]=dict()
 options[filter_name]['flag']=False                          #Enable / Disable filter
 options[filter_name]['nx']=0                                #NX
@@ -226,21 +223,33 @@ options[filter_name]['ny']=0                                #NY
 options[filter_name]['nz']=0                                #NZ
 options[filter_name]['save']=True                           #Save filter aux fields to output?
 options[filter_name]['ify']=np.array([0,0,1,1])             #Importance function y
-options[filter_name]['ifx']=np.array([0,15,25,1])           #Importance function x
+options[filter_name]['ifx']=np.array([0,1,10,100])          #Importance function x
 options[filter_name]['w']=1.0                               #Relative parameter weigth. 
 options[filter_name]['code']=17
 options[filter_name]['attcalerror']=1.0                     #Calibration error
+options[filter_name]['is_power']=False                      #If input is in mm^6/m^3 set this to true.
+options[filter_name]['att_coefs']=np.array([543,1.36,1.55e-3,1.30]) #Coefficients for the computation of attenuation (see below) 
 options[filter_name]['force']=False                         #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                     #Threshold for force
+
+#Coefficients for C-Band radars based on
+#Quantification of Path-Integrated Attenuation for X- and C-Band Weather
+#Radar Systems Operating in Mediterranean Heavy Rainfall
+#Delrieu, Andreiu, Creutin 1999 , Journal of Applied Meteorology
+#a_coef=543
+#b_coef=1.36
+#c_coef=1.55e-3
+#d_coef=1.30
 
 #Blocking parameters               ==============================================================
 #This filter is not part of the Fuzzy logic algorithm.
 filter_name='BlockingFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=False                          #Enable / Disable filter
+options[filter_name]['flag']=True                           #Enable / Disable filter
 options[filter_name]['blocking_correction']=True            #Wether correction will be applied for partially blocked beams.
 options[filter_name]['blocking_threshold']=0.5              #Beams with blocking above this threshold will be eliminated.
 options[filter_name]['save']=True                           #Save blocking factor into qc_output dictionary.
+options[filter_name]['code']=40                             #QC output code
 
 
 #Low elevation angles filter parameters ==============================================================
