@@ -667,7 +667,6 @@ def main_qc( filename , options ) :
                                               beam_length=radar.range['meters_between_gates']                              , 
                                               radarrange=radar.range['data'] , radarelev=output['elevations'] )  
 
-
       #Compute correction 
       if options[filter_name]['blocking_correction'] & ( name_ref in radar.fields )  :
          #Correct partially blocked precipitation echoes.

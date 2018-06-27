@@ -34,7 +34,7 @@ filename='./cfrad.20091117_174348.000_to_20091117_174737.000_PAR_SUR.nc'    #Eje
 print('End of QC')
 
 
-elev=9
+elev=0
 
 if conf.options['Dealiasing']['flag']  :
    qcpt.plot_dealiasing( qc_output , conf.options , figname='DealiasingTest.png' , elev=elev)

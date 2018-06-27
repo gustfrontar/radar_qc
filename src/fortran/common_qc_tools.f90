@@ -760,21 +760,37 @@ REAL(r_size), INTENT(OUT) :: blocking(na,nr,ne)
 REAL(r_size), INTENT(IN)  :: undef
 REAL(r_size), INTENT(IN)  :: radar_beam_width_v , beam_length , radarrange(nr) , radarelev(ne)
 
-REAL(r_size) :: alfa , beta , diag , max_vertical_extent(nr,ne) , vert_beam_width
+REAL(r_size) :: alfa , beta , diag , effective_beam_width(nr,ne) , effective_height_factor(nr,ne)
 REAL(r_size) :: max_blocking_factor
 REAL(r_size) :: norm_h , min_norm_h 
 INTEGER      :: ii , jj , kk
 REAL(r_size) :: lthreshold
 
+effective_height_factor = 0.0d0
+effective_beam_width    = 0.0d0
+
 DO kk=1,ne
  DO jj=1,nr
-   vert_beam_width=radar_beam_width_v * radarrange(jj)*(deg2rad)/2.0d0
-   alfa=atan(beam_length/vert_beam_width)
-   diag =sqrt( beam_length**2 + vert_beam_width**2 )
-   beta=alfa-radarelev(kk)*deg2rad
-   max_vertical_extent(jj,kk)=diag*cos(beta)
+   !!!!alfa=atan(beam_length/vert_beam_width)
+   !!!!diag =sqrt( beam_length**2 + vert_beam_width**2 )
+   !!!!beta=alfa-radarelev(kk)*deg2rad
+   !!!!max_vertical_extent(jj,kk)=diag*cos(beta)
+
+   !We first compute the effective_height_factor which gives use the height of the lowest part of the beam.
+   !taking into account the elevation angle (and assuming that the topography value is uniform over this volume.
+   effective_height_factor(jj,kk) = -0.5 * beam_length * sin( radarelev(kk) * deg2rad  ) 
+
+   !Then we compute the effective beam width. Tacking into account that the elevation angle
+   effective_beam_width(jj,kk) =  ( radar_beam_width_v * radarrange(jj)*(deg2rad)/2.0d0 ) * cos( radarelev(kk) * deg2rad )
+
+   !This procedure allow us to compute the height of the lowest volume vertex.
  ENDDO
 ENDDO
+
+!DO kk=1,ne
+!  WRITE(*,*)'Effective height factor',kk,effective_height_factor(1,kk),effective_height_factor(nr,kk)
+!  WRITE(*,*)'Effective beam width',kk,effective_beam_width(1,kk),effective_beam_width(nr,kk) 
+!ENDDO
 
 blocking=0.0d0
 !$OMP PARALLEL DO SCHEDULE(DYNAMIC) PRIVATE(ii,jj,kk,norm_h,min_norm_h,max_blocking_factor)
@@ -783,13 +799,13 @@ DO ii=1,na
     min_norm_h=1.0d0
     DO jj=1,nr
        !Compute heigth over the terrain normalized by the beam vertical extent.
-       norm_h=( radarz(ii,jj,kk)-topo(ii,jj,kk) ) / max_vertical_extent(jj,kk)
+       norm_h=( radarz(ii,jj,kk) + effective_height_factor(jj,kk) -topo(ii,jj,kk) ) / effective_beam_width(jj,kk)
        IF( norm_h < min_norm_h )THEN
           min_norm_h=norm_h
           IF( min_norm_h < 1.0d0  )THEN
             !We have some blocking, lets compute the blocking magnitude
             IF( min_norm_h > -1.0d0 )THEN
-               blocking(ii,jj:nr,kk)=( min_norm_h * SQRT( 1 - min_norm_h ** 2) - ASIN( min_norm_h ) + pi/2.0d0 )/pi
+               blocking(ii,jj:nr,kk)=( min_norm_h * SQRT( 1.0d0 - min_norm_h ** 2 ) - ASIN( min_norm_h ) + pi/2.0d0 )/pi
             ELSE
                blocking(ii,jj:nr,kk)=1.0d0
                !This beam is totally blocked so we exit the loop.
@@ -801,6 +817,14 @@ DO ii=1,na
   ENDDO
 ENDDO
 !$OMP END PARALLEL DO
+
+!DO kk=1,ne
+!   WRITE(*,*)'Blocking fortran',MINVAL(blocking(:,:,kk)),MAXVAL(blocking(:,:,kk))
+!   WRITE(*,*)'Radar z fortran',MINVAL(radarz(:,:,kk)),MAXVAL(radarz(:,:,kk))
+!   WRITE(*,*)'Topo fortran',MINVAL(topo(:,:,kk)),MAXVAL(topo(:,:,kk))
+!ENDDO
+
+
 
 RETURN
 END SUBROUTINE COMPUTE_BLOCKING
