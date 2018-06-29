@@ -821,9 +821,8 @@ def main_qc( filename , options ) :
       #                                                             ,boxx=nx,boxy=ny,boxz=nz,operation='MEAN',threshold=0.0)
 
 
-      output['cref'] = interference_filter ( tmp_ref , output['undef_ref'] , options['norainrefval'] 
+      output['cref'] = interference_filter ( output['ref'] , output['undef_ref'] , options['norainrefval'] 
                                             , radar.range['data'] , options[filter_name] ) 
-
 
       output['qcref'][ np.abs( tmp_ref - output['cref'] ) > 0 ]=options[filter_name]['code']
 
@@ -1214,7 +1213,6 @@ def get_rma_strat ( filename , radar )  :
 def interference_filter ( ref , undef , min_ref , r , my_conf )  :
 
    import numpy as np
-   from sklearn import linear_model, datasets
    import matplotlib.pyplot as plt
 
    #ref a 3D array with the reflectivity in the na,nr,ne grid.
@@ -1229,8 +1227,7 @@ def interference_filter ( ref , undef , min_ref , r , my_conf )  :
 
    tmp_ref=np.copy( ref ) 
 
-   
-   #offset=my_conf['offset']
+   offset=my_conf['offset']
    att=my_conf['att']
    npass_filter=my_conf['npass_filter']
    percent_valid_threshold=my_conf['percent_valid_threshold']
@@ -1238,7 +1235,7 @@ def interference_filter ( ref , undef , min_ref , r , my_conf )  :
    ref_threshold=my_conf['ref_threshold']
    percent_ref_threshold=my_conf['percent_ref_threshold']
 
-   #tmp_ref[:,0:offset,:]=undef
+   tmp_ref[:,0:offset,:]=undef
 
    #Main loops
 
@@ -1246,58 +1243,72 @@ def interference_filter ( ref , undef , min_ref , r , my_conf )  :
 
       for i in range(na)  :
 
-           undef_mask = tmp_ref[i,:,k] != undef 
+         for iter in range(2) :
+           #Perform an iterative fitting.
+           if iter == 0 :
+               tmp_mask = np.logical_and( tmp_ref[i,:,k] != undef , tmp_ref[i,:,k] < 10.0 )
 
-           tmp_count = np.sum( (undef_mask).astype(int) )/nr
+               tmp_count = np.sum( (tmp_mask).astype(int) )/nr
 
-           smooth_dbz =   #smooth_fft( tmp_ref[i,:,k] )
-
-           power = smooth_dbz  - 20.0 * np.log10( r ) - 2.0 * att * r
+           raux=r[tmp_mask]
+           dbm= tmp_ref[i,:,k][tmp_mask]  - 20.0*np.log10( raux ) - 2.0*att*raux
 
            if tmp_count > percent_valid_threshold   :
-              ransac = linear_model.RANSACRegressor()
-              ransac.fit( r[undef_mask].reshape(-1, 1) , power[undef_mask].reshape(-1, 1) )
-              inlier_mask = ransac.inlier_mask_
-              outlier_mask = np.logical_not(inlier_mask)
+              #TODO reemplazar por una regresion robusta que sea menos sensible
+              #a los outliers. SCIKIT-LEARN tiene implementaciones en python de diversos
+              #metodos para regresiones robustas. Seria cuestion de probar cual es el mas adecuado
+              #para este problema.
+              p=np.polyfit(raux,dbm,1)
+              #tmpcorr=np.corrcoef(raux,dbm)
+              #corrcoef=tmpcorr[0,1]
+              a=p[0]
+              b=p[1]
 
-              powerrayo = ransac.predict( r.reshape(-1,1) )[:,0]  + 20.0 * np.log10( r ) + 2.0 * att * r
 
            else:
+              a=0.0
+              b=1.0
 
-              powerrayo = np.zeros( nr ) + 20.0 * np.log10( r ) + 2.0 * att * r
+           dbzrayo=a*r+b + 20.0*np.log10( r ) + 2.0*att*r
 
-           #print( np.shape( powerrayo ),np.shape( smooth_dbz) )
-           
-           corrcoef=np.corrcoef( powerrayo[undef_mask][inlier_mask],smooth_dbz[undef_mask][inlier_mask] )[0,1]
+           if (i==257) and (k==0) :
+              print( dbzrayo[tmp_mask] , tmp_ref[i,:,k][tmp_mask] )
+              print(tmp_count)
+           corrcoef=np.corrcoef( dbzrayo[tmp_mask],tmp_ref[i,:,k][tmp_mask] )[0,1]
+           #if i == 203 :
+           #    print(iter,corrcoef,np.sum(tmp_mask.astype(int))/nr)
 
-           if (k == 0) and (i == 92) :
-             plt.plot( powerrayo , smooth_dbz ,'or')
-             plt.plot(  powerrayo[undef_mask][inlier_mask],smooth_dbz[undef_mask][inlier_mask] , 'ok')
-             plt.show()
-             print(corrcoef,np.sum( inlier_mask.astype(int) )/nr )
+           #print(a,b,corrcoef )
+           if i == 257 :
+             plt.plot( dbzrayo[tmp_mask] ) 
+             plt.plot( tmp_ref[i,:,k][tmp_mask] )
+             #print( tmp_ref[i,:,k][tmp_mask][0:10])
+             #print( dbzrayo[tmp_mask][0:10])
+             #plt.show()
 
-             plt.plot( r[undef_mask] , powerrayo[undef_mask] )
-             plt.plot( r[undef_mask] , smooth_dbz[undef_mask])
-             plt.show()
+           #Consider the grid points that are close to the fitted interference reflectivity.
+           #tmp_mask = tmp_ref[i,:,k] != undef
+           tmp_mask = np.logical_and( np.abs( dbzrayo - tmp_ref[i,:,k] ) < ref_threshold , tmp_ref[i,:,k] != undef )
+         plt.show()
+         if k == 0 :
+            print(i,corrcoef,np.sum(tmp_mask.astype(int))/nr)
+         if( ( corrcoef > corr_threshold ) & ( np.sum(tmp_mask.astype(int))/nr > percent_ref_threshold ) )  :
+         #This means that this ray is likely to be contaminated by interference.
 
-           if( ( corrcoef > corr_threshold ) & ( np.sum( inlier_mask.astype(int) )/nr > percent_ref_threshold ) )  :
-              #This means that this ray is likely to be contaminated by interference.
+            ref[i,:,k][ tmp_mask ] = undef
 
-              zrayo = np.power( 10.0,powerrayo  / 10.0 ) 
-              z     = np.power( 10.0,ref[i,:,k] / 10.0  )
+            zrayo = np.power(10.0,dbzrayo/10.0) 
+            z     = np.power(10.0,ref[i,:,k]/10.0)
 
-              #If the reflectivity is far from the fitted interference, and is greather than the fitted
-              #Interference, then correct the power substracting the interference power.         
-              tmp_mask = np.logical_and( z - zrayo > 10.0 ,  undef_mask  )  
-              ref[i, tmp_mask ,k] = 10.0*np.log10( (z - zrayo)[tmp_mask] ) 
+            #If the reflectivity is far from the fitted interference, and is greather than the fitted
+            #Interference, then correct the power substracting the interference power.         
+            tmp_mask2 = np.logical_and( np.logical_not( tmp_mask ), z - zrayo > 0.0  ) 
+            ref[i,:,k][ tmp_mask2 ] = ( 10.0*np.log10( z - zrayo ) )[ tmp_mask2 ]
  
-              #If the reflectivity is far from the fitted interference, and is smaller than the fitted interference
-              #then set that pixel as an undef pixel.
-              tmp_mask = np.logical_and( z - zrayo <= 10.0 , undef_mask )
-              ref[i, tmp_mask ,k] = undef
-
-           else :
-              print(i,k)
+            #If the reflectivity is far from the fitted interference, and is smaller than the fitted interference
+            #then set that pixel as an undef pixel.
+           
+            ref[i,:,k][ np.logical_and( np.logical_not( tmp_mask ) , z - zrayo <= 0.0 ) ] = undef
 
    #Additional filter for the remaining echoes
    #consider cyclic boundary conditions in azimuth.
@@ -1345,28 +1356,6 @@ def interference_filter ( ref , undef , min_ref , r , my_conf )  :
 
 
    return ref
-
-
-def smooth_fft( x )   :
-
-
-    import numpy as np
-    import scipy.fftpack
-
-    N = np.size( x )
-
-    w = scipy.fftpack.rfft( x )
-    #f = scipy.fftpack.rfftfreq( N , 1.0 )
-    spectrum = w**2
-
-    cutoff_idx = spectrum > (spectrum.max()/10.0)
-    #w2 = w.copy()
-    w[cutoff_idx] = 0
-
-    x_smooth = scipy.fftpack.irfft(w)
-
-
-    return x_smooth
 
 
 #Read topography data

@@ -299,12 +299,12 @@ options[filter_name]['nz']=2                                   #NZ
 options[filter_name]['code']= 20
 options[filter_name]['offset']=100                              #Number of ranges that will be discarded in the interference fit process.
 options[filter_name]['att']=0.01e-3                            #Atmospheric gases attenuation constant (dB / km )
-options[filter_name]['npass_filter']=3                         #Number of passes of the azimuthal continuity filter.
+options[filter_name]['npass_filter']=0                         #Number of passes of the azimuthal continuity filter.
 options[filter_name]['percent_valid_threshold']=0.1            #Rays with valid pixels over this percentaje will be examinated.
 options[filter_name]['corr_threshold']=0.5                     #Rays that correlates well with the interference pattern will be flagged as 
                                                                #contaminated.
 options[filter_name]['ref_threshold']=5.0                      #Reflectivity threshold to count pixels which are close to the interference pattern.
-options[filter_name]['percent_ref_threshold']=0.5              #If more than this percent of the ray correlates well with the interference pattern, then
+options[filter_name]['percent_ref_threshold']=0.3              #If more than this percent of the ray correlates well with the interference pattern, then
                                                                #the ray is flagged as contaminated by interference.
 
 #Dealiasing border filter            ==============================================================

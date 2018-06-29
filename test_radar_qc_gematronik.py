@@ -37,13 +37,13 @@ print('End of QC')
 elev=0
 
 if conf.options['Dealiasing']['flag']  :
-   qcpt.plot_dealiasing( qc_output , conf.options , figname='DealiasingTest.png' , elev=elev)
+   qcpt.plot_dealiasing( qc_output , conf.options , figname='DealiasingTest.png' , elev=elev  )
 if conf.options['RhoFilter']['flag']   :
-   qcpt.plot_rhofilter( qc_output , conf.options , figname='RhoFilterTest.png' , elev=elev )
+   qcpt.plot_rhofilter( qc_output , conf.options , figname='RhoFilterTest.png' , elev=elev  )
 if conf.options['EchoTopFilter']['flag'] :
-   qcpt.plot_echotopfilter( qc_output , conf.options , figname='EchoTopFilter.png' , elev=elev )
+   qcpt.plot_echotopfilter( qc_output , conf.options , figname='EchoTopFilter.png' , elev=elev  )
 if conf.options['EchoDepthFilter']['flag'] :
-   qcpt.plot_echodepthfilter( qc_output , conf.options , figname='EchoDepthFilter.png' , elev=elev )
+   qcpt.plot_echodepthfilter( qc_output , conf.options , figname='EchoDepthFilter.png' , elev=elev  )
 if conf.options['RefSpeckleFilter']['flag'] :
    qcpt.plot_refspecklefilter( qc_output , conf.options , figname='RefSpeckleFilter.png' , elev=elev )
 if conf.options['DopplerSpeckleFilter']['flag'] :

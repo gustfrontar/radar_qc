@@ -81,7 +81,6 @@ options[filter_name]['code']=43
 filter_name='RhoFilter'
 options[filter_name]=dict()
 options[filter_name]['flag']=False                          #Enable / disable filter
-
 options[filter_name]['nx']=2                                #NX
 options[filter_name]['ny']=2                                #NY
 options[filter_name]['nz']=0                                #NZ
@@ -258,7 +257,7 @@ options[filter_name]['code']=40                             #QC output code
 #Low elevation angles filter parameters ==============================================================
 filter_name='LowElevFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=False                              #Enable / Disable filter
+options[filter_name]['flag']=False                             #Enable / Disable filter
 options[filter_name]['nx']=0                                   #NX
 options[filter_name]['ny']=0                                   #NY
 options[filter_name]['nz']=0                                   #NZ
@@ -273,7 +272,7 @@ options[filter_name]['force_value']=0.5                        #Threshold for fo
 #Low doppler velocity filter            ==============================================================
 filter_name='LowDopplerFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=False                             #Enable / Disable filter
+options[filter_name]['flag']=True                             #Enable / Disable filter
 options[filter_name]['nx']=0                                   #NX
 options[filter_name]['ny']=0                                   #NY
 options[filter_name]['nz']=0                                   #NZ
@@ -291,8 +290,11 @@ options[filter_name]['use_terrain']=True                       #Wether AGL heigh
 #This filter is not included in the Fuzzy-logic approach.
 filter_name='InterferenceFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=True                             #Enable / Disable filter
+options[filter_name]['flag']=False                             #Enable / Disable filter
 options[filter_name]['save']=True                              #Save filter aux fields to output?
+options[filter_name]['nx']=0                                   #NX
+options[filter_name]['ny']=0                                   #NY
+options[filter_name]['nz']=0                                   #NZ
 options[filter_name]['code']= 20
 options[filter_name]['offset']=100                             #Number of ranges that will be discarded in the interference fit process.
 options[filter_name]['att']=0.01                               #Atmospheric gases attenuation constant.

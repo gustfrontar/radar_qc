@@ -34,7 +34,7 @@ filename='./cfrad.20170926_171335.0000_to_20170926_171446.0000_RMA1_0122_03.nc3'
 print('End of QC')
 
 
-elev=1
+elev=0
 
 if conf.options['Dealiasing']['flag']  :
    qcpt.plot_dealiasing( qc_output , conf.options , figname='DealiasingTest.png' , elev=elev)
