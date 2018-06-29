@@ -1,6 +1,6 @@
 
 
-def plot_dealiasing( qc_output , options , elev=0 , figname='out.png',vmin=-30,vmax=30,cmap='pyart_NWSVel',show=True)  :
+def plot_dealiasing( qc_output , options , elev=0 , figname='out.png',vmin=-30,vmax=30,cmap='pyart_NWSVel',show=False)  :
 
     import numpy as np
     import matplotlib.pyplot as plt
@@ -47,7 +47,7 @@ def plot_dealiasing( qc_output , options , elev=0 , figname='out.png',vmin=-30,v
 
 
 
-def plot_rhofilter( qc_output , options , elev=0 , figname='out.png',vmin=-10,vmax=70,cmap='pyart_NWSRef',show=True)  :
+def plot_rhofilter( qc_output , options , elev=0 , figname='out.png',vmin=-10,vmax=70,cmap='pyart_NWSRef',show=False)  :
 
     import numpy as np
     import matplotlib.pyplot as plt
@@ -90,7 +90,7 @@ def plot_rhofilter( qc_output , options , elev=0 , figname='out.png',vmin=-10,vm
 
 
 
-def plot_echotopfilter( qc_output , options , elev=0 , figname='out.png',vmin=-10,vmax=70,cmap='pyart_NWSRef',show=True)  :
+def plot_echotopfilter( qc_output , options , elev=0 , figname='out.png',vmin=-10,vmax=70,cmap='pyart_NWSRef',show=False)  :
 
     import numpy as np
     import matplotlib.pyplot as plt
@@ -132,7 +132,7 @@ def plot_echotopfilter( qc_output , options , elev=0 , figname='out.png',vmin=-1
     return
 
 
-def plot_echodepthfilter( qc_output , options , elev=0 , figname='out.png',vmin=-10,vmax=70,cmap='pyart_NWSRef',show=True)  :
+def plot_echodepthfilter( qc_output , options , elev=0 , figname='out.png',vmin=-10,vmax=70,cmap='pyart_NWSRef',show=False)  :
 
     import numpy as np
     import matplotlib.pyplot as plt
@@ -173,7 +173,7 @@ def plot_echodepthfilter( qc_output , options , elev=0 , figname='out.png',vmin=
 
     return
 
-def plot_refspecklefilter( qc_output , options , elev=0 , figname='out.png',vmin=-10,vmax=70,cmap='pyart_NWSRef',show=True)  :
+def plot_refspecklefilter( qc_output , options , elev=0 , figname='out.png',vmin=-10,vmax=70,cmap='pyart_NWSRef',show=False)  :
 
     import numpy as np
     import matplotlib.pyplot as plt
@@ -215,7 +215,7 @@ def plot_refspecklefilter( qc_output , options , elev=0 , figname='out.png',vmin
     return
 
 
-def plot_dopplerspecklefilter( qc_output , options , elev=0 , figname='out.png',vmin=-30,vmax=30,cmap='pyart_NWSVel',show=True)  :
+def plot_dopplerspecklefilter( qc_output , options , elev=0 , figname='out.png',vmin=-30,vmax=30,cmap='pyart_NWSVel',show=False)  :
 
     import numpy as np
     import matplotlib.pyplot as plt
@@ -262,7 +262,7 @@ def plot_dopplerspecklefilter( qc_output , options , elev=0 , figname='out.png',
 
 
 
-def plot_dopplertexturefilter( qc_output , options , elev=0 , figname='out.png',vmin=-30,vmax=30,cmap='pyart_NWSVel',show=True)  :
+def plot_dopplertexturefilter( qc_output , options , elev=0 , figname='out.png',vmin=-30,vmax=30,cmap='pyart_NWSVel',show=False)  :
 
     import numpy as np
     import matplotlib.pyplot as plt
@@ -308,7 +308,7 @@ def plot_dopplertexturefilter( qc_output , options , elev=0 , figname='out.png',
     return
 
 
-def plot_reflectivitytexturefilter( qc_output , options , elev=0 , figname='out.png',vmin=-10,vmax=70,cmap='pyart_NWSRef',show=True)  :
+def plot_reflectivitytexturefilter( qc_output , options , elev=0 , figname='out.png',vmin=-10,vmax=70,cmap='pyart_NWSRef',show=False)  :
 
     import numpy as np
     import matplotlib.pyplot as plt
@@ -349,7 +349,7 @@ def plot_reflectivitytexturefilter( qc_output , options , elev=0 , figname='out.
 
     return
 
-def plot_attenuationfilter( qc_output , options , elev=0 , figname='out.png',vmin=-10,vmax=70,cmap='pyart_NWSRef',show=True)  :
+def plot_attenuationfilter( qc_output , options , elev=0 , figname='out.png',vmin=-10,vmax=70,cmap='pyart_NWSRef',show=False)  :
 
     import numpy as np
     import matplotlib.pyplot as plt
@@ -390,7 +390,7 @@ def plot_attenuationfilter( qc_output , options , elev=0 , figname='out.png',vmi
 
     return
 
-def plot_blockingfilter( qc_output , options , elev=0 , figname='out.png',vmin=-10,vmax=70,cmap='pyart_NWSRef',show=True)  :
+def plot_blockingfilter( qc_output , options , elev=0 , figname='out.png',vmin=-10,vmax=70,cmap='pyart_NWSRef',show=False)  :
 
     import numpy as np
     import matplotlib.pyplot as plt
@@ -430,6 +430,133 @@ def plot_blockingfilter( qc_output , options , elev=0 , figname='out.png',vmin=-
                 transparent=False, bbox_inches=None, pad_inches=0.1,frameon=None)
 
     return
+
+
+def plot_lowelevfilter( qc_output , options , elev=0 , figname='out.png',vmin=-10,vmax=70,cmap='pyart_NWSRef',show=False)  :
+
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+
+    filter_name='LowElevFilter'
+
+    plt.figure(figsize=(8, 8))
+    plt.subplot(2,2,1)
+
+    tmp_ref=np.ma.masked_array( qc_output['ref'] , qc_output['ref'] == qc_output['undef_v'] )
+    tmp_cref=np.ma.masked_array( qc_output['cref'] , qc_output['cref'] == qc_output['undef_v'] )
+
+    plt.pcolor(qc_output['x'][:,:,elev]/1e3,qc_output['y'][:,:,elev]/1e3, tmp_cref[:,:,elev],vmin=vmin,vmax=vmax,cmap=cmap)
+    plt.title('Corrected Reflectivity')
+    plt.colorbar()
+
+    plt.subplot(2,2,2)
+    plt.pcolor(qc_output['x'][:,:,elev]/1e3,qc_output['y'][:,:,elev]/1e3, tmp_ref[:,:,elev],vmin=vmin,vmax=vmax,cmap=cmap)
+    plt.title('Original Reflectivity')
+    plt.colorbar()
+
+    plt.subplot(2,2,3)
+    plt.pcolor(qc_output['x'][:,:,elev]/1e3,qc_output['y'][:,:,elev]/1e3, ( qc_output['smooth_ref'][:,:,elev] ) )
+    plt.title('Smooth Ref')
+    plt.colorbar()
+
+    plt.subplot(2,2,4)
+    plt.pcolor(qc_output['x'][:,:,elev]/1e3,qc_output['y'][:,:,elev]/1e3, ( qc_output['qcref'][:,:,elev]==options[filter_name]['code'] ).astype(float) )
+    plt.title('Pixels Eliminated by Low Elev. Filter')
+    plt.colorbar()
+
+    if show  :
+       plt.show()
+
+    plt.savefig(figname, dpi=None, facecolor='w', edgecolor='w',orientation='portrait', papertype=None, format=None,
+                transparent=False, bbox_inches=None, pad_inches=0.1,frameon=None)
+
+    return
+
+
+def plot_lowdopplerfilter( qc_output , options , elev=0 , figname='out.png',vmin=-10,vmax=70,cmap='pyart_NWSRef',show=False)  :
+
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+
+    filter_name='LowDopplerFilter'
+
+    plt.figure(figsize=(8, 8))
+    plt.subplot(2,2,1)
+
+    tmp_ref=np.ma.masked_array( qc_output['ref'] , qc_output['ref'] == qc_output['undef_v'] )
+    tmp_cref=np.ma.masked_array( qc_output['cref'] , qc_output['cref'] == qc_output['undef_v'] )
+
+    plt.pcolor(qc_output['x'][:,:,elev]/1e3,qc_output['y'][:,:,elev]/1e3, tmp_cref[:,:,elev],vmin=vmin,vmax=vmax,cmap=cmap)
+    plt.title('Corrected Reflectivity')
+    plt.colorbar()
+
+    plt.subplot(2,2,2)
+    plt.pcolor(qc_output['x'][:,:,elev]/1e3,qc_output['y'][:,:,elev]/1e3, tmp_ref[:,:,elev],vmin=vmin,vmax=vmax,cmap=cmap)
+    plt.title('Original Reflectivity')
+    plt.colorbar()
+
+    plt.subplot(2,2,3)
+    plt.pcolor(qc_output['x'][:,:,elev]/1e3,qc_output['y'][:,:,elev]/1e3, ( qc_output['v'][:,:,elev] ) , vmin=-30.0 , vmax=30.0, cmap='pyart_NWSVel' )
+    plt.title('Radial Velocity')
+    plt.colorbar()
+
+    plt.subplot(2,2,4)
+    plt.pcolor(qc_output['x'][:,:,elev]/1e3,qc_output['y'][:,:,elev]/1e3, ( qc_output['qcref'][:,:,elev]==options[filter_name]['code'] ).astype(float) )
+    plt.title('Pixels Eliminated by Low Doppler Filter')
+    plt.colorbar()
+
+    if show  :
+       plt.show()
+
+    plt.savefig(figname, dpi=None, facecolor='w', edgecolor='w',orientation='portrait', papertype=None, format=None,
+                transparent=False, bbox_inches=None, pad_inches=0.1,frameon=None)
+
+    return
+
+
+def plot_interferencefilter( qc_output , options , elev=0 , figname='out.png',vmin=-10,vmax=70,cmap='pyart_NWSRef',show=False)  :
+
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+
+    filter_name='InterferenceFilter'
+
+    plt.figure(figsize=(8, 8))
+    plt.subplot(2,2,1)
+
+    tmp_ref=np.ma.masked_array( qc_output['ref'] , qc_output['ref'] == qc_output['undef_v'] )
+    tmp_cref=np.ma.masked_array( qc_output['cref'] , qc_output['cref'] == qc_output['undef_v'] )
+
+    plt.pcolor(qc_output['x'][:,:,elev]/1e3,qc_output['y'][:,:,elev]/1e3, tmp_cref[:,:,elev],vmin=vmin,vmax=vmax,cmap=cmap)
+    plt.title('Corrected Reflectivity')
+    plt.colorbar()
+
+    plt.subplot(2,2,2)
+    plt.pcolor(qc_output['x'][:,:,elev]/1e3,qc_output['y'][:,:,elev]/1e3, tmp_ref[:,:,elev],vmin=vmin,vmax=vmax,cmap=cmap)
+    plt.title('Original Reflectivity')
+    plt.colorbar()
+
+    plt.subplot(2,2,3)
+    plt.pcolor(qc_output['x'][:,:,elev]/1e3,qc_output['y'][:,:,elev]/1e3,  tmp_cref[:,:,elev] - tmp_ref[:,:,elev] )
+    plt.title('Reflectivity difference')
+    plt.colorbar()
+
+    plt.subplot(2,2,4)
+    plt.pcolor(qc_output['x'][:,:,elev]/1e3,qc_output['y'][:,:,elev]/1e3, ( qc_output['qcref'][:,:,elev]==options[filter_name]['code'] ).astype(float) )
+    plt.title('Pixels Eliminated by Interference Filter')
+    plt.colorbar()
+
+    if show  :
+       plt.show()
+
+    plt.savefig(figname, dpi=None, facecolor='w', edgecolor='w',orientation='portrait', papertype=None, format=None,
+                transparent=False, bbox_inches=None, pad_inches=0.1,frameon=None)
+
+    return
+
 
 
 

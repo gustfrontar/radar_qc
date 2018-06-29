@@ -16,6 +16,7 @@ def main_qc( filename , options ) :
    from scipy.interpolate import interp2d
    import netCDF4
    import os
+   from netCDF4 import Dataset
 
    import matplotlib.pyplot as plt
 
@@ -37,13 +38,19 @@ def main_qc( filename , options ) :
 
    radar = pyart.io.read(filename)
 
+   if options['is_rma']  :
+
+      radar = get_rma_strat( filename , radar ) 
+
    if radar.altitude_agl['data'] == 0.0    :
       #Radar is assumed to be at ground level. Add 20 meters to account for the height of the tower.
-      radar.altitude['data']=radar.altitude['data']+20
+      radar.altitude['data']=radar.altitude['data']+options['radar_altitude_agl']
 
 
    #Get the nyquist velocity
-   nyquistv=radar.get_nyquist_vel(0,check_uniform=True)
+   if not options['is_rma']  :
+      nyquistv=radar.get_nyquist_vel(0,check_uniform=True)
+      
 
    output['maxw_ref']=0.0
    output['maxw_v']  =0.0
@@ -447,12 +454,13 @@ def main_qc( filename , options ) :
       tmp_angles= output['elevations'][ output['elevations'] < options[filter_name]['min_angle']]
       tmp_n_angles = np.size( tmp_angles )
 
-      tmp_ref_smooth=qc.box_functions_2d(datain=output['ref'],na=na,nr=nr,ne=ne,undef=output['undef_ref']
+      output['smooth_ref']=qc.box_functions_2d(datain=output['ref'],na=na,nr=nr,ne=ne,undef=output['undef_ref']
                                                ,boxx=nx,boxy=ny,boxz=nz,operation='MEAN',threshold=0.0)
      
       tmp_w=np.zeros([na,nr,ne]) 
       for ie in range( 0 , tmp_n_angles )  :
-         tmp_w[:,:,ie]=np.logical_and( output['ref'][:,:,ie] > options['norainrefval'] , tmp_ref_smooth[:,:,tmp_n_angles] <= options['norainrefval'] )
+         tmp_w[:,:,ie]=np.logical_and( output['ref'][:,:,ie] > options['norainrefval'] , output['smooth_ref'][:,:,tmp_n_angles] <= options['norainrefval'] )
+         tmp_w[:,:,ie][ output['altitude'][:,:,tmp_n_angles] > options[filter_name]['height_thr'] ] = 0.0
 
       if not options[filter_name]['force']   :
          output['wref']=output['wref'] + tmp_w * options[filter_name]['w']
@@ -461,6 +469,12 @@ def main_qc( filename , options ) :
       else                                   :
          output['cref'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_ref']
          output['qcref'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
+
+      #If requested store the auxiliary fields and data in the output dictionary.
+      if  ( not options[filter_name]['save'] )     :
+          output.pop('smooth_ref')
+          computed_etfilter = False
+
 
       end=time.time()
       print("The elapsed time in {:s} is {:2f}".format(filter_name,end-start) )
@@ -798,13 +812,32 @@ def main_qc( filename , options ) :
 
       tmp_ref=np.copy( output['cref'] )
 
-      output['cref'] = interference_filter ( output['cref'] , output['undef_ref'] , options['norainrefval'] 
-                                            , radar.range['data'] , conf[filter_name] ) 
+      nx=options[filter_name]['nx']
+      ny=options[filter_name]['ny']
+      nz=options[filter_name]['nz']
 
-      output['qc_ref'][ np.abs( tmp_ref - output['cref'] ) > 0 ]=options[filter_name]['code']
 
+      #output['smooth_ref']=qc.box_functions_2d(datain=output['ref'],na=na,nr=nr,ne=ne,undef=output['undef_ref']
+      #                                                             ,boxx=nx,boxy=ny,boxz=nz,operation='MEAN',threshold=0.0)
+
+
+      output['cref'] = interference_filter ( output['ref'] , output['undef_ref'] , options['norainrefval'] 
+                                            , radar.range['data'] , options[filter_name] ) 
+
+      output['qcref'][ np.abs( tmp_ref - output['cref'] ) > 0 ]=options[filter_name]['code']
+
+
+
+      end=time.time()
  
       print("The elapsed time in {:s} is {:2f}".format(filter_name,end-start) )  
+
+
+   #===================================================
+   # POWER FILTER
+   #===================================================
+
+   #TODO
 
    #===================================================
    # DETECT MISSING REFLECTIVITY VALUES
@@ -935,9 +968,9 @@ def main_qc( filename , options ) :
 
       #The filter will not produce any effect below a certain height
       if  options[filter_name]['use_terrain']    :
-          tmp_w[ output['altitude_agl'] < options[filter_name]['height_thr'] ] = 0.0
+          tmp_w[ output['altitude_agl'] >  options[filter_name]['height_thr'] ] = 0.0
       else                                    :
-          tmp_w[ output['altitude'] < options[filter_name]['height_thr'] ] = 0.0
+          tmp_w[ output['altitude'] > options[filter_name]['height_thr'] ] = 0.0
 
       if name_ref in radar.fields   :
          if not options[filter_name]['force']   :
@@ -1149,7 +1182,38 @@ def order_variable_inv (  radar , var , order_index , undef )  :
     return output_var
 
 
+def get_rma_strat ( filename , radar )  :
+
+    #Get the corresponding radar strategy depending on the filename.
+    if radar.altitude_agl == None :
+       radar.altitude_agl = dict()
+    if radar.metadata == None :
+       radar.metadata = dict()
+    if radar.instrument_parameters == None :
+       radar.instrument_parameters = dict()
+    if radar.range == None :
+       radar.range = dict()
+    if radar.ray_angle_res == None :
+       radar.ray_angle_res = dict()
+
+    radar.altitude_agl['data'] = 0.0   
+
+    radar.metadata['instrument_name'] = 'RMA' + filename[ filename.find('RMA') + 3 ]
+
+    if '0122_03' in filename  :  #122-3 STRATEGY
+
+        radar.instrument_parameters['nyquist_velocity']=13.25
+        radar.ray_angle_res['data']=1.0
+        radar.range['meters_between_gates']=300.0
+
+
+    return radar
+
+
 def interference_filter ( ref , undef , min_ref , r , my_conf )  :
+
+   import numpy as np
+   import matplotlib.pyplot as plt
 
    #ref a 3D array with the reflectivity in the na,nr,ne grid.
    #undef: value corresponding to the missing value in the reflectivity field.
@@ -1179,35 +1243,62 @@ def interference_filter ( ref , undef , min_ref , r , my_conf )  :
 
       for i in range(na)  :
 
-         tmp_mask = tmp_ref[i,:,k] != undef 
-         dbm= tmp_ref[i,:,k][tmp_mask]  - 20*np.log10( r[tmp_mask] ) - 2*att*r[tmp_mask]
-         raux=r[tmp_mask]
+         for iter in range(2) :
+           #Perform an iterative fitting.
+           if iter == 0 :
+               tmp_mask = np.logical_and( tmp_ref[i,:,k] != undef , tmp_ref[i,:,k] < 10.0 )
 
-         if np.sum( tmp_mask.astype(int)/nr ) > percent_valid_threshold   :
-            #TODO reemplazar por una regresion robusta que sea menos sensible
-            #a los outliers.
-            p=np.polyfit(raux,dbm,1)
-            tmpcorr=np.corrcoef(raux,dbm)
-            corrcoef=tmpcorr[0,1]
-            a=p[0]
-            b=p[1]
+               tmp_count = np.sum( (tmp_mask).astype(int) )/nr
 
-         else:
-            a=0.0
-            b=0.0
+           raux=r[tmp_mask]
+           dbm= tmp_ref[i,:,k][tmp_mask]  - 20.0*np.log10( raux ) - 2.0*att*raux
 
-         dbzrayo=a*r+b + 20*np.log10( r ) + 2*att*r
+           if tmp_count > percent_valid_threshold   :
+              #TODO reemplazar por una regresion robusta que sea menos sensible
+              #a los outliers. SCIKIT-LEARN tiene implementaciones en python de diversos
+              #metodos para regresiones robustas. Seria cuestion de probar cual es el mas adecuado
+              #para este problema.
+              p=np.polyfit(raux,dbm,1)
+              #tmpcorr=np.corrcoef(raux,dbm)
+              #corrcoef=tmpcorr[0,1]
+              a=p[0]
+              b=p[1]
 
-         #Consider the grid points that are close to the fitted interference reflectivity.
-         tmp_mask = np.abs( dbzrayo - tmp_ref[i,:,j]) < refthreshold 
 
-         if( corrcoef > corr_threshold & np.sum( tmp_mask.astype(int) )/nr > percent_ref_threshold )  :
+           else:
+              a=0.0
+              b=1.0
+
+           dbzrayo=a*r+b + 20.0*np.log10( r ) + 2.0*att*r
+
+           if (i==257) and (k==0) :
+              print( dbzrayo[tmp_mask] , tmp_ref[i,:,k][tmp_mask] )
+              print(tmp_count)
+           corrcoef=np.corrcoef( dbzrayo[tmp_mask],tmp_ref[i,:,k][tmp_mask] )[0,1]
+           #if i == 203 :
+           #    print(iter,corrcoef,np.sum(tmp_mask.astype(int))/nr)
+
+           #print(a,b,corrcoef )
+           if i == 257 :
+             plt.plot( dbzrayo[tmp_mask] ) 
+             plt.plot( tmp_ref[i,:,k][tmp_mask] )
+             #print( tmp_ref[i,:,k][tmp_mask][0:10])
+             #print( dbzrayo[tmp_mask][0:10])
+             #plt.show()
+
+           #Consider the grid points that are close to the fitted interference reflectivity.
+           #tmp_mask = tmp_ref[i,:,k] != undef
+           tmp_mask = np.logical_and( np.abs( dbzrayo - tmp_ref[i,:,k] ) < ref_threshold , tmp_ref[i,:,k] != undef )
+         plt.show()
+         if k == 0 :
+            print(i,corrcoef,np.sum(tmp_mask.astype(int))/nr)
+         if( ( corrcoef > corr_threshold ) & ( np.sum(tmp_mask.astype(int))/nr > percent_ref_threshold ) )  :
          #This means that this ray is likely to be contaminated by interference.
 
             ref[i,:,k][ tmp_mask ] = undef
 
             zrayo = np.power(10.0,dbzrayo/10.0) 
-            z     = np.power(10.0,ref[i,:,j])
+            z     = np.power(10.0,ref[i,:,k]/10.0)
 
             #If the reflectivity is far from the fitted interference, and is greather than the fitted
             #Interference, then correct the power substracting the interference power.         
@@ -1226,13 +1317,41 @@ def interference_filter ( ref , undef , min_ref , r , my_conf )  :
       for k in range(ne) :
 
          for i in range(na) :
-            if i> 2 & i < nrays-1  :
+            if ( i > 1 ) & ( i < na-2 ) :
  
                #If we have reflectivity in only one ray but not in the neighbors this suggest an interference pattern.
                tmp_mask = np.logical_and( ref[i-1,:,k] <= min_ref , ref[i+1,:,k] <= min_ref ) 
                ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
 
                tmp_mask = np.logical_and( ref[i-2,:,k] <= min_ref , ref[i+2,:,k] <= min_ref )
+               ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
+
+            elif  i==na-1   :
+               tmp_mask = np.logical_and( ref[i-1,:,k] <= min_ref , ref[0,:,k] <= min_ref )
+               ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
+
+               tmp_mask = np.logical_and( ref[i-2,:,k] <= min_ref , ref[1,:,k] <= min_ref )
+               ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
+           
+            elif  i==na-3   :
+               tmp_mask = np.logical_and( ref[i-1,:,k] <= min_ref , ref[i,:,k] <= min_ref )
+               ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
+
+               tmp_mask = np.logical_and( ref[i-2,:,k] <= min_ref , ref[0,:,k] <= min_ref )
+               ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
+
+            elif  i==0      :
+               tmp_mask = np.logical_and( ref[na-1,:,k] <= min_ref , ref[i+1,:,k] <= min_ref )
+               ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
+
+               tmp_mask = np.logical_and( ref[na-2,:,k] <= min_ref , ref[i+2,:,k] <= min_ref )
+               ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
+
+            elif  i==1      :
+               tmp_mask = np.logical_and( ref[i-1,:,k] <= min_ref , ref[i+1,:,k] <= min_ref )
+               ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
+
+               tmp_mask = np.logical_and( ref[na-1,:,k] <= min_ref , ref[i+2,:,k] <= min_ref )
                ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
 
 
@@ -1281,7 +1400,7 @@ def write_topo( my_topo , my_file )           :
     np.reshape( my_topo['max'].astype('f4') , (nr*na) ).tofile(f)
     np.reshape( my_topo['min'].astype('f4') , (nr*na) ).tofile(f)
     np.reshape( my_topo['number'].astype('f4') , (nr*na) ).tofile(f)
-    np.reshape( my_topo['range'].astype('f4') , (nr*na) ).tofile(f)
+    np.reshape( (my_topo['range'].data).astype('f4') , (nr*na) ).tofile(f)
     np.reshape( my_topo['azimuth'].astype('f4') , (nr*na) ).tofile(f)
     np.reshape( my_topo['latitude'].astype('f4') , (nr*na) ).tofile(f)
     np.reshape( my_topo['longitude'].astype('f4') , (nr*na) ).tofile(f)
