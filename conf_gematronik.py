@@ -293,17 +293,17 @@ options[filter_name]=dict()
 options[filter_name]['flag']=False                             #Enable / Disable filter
 options[filter_name]['save']=True                              #Save filter aux fields to output?
 options[filter_name]['nx']=0                                   #NX
-options[filter_name]['ny']=0                                   #NY
+options[filter_name]['ny']=4                                   #NY
 options[filter_name]['nz']=0                                   #NZ
 options[filter_name]['code']= 20
-options[filter_name]['offset']=100                             #Number of ranges that will be discarded in the interference fit process.
-options[filter_name]['att']=0.01                               #Atmospheric gases attenuation constant.
-options[filter_name]['npass_filter']=3                         #Number of passes of the azimuthal continuity filter.
-options[filter_name]['percent_valid_threshold']=0.4            #Rays with valid pixels over this percentaje will be examinated.
-options[filter_name]['corr_threshold']=0.6                     #Rays that correlates well with the interference pattern will be flagged as 
+options[filter_name]['att']=0.01e-3                            #Atmospheric gases attenuation constant.
+options[filter_name]['Smooth_Ref']=True                        #Smooth reflectivity before applying robust regression
+options[filter_name]['npass_filter']=0                         #Number of passes of the azimuthal continuity filter.
+options[filter_name]['percent_valid_threshold']=0.1            #Rays with valid pixels over this percentaje will be examinated.
+options[filter_name]['corr_threshold']=0.5                     #Rays that correlates well with the interference pattern will be flagged as 
                                                                #contaminated.
 options[filter_name]['ref_threshold']=5.0                      #Reflectivity threshold to count pixels which are close to the interference pattern.
-options[filter_name]['percent_ref_threshold']=0.6              #If more than this percent of the ray correlates well with the interference pattern, then
+options[filter_name]['percent_ref_threshold']=0.3              #If more than this percent of the ray correlates well with the interference pattern, then
                                                                #the ray is flagged as contaminated by interference.
 
 #Dealiasing border filter            ==============================================================

@@ -1214,6 +1214,7 @@ def get_rma_strat ( filename , radar )  :
 def interference_filter ( ref , undef , min_ref , r , my_conf )  :
 
    import numpy as np
+   from common_qc_tools  import qc  #Fortran code routines.
    from sklearn import linear_model, datasets
    import matplotlib.pyplot as plt
 
@@ -1223,12 +1224,27 @@ def interference_filter ( ref , undef , min_ref , r , my_conf )  :
    #r : radar range (vector)
    #my_conf : configuration for this filter.
 
+   offset= my_conf['offset']
+
    na=ref.shape[0]
    nr=ref.shape[1]
    ne=ref.shape[2]
 
-   tmp_ref=np.copy( ref ) 
+   nx=my_conf['nx']
+   ny=my_conf['ny']
+   nz=my_conf['nz']
 
+   if my_conf['Smooth_Ref']  :
+
+      tmp_ref = qc.box_functions_2d(datain=ref,na=na,nr=nr,ne=ne,undef=undef
+                                 ,boxx=nx,boxy=ny,boxz=nz,operation='MEAN',threshold=0.0)
+   else                      :
+      tmp_ref = np.copy( ref )
+
+   tmp_z = np.power( 10.0, tmp_ref / 10.0  )
+
+   tmp_z[tmp_ref == undef ] = undef
+  
    
    #offset=my_conf['offset']
    att=my_conf['att']
@@ -1238,7 +1254,7 @@ def interference_filter ( ref , undef , min_ref , r , my_conf )  :
    ref_threshold=my_conf['ref_threshold']
    percent_ref_threshold=my_conf['percent_ref_threshold']
 
-   #tmp_ref[:,0:offset,:]=undef
+   Power_Regression = my_conf['Power_Regression']
 
    #Main loops
 
@@ -1246,55 +1262,77 @@ def interference_filter ( ref , undef , min_ref , r , my_conf )  :
 
       for i in range(na)  :
 
-           undef_mask = tmp_ref[i,:,k] != undef 
+           local_ref = np.copy( tmp_ref[i,:,k] )
+           local_ref[0:offset]=undef
+
+           undef_mask = local_ref != undef 
 
            tmp_count = np.sum( (undef_mask).astype(int) )/nr
 
-           smooth_dbz =   #smooth_fft( tmp_ref[i,:,k] )
-
-           power = smooth_dbz  - 20.0 * np.log10( r ) - 2.0 * att * r
+           power = local_ref  - 20.0 * np.log10( r ) - 2.0 * att * r
 
            if tmp_count > percent_valid_threshold   :
-              ransac = linear_model.RANSACRegressor()
-              ransac.fit( r[undef_mask].reshape(-1, 1) , power[undef_mask].reshape(-1, 1) )
-              inlier_mask = ransac.inlier_mask_
-              outlier_mask = np.logical_not(inlier_mask)
+              ransac = linear_model.RANSACRegressor()     
 
-              powerrayo = ransac.predict( r.reshape(-1,1) )[:,0]  + 20.0 * np.log10( r ) + 2.0 * att * r
+              if Power_Regression   :
+                 ransac.fit( r[undef_mask].reshape(-1, 1) , np.power( 10.0 , power[undef_mask].reshape(-1, 1)/10.0 ) )
+                 inlier_mask = ransac.inlier_mask_
+                 outlier_mask = np.logical_not( inlier_mask )
+
+                 tmppower=ransac.predict( r.reshape(-1,1) )[:,0]
+                 tmppower[ tmppower < 0.0 ]=10e-10
+
+                 powerrayo = 10.0*np.log10( tmppower ) + 20.0 * np.log10( r ) + 2.0 * att * r
+
+              else                  :
+                 ransac.fit( r[undef_mask].reshape(-1, 1) , power[undef_mask].reshape(-1, 1) )
+                 inlier_mask = ransac.inlier_mask_
+                 outlier_mask = np.logical_not(inlier_mask)
+
+                 powerrayo = ransac.predict( r.reshape(-1,1) )[:,0]  + 20.0 * np.log10( r ) + 2.0 * att * r
 
            else:
 
               powerrayo = np.zeros( nr ) + 20.0 * np.log10( r ) + 2.0 * att * r
 
-           #print( np.shape( powerrayo ),np.shape( smooth_dbz) )
+           #print( np.shape( powerrayo ),np.shape( local_ref )
            
-           corrcoef=np.corrcoef( powerrayo[undef_mask][inlier_mask],smooth_dbz[undef_mask][inlier_mask] )[0,1]
+           corrcoef=np.corrcoef( powerrayo[undef_mask][inlier_mask],local_ref[undef_mask][inlier_mask] )[0,1]
 
-           if (k == 0) and (i == 92) :
-             plt.plot( powerrayo , smooth_dbz ,'or')
-             plt.plot(  powerrayo[undef_mask][inlier_mask],smooth_dbz[undef_mask][inlier_mask] , 'ok')
+           if (k == 0) and (i == 348) :
+             plt.plot(  powerrayo[undef_mask] , local_ref[undef_mask] ,'or')
+             plt.plot(  powerrayo[undef_mask][inlier_mask],local_ref[undef_mask][inlier_mask] , 'ok')
              plt.show()
              print(corrcoef,np.sum( inlier_mask.astype(int) )/nr )
-
+           
              plt.plot( r[undef_mask] , powerrayo[undef_mask] )
-             plt.plot( r[undef_mask] , smooth_dbz[undef_mask])
+             plt.plot( r[undef_mask][inlier_mask] , local_ref[undef_mask][inlier_mask] ,'ok' )
+             plt.plot( r[undef_mask] , local_ref[undef_mask])
              plt.show()
 
-           if( ( corrcoef > corr_threshold ) & ( np.sum( inlier_mask.astype(int) )/nr > percent_ref_threshold ) )  :
+           if( ( corrcoef > corr_threshold ) & ( np.sum( inlier_mask.astype(int) )/( nr-offset ) > percent_ref_threshold ) )  :
               #This means that this ray is likely to be contaminated by interference.
 
+              undef_mask = ( tmp_z[i,:,k] != undef )
               zrayo = np.power( 10.0,powerrayo  / 10.0 ) 
               z     = np.power( 10.0,ref[i,:,k] / 10.0  )
 
               #If the reflectivity is far from the fitted interference, and is greather than the fitted
               #Interference, then correct the power substracting the interference power.         
-              tmp_mask = np.logical_and( z - zrayo > 10.0 ,  undef_mask  )  
+              tmp_mask = np.logical_and( tmp_z[i,:,k] - zrayo > 5.0 ,  undef_mask  )  
+              tmp_mask = np.logical_and( z - zrayo > 0 , tmp_mask )
               ref[i, tmp_mask ,k] = 10.0*np.log10( (z - zrayo)[tmp_mask] ) 
  
               #If the reflectivity is far from the fitted interference, and is smaller than the fitted interference
               #then set that pixel as an undef pixel.
-              tmp_mask = np.logical_and( z - zrayo <= 10.0 , undef_mask )
-              ref[i, tmp_mask ,k] = undef
+              tmp_mask = np.logical_and( tmp_z[i,:,k] - zrayo <= 5.0 , undef_mask )
+              ref[i, tmp_mask ,k] = min_ref
+
+              if (k == 0) and (i == 348) :
+                 plt.plot( r[undef_mask] , tmp_z[i,:,k][undef_mask] )
+                 plt.plot( r[undef_mask] , z[undef_mask]      ,'ok' )
+                 plt.plot( r[undef_mask] , zrayo[undef_mask])
+                 plt.show()
 
            else :
               print(i,k)
@@ -1307,9 +1345,11 @@ def interference_filter ( ref , undef , min_ref , r , my_conf )  :
 
          for i in range(na) :
             if ( i > 1 ) & ( i < na-2 ) :
+
+            #DETECT ISOLATED PIXELS IN AZIMUTH
  
                #If we have reflectivity in only one ray but not in the neighbors this suggest an interference pattern.
-               tmp_mask = np.logical_and( ref[i-1,:,k] <= min_ref , ref[i+1,:,k] <= min_ref ) 
+               tmp_mask = np.logical_and( ref[i-1,:,k] <= min_ref , ref[i+1,:,k] <= min_ref )
                ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
 
                tmp_mask = np.logical_and( ref[i-2,:,k] <= min_ref , ref[i+2,:,k] <= min_ref )
@@ -1321,7 +1361,7 @@ def interference_filter ( ref , undef , min_ref , r , my_conf )  :
 
                tmp_mask = np.logical_and( ref[i-2,:,k] <= min_ref , ref[1,:,k] <= min_ref )
                ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
-           
+
             elif  i==na-3   :
                tmp_mask = np.logical_and( ref[i-1,:,k] <= min_ref , ref[i,:,k] <= min_ref )
                ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
@@ -1343,6 +1383,22 @@ def interference_filter ( ref , undef , min_ref , r , my_conf )  :
                tmp_mask = np.logical_and( ref[na-1,:,k] <= min_ref , ref[i+2,:,k] <= min_ref )
                ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
 
+            #DETECT ISOLATED PIXELS IN ELEVATION
+
+            if ( k > 0 ) & ( k < ne-1 ) :
+
+               tmp_mask = np.logical_and( ref[i,:,k-1] <= min_ref , ref[i,:,k+1] <= min_ref )
+               ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
+
+            if ( k > 0 )                :
+
+               tmp_mask = ( ref[i,:,k+2] <= min_ref , ref[i,:,k+1] <= min_ref )
+               ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
+
+            if ( k == ne-1 )            :
+
+               tmp_mask = np.logical_and( ref[i,:,k-2] <= min_ref , ref[i,:,k-1] <= min_ref )
+               ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
 
    return ref
 
