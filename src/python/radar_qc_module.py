@@ -810,24 +810,13 @@ def main_qc( filename , options ) :
 
       start=time.time()
 
-      tmp_ref=np.copy( output['cref'] )
-
-      nx=options[filter_name]['nx']
-      ny=options[filter_name]['ny']
-      nz=options[filter_name]['nz']
-
-
-      #output['smooth_ref']=qc.box_functions_2d(datain=output['ref'],na=na,nr=nr,ne=ne,undef=output['undef_ref']
-      #                                                             ,boxx=nx,boxy=ny,boxz=nz,operation='MEAN',threshold=0.0)
-
+      tmp_ref=np.copy( output['ref'] )
 
       output['cref'] = interference_filter ( tmp_ref , output['undef_ref'] , options['norainrefval'] 
                                             , radar.range['data'] , options[filter_name] ) 
 
 
       output['qcref'][ np.abs( tmp_ref - output['cref'] ) > 0 ]=options[filter_name]['code']
-
-
 
       end=time.time()
  
