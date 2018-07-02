@@ -61,7 +61,7 @@ if conf.options['LowElevFilter']['flag'] :
 if conf.options['LowDopplerFilter']['flag'] :
    qcpt.plot_lowdopplerfilter( qc_output , conf.options , figname='LowDopplerFilter.png' , elev=elev )
 if conf.options['InterferenceFilter']['flag'] :
-   qcpt.plot_interferencefilter( qc_output , conf.options , figname='InterferenceFilter.png' , elev=elev )
+   qcpt.plot_interferencefilter( qc_output , conf.options , figname='InterferenceFilter.png' , elev=elev , show=True )
 
 
 

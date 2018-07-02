@@ -816,7 +816,7 @@ def main_qc( filename , options ) :
                                             , radar.range['data'] , options[filter_name] ) 
 
 
-      output['qcref'][ np.abs( tmp_ref - output['cref'] ) > 0 ]=options[filter_name]['code']
+      output['qcref'][ np.abs( output['ref'] - output['cref'] ) > 0 ]=options[filter_name]['code']
 
       end=time.time()
  
@@ -1237,6 +1237,8 @@ def interference_filter ( ref , undef , min_ref , r , my_conf )  :
    
    #offset=my_conf['offset']
    att=my_conf['att']
+   AzimuthFilter=my_conf['AzimuthFilter']
+   ElevationFilter=my_conf['ElevationFilter']
    npass_filter=my_conf['npass_filter']
    percent_valid_threshold=my_conf['percent_valid_threshold']
    corr_threshold=my_conf['corr_threshold']
@@ -1285,21 +1287,30 @@ def interference_filter ( ref , undef , min_ref , r , my_conf )  :
               powerrayo = np.zeros( nr ) + 20.0 * np.log10( r ) + 2.0 * att * r
 
            #print( np.shape( powerrayo ),np.shape( local_ref )
-           
-           corrcoef=np.corrcoef( powerrayo[undef_mask][inlier_mask],local_ref[undef_mask][inlier_mask] )[0,1]
 
-           if (k == 0) and (i == 348) :
-             plt.plot(  powerrayo[undef_mask] , local_ref[undef_mask] ,'or')
-             plt.plot(  powerrayo[undef_mask][inlier_mask],local_ref[undef_mask][inlier_mask] , 'ok')
-             plt.show()
-             print(corrcoef,np.sum( inlier_mask.astype(int) )/nr )
+           if ( np.sum( inlier_mask.astype(int) ) >= 10 ) & ( np.std(local_ref[undef_mask][inlier_mask]) > 0 ) :
            
-             plt.plot( r[undef_mask] , powerrayo[undef_mask] )
-             plt.plot( r[undef_mask][inlier_mask] , local_ref[undef_mask][inlier_mask] ,'ok' )
-             plt.plot( r[undef_mask] , local_ref[undef_mask])
-             plt.show()
+              corrcoef=np.corrcoef( powerrayo[undef_mask][inlier_mask],local_ref[undef_mask][inlier_mask] )[0,1]
+
+           else                                      :
+
+              corrcoef=-1.0
+
+           #if (k == 0) and (i == 348) :
+           #  plt.plot(  powerrayo[undef_mask] , local_ref[undef_mask] ,'or')
+           #  plt.plot(  powerrayo[undef_mask][inlier_mask],local_ref[undef_mask][inlier_mask] , 'ok')
+           #  plt.show()
+           #  print(corrcoef,np.sum( inlier_mask.astype(int) )/nr )
+           
+           #  plt.plot( r[undef_mask] , powerrayo[undef_mask] )
+           #  plt.plot( r[undef_mask][inlier_mask] , local_ref[undef_mask][inlier_mask] ,'ok' )
+           #  plt.plot( r[undef_mask] , local_ref[undef_mask])
+           #  plt.show()
+
 
            if( ( corrcoef > corr_threshold ) & ( np.sum( inlier_mask.astype(int) )/( nr-offset ) > percent_ref_threshold ) )  :
+
+              
               #This means that this ray is likely to be contaminated by interference.
 
               undef_mask = ( tmp_z[i,:,k] != undef )
@@ -1317,14 +1328,14 @@ def interference_filter ( ref , undef , min_ref , r , my_conf )  :
               tmp_mask = np.logical_and( tmp_z[i,:,k] - zrayo <= 5.0 , undef_mask )
               ref[i, tmp_mask ,k] = min_ref
 
-              if (k == 0) and (i == 348) :
-                 plt.plot( r[undef_mask] , tmp_z[i,:,k][undef_mask] )
-                 plt.plot( r[undef_mask] , z[undef_mask]      ,'ok' )
-                 plt.plot( r[undef_mask] , zrayo[undef_mask])
-                 plt.show()
+              #if (k == 0) and (i == 348) :
+              #   plt.plot( r[undef_mask] , tmp_z[i,:,k][undef_mask] )
+              #   plt.plot( r[undef_mask] , z[undef_mask]      ,'ok' )
+              #   plt.plot( r[undef_mask] , zrayo[undef_mask])
+              #   plt.show()
 
-           else :
-              print(i,k)
+           #else :
+              #print(i,k)
 
    #Additional filter for the remaining echoes
    #consider cyclic boundary conditions in azimuth.
@@ -1333,61 +1344,63 @@ def interference_filter ( ref , undef , min_ref , r , my_conf )  :
       for k in range(ne) :
 
          for i in range(na) :
-            if ( i > 1 ) & ( i < na-2 ) :
+            if  AzimuthFilter         :  #DETECT ISOLATED PIXELS IN AZIMUTH
 
-            #DETECT ISOLATED PIXELS IN AZIMUTH
+               if ( i > 1 ) & ( i < na-2 ) :
  
-               #If we have reflectivity in only one ray but not in the neighbors this suggest an interference pattern.
-               tmp_mask = np.logical_and( ref[i-1,:,k] <= min_ref , ref[i+1,:,k] <= min_ref )
-               ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
+                  #If we have reflectivity in only one ray but not in the neighbors this suggest an interference pattern.
+                  tmp_mask = np.logical_and( ref[i-1,:,k] <= min_ref , ref[i+1,:,k] <= min_ref )
+                  ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
 
-               tmp_mask = np.logical_and( ref[i-2,:,k] <= min_ref , ref[i+2,:,k] <= min_ref )
-               ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
+                  tmp_mask = np.logical_and( ref[i-2,:,k] <= min_ref , ref[i+2,:,k] <= min_ref )
+                  ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
+ 
+               elif  i==na-1   :
+                  tmp_mask = np.logical_and( ref[i-1,:,k] <= min_ref , ref[0,:,k] <= min_ref )
+                  ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
 
-            elif  i==na-1   :
-               tmp_mask = np.logical_and( ref[i-1,:,k] <= min_ref , ref[0,:,k] <= min_ref )
-               ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
+                  tmp_mask = np.logical_and( ref[i-2,:,k] <= min_ref , ref[1,:,k] <= min_ref )
+                  ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
 
-               tmp_mask = np.logical_and( ref[i-2,:,k] <= min_ref , ref[1,:,k] <= min_ref )
-               ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
+               elif  i==na-3   :
+                  tmp_mask = np.logical_and( ref[i-1,:,k] <= min_ref , ref[i,:,k] <= min_ref )
+                  ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
 
-            elif  i==na-3   :
-               tmp_mask = np.logical_and( ref[i-1,:,k] <= min_ref , ref[i,:,k] <= min_ref )
-               ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
+                  tmp_mask = np.logical_and( ref[i-2,:,k] <= min_ref , ref[0,:,k] <= min_ref )
+                  ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
 
-               tmp_mask = np.logical_and( ref[i-2,:,k] <= min_ref , ref[0,:,k] <= min_ref )
-               ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
+               elif  i==0      :
 
-            elif  i==0      :
-               tmp_mask = np.logical_and( ref[na-1,:,k] <= min_ref , ref[i+1,:,k] <= min_ref )
-               ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
+                  tmp_mask = np.logical_and( ref[na-1,:,k] <= min_ref , ref[i+1,:,k] <= min_ref )
+                  ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
 
-               tmp_mask = np.logical_and( ref[na-2,:,k] <= min_ref , ref[i+2,:,k] <= min_ref )
-               ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
+                  tmp_mask = np.logical_and( ref[na-2,:,k] <= min_ref , ref[i+2,:,k] <= min_ref )
+                  ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
 
-            elif  i==1      :
-               tmp_mask = np.logical_and( ref[i-1,:,k] <= min_ref , ref[i+1,:,k] <= min_ref )
-               ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
+               elif  i==1      :
 
-               tmp_mask = np.logical_and( ref[na-1,:,k] <= min_ref , ref[i+2,:,k] <= min_ref )
-               ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
+                  tmp_mask = np.logical_and( ref[i-1,:,k] <= min_ref , ref[i+1,:,k] <= min_ref )
+                  ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
 
-            #DETECT ISOLATED PIXELS IN ELEVATION
+                  tmp_mask = np.logical_and( ref[na-1,:,k] <= min_ref , ref[i+2,:,k] <= min_ref )
+                  ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
 
-            if ( k > 0 ) & ( k < ne-1 ) :
+            if ElevationFilter         :   #DETECT ISOLATED PIXELS IN ELEVATION
 
-               tmp_mask = np.logical_and( ref[i,:,k-1] <= min_ref , ref[i,:,k+1] <= min_ref )
-               ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
+               if ( k > 0 ) & ( k < ne-1 ) :
 
-            if ( k > 0 )                :
+                  tmp_mask = np.logical_and( ref[i,:,k-1] <= min_ref , ref[i,:,k+1] <= min_ref )
+                  ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
 
-               tmp_mask = ( ref[i,:,k+2] <= min_ref , ref[i,:,k+1] <= min_ref )
-               ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
+               if ( k == 0 )                :
 
-            if ( k == ne-1 )            :
+                  tmp_mask = np.logical_and( ref[i,:,k+2] <= min_ref , ref[i,:,k+1] <= min_ref )
+                  ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
 
-               tmp_mask = np.logical_and( ref[i,:,k-2] <= min_ref , ref[i,:,k-1] <= min_ref )
-               ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
+               if ( k == ne-1 )            :
+
+                  tmp_mask = np.logical_and( ref[i,:,k-2] <= min_ref , ref[i,:,k-1] <= min_ref )
+                  ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
 
    return ref
 
