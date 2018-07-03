@@ -76,7 +76,7 @@ def main_qc( filename , options ) :
         output['nr']=nr
         output['ne']=ne
 
-        output['cref'] = np.zeros(output['ref'].shape) 
+        output['cref'] = np.copy(output['ref']) 
 
         output['cref'][:] = output['ref']                 #Initialize the corrected reflectivity array.
 
@@ -107,11 +107,9 @@ def main_qc( filename , options ) :
         output['nr']=nr
         output['ne']=ne
  
-        output['cv'] = np.zeros(output['v'].shape) 
+        output['cv'] = np.copy(output['v']) 
 
-        output['cv'][:] = output['v']                     #Initialize the corrected doppler velocity array
-
-        output['qcv'] = np.zeros(output['v'].shape)       #Set the qc flag array to 0.
+        output['qcv'] = np.zeros(output['v'].shape)      #Set the qc flag array to 0.
 
         output['wv'] = np.zeros(output['v'].shape)       #Set the weigths to 0.
 
@@ -503,7 +501,6 @@ def main_qc( filename , options ) :
          output['rho_smooth']=qc.box_functions_2d(datain=output['rho'],na=na,nr=nr,ne=ne,undef=output['undef_rho']
                                                  ,boxx=nx,boxy=ny,boxz=nz,operation='MEAN',threshold=0.0)
 
-
          #Compute the corresponding weigth.
          tmp_w = qc.multiple_1d_interpolation( field=output['rho_smooth'] , nx=na , ny=nr , nz=ne 
                                               , undef=output['undef_rho'] , xx=options[filter_name]['ifx'] 
@@ -531,7 +528,6 @@ def main_qc( filename , options ) :
       end=time.time()
 
       print("The elapsed time in {:s} is {:2f}".format(filter_name,end-start) )
-
  
    #===================================================
    # REFLECTIVITY SPECKLE FILTER
@@ -741,12 +737,24 @@ def main_qc( filename , options ) :
 
      for ip in range(0,options[filter_name]['n_filter_pass']) :
 
-       output['distance_1']=qc.compute_distance(tmp_dv_1,tmp_dv_2,nx=na,ny=nr,nz=ne,
-                                                undef=output['undef_v'],nx_box=nx,ny_box=ny,nz_box=nz)
+       output['smooth_v']=qc.box_functions_2d(datain=tmp_dv_2,na=na,nr=nr,ne=ne,undef=output['undef_v']
+                                               ,boxx=nx,boxy=ny,boxz=nz,operation='MEAN',threshold=0.0)
 
-       tmp_dv_2=np.copy(output['v']) 
+       undef_mask = np.logical_or( output['smooth_v'] == output['undef_v'] , output['v'] == output['undef_v'] )
+
+       output['distance_1'] = np.abs( output['smooth_v'] - output['v'] )
+
+       output['distance_1'][undef_mask] = 0.0
+
+
+       #output['distance_1']=qc.compute_distance(tmp_dv_1,tmp_dv_2,nx=na,ny=nr,nz=ne,
+       #                                         undef=output['undef_v'],nx_box=nx,ny_box=ny,nz_box=nz)
+
+       #tmp_dv_2=np.copy(output['v']) 
 
        tmp_dv_2[ output['distance_1'] > tr_1 ]=output['undef_v']
+
+       print( np.max( output['distance_1'] ), np.min( output['distance_1'] ) )
 
      #Compute the corresponding weigth.
      tmp_w = qc.multiple_1d_interpolation( field=output['distance_1'], nx=na , ny=nr , nz=ne
@@ -762,18 +770,22 @@ def main_qc( filename , options ) :
        output['qcv'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
 
 
-     tmp_dv_1[ np.logical_or( output['distance_1'] > tr_1 , output['distance_1']==output['undef_v'] ) ]=output['undef_v']
+     #tmp_dv_1[ np.logical_or( output['distance_1'] > tr_1 , output['distance_1']==output['undef_v'] ) ]=output['undef_v']
 
-     tmp_dv_2=np.copy(tmp_dv_1)
+     #tmp_dv_2=np.copy(tmp_dv_1)
 
      for ip in range(0,options[filter_name]['n_filter_pass']) :
 
-       output['distance_2']=qc.compute_distance(tmp_dv_1,tmp_dv_2,nx=na,ny=nr,nz=ne,
-                                                undef=output['undef_v'],nx_box=nx2,ny_box=ny2,nz_box=nz2)
+        output['smooth_v']=qc.box_functions_2d(datain=tmp_dv_2,na=na,nr=nr,ne=ne,undef=output['undef_v']
+                                              ,boxx=nx2,boxy=ny2,boxz=nz2,operation='MEAN',threshold=0.0)
 
-       tmp_dv_2=np.copy(output['v'])
+        undef_mask = np.logical_or( output['smooth_v'] == output['undef_v'] , output['v'] == output['undef_v'] )
 
-       tmp_dv_2[ output['distance_2'] > tr_2 ]=output['undef_v']
+        output['distance_2'] = np.abs( output['smooth_v'] - output['v'] )
+
+        output['distance_2'][undef_mask] = 0.0
+
+        tmp_dv_2[ output['distance_2'] > tr_2 ]=output['undef_v']
 
 
      #Compute the corresponding weigth.
@@ -799,6 +811,49 @@ def main_qc( filename , options ) :
      print("The elapsed time in {:s} is {:2f}".format(filter_name,end-start) )
 
    #===================================================
+   #  DOPPLER LOCAL STD FILTER
+   #===================================================
+
+   filter_name = 'DopplerLocalStdFilter'
+
+   if options[filter_name]['flag']  & ( name_v in radar.fields ) :
+
+      start=time.time()
+
+      nx=options[filter_name]['nx']
+      ny=options[filter_name]['ny']
+      nz=options[filter_name]['nz']
+
+      #Compute the filter parameter
+      output['v_std']=qc.box_functions_2d(datain=output['v'],na=na,nr=nr,ne=ne,undef=output['undef_v']
+                                               ,boxx=nx,boxy=ny,boxz=nz,operation='SIGM',threshold=0.0)
+
+      #Compute the corresponding weigth.
+      tmp_w = qc.multiple_1d_interpolation( field=output['v_std'] , nx=na , ny=nr , nz=ne
+                                              , undef=output['undef_v'] , xx=options[filter_name]['ifx']
+                                              , yy=options[filter_name]['ify'] , nxx=np.size(options[filter_name]['ifx']) )
+
+      output['wv']=output['wv'] + tmp_w * options[filter_name]['w']
+
+      if name_ref in radar.fields :
+         if not options[filter_name]['force']   :
+            output['wv']=output['wv'] + tmp_w * options[filter_name]['w']
+            output['qcv'][ tmp_w > 0.5 ] = options[filter_name]['code']
+            output['maxw_v']=output['maxw_v'] + options[filter_name]['w']
+         else                                   :
+            output['cv'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_ref']
+            output['qcv'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
+
+
+      print( options[filter_name]['save'] )
+      if ( not options[filter_name]['save'] ) :
+          output.pop('v_std')
+
+      end=time.time()
+
+      print("The elapsed time in {:s} is {:2f}".format(filter_name,end-start) )
+
+   #===================================================
    # INTERFERENCE FILTER
    #===================================================
 
@@ -821,6 +876,33 @@ def main_qc( filename , options ) :
       end=time.time()
  
       print("The elapsed time in {:s} is {:2f}".format(filter_name,end-start) )  
+
+
+   #===================================================
+   # DOPPLER SPATIAL COHERENCE FILTER
+   #===================================================
+
+   #Clean pixels which shows no coherence with their neighbors
+
+   filter_name = 'DopplerSpatialCoherenceFilter'
+
+   if options[filter_name]['flag'] & ( name_v in radar.fields ) :
+
+      start=time.time()
+
+      tmp_v=np.copy( output['v'] )
+
+      output['cv'] = dopplerspatialcoherence_filter( tmp_v , output['undef_v'] , options[filter_name] )
+
+      print( np.sum( (np.abs( output['cv'] - output['v'] ) > 0 ).astype(int) ) )
+
+
+      output['qcv'][ np.abs( output['v'] - output['cv'] ) > 0 ]=options[filter_name]['code']
+
+      end=time.time()
+
+      print("The elapsed time in {:s} is {:2f}".format(filter_name,end-start) )
+
 
 
    #===================================================
@@ -1199,6 +1281,118 @@ def get_rma_strat ( filename , radar )  :
 
     return radar
 
+
+def dopplerspatialcoherence_filter( v , undef , my_conf ) : 
+
+   import numpy as np
+   from common_qc_tools  import qc  #Fortran code routines.
+   from sklearn import linear_model, datasets
+   import matplotlib.pyplot as plt
+
+   #Compute a robust correlation between a ray and its neighbors.
+   #Detect outliers based on the correlation. 
+
+   na=v.shape[0]
+   nr=v.shape[1]
+   ne=v.shape[2]
+
+   #Coherence mask starts flagging the undef values
+   coherence_mask = ( v != undef )
+
+   print( np.sum( coherence_mask.astype(int) ) )
+
+   failed_correlation = np.zeros([ na , ne ] )
+
+   ransac = linear_model.RANSACRegressor()
+
+   for k in range(1,ne)  :
+
+      kprev = k - 1 
+
+      for i in range(na)  :
+
+           iprev = i - 1
+           if i == 0    :
+                iprev = na-1
+
+           #CONSIDER THE COHERENCE WITH THE NEIGHBOR BEAMS IN AZIMUTH DIRECTION
+
+           if my_conf['compute_horizontal_coherence']   :
+
+              #First get the number of undef values and generate a common undef mask.
+              local_valid_mask=np.logical_and( coherence_mask[i,:,k] , coherence_mask[iprev,:,k] )
+
+              n_valid = np.sum( local_valid_mask.astype(int) ) 
+
+              if ( n_valid / nr ) > my_conf['threshold_undef']   :
+
+                 tmp_vi = np.copy( v[i,:,k][local_valid_mask] )
+                 tmp_viprev = np.copy( v[iprev,:,k][local_valid_mask] )
+
+                 ransac.fit( tmp_vi.reshape(-1, 1) , tmp_viprev.reshape(-1, 1) )
+                 inlier_mask = ransac.inlier_mask_
+                 outlier_mask = np.logical_not( inlier_mask )
+
+                 #plt.plot( tmp_vi , tmp_viprev ,'ob')
+                 #plt.plot( tmp_vi[inlier_mask] , tmp_viprev[inlier_mask] , 'ok' )
+                 #plt.show()
+
+                 #Compute the correlation between the adjacent rays for the inlier mask. 
+                 corrcoef=np.corrcoef( tmp_vi[inlier_mask] ,  tmp_viprev[inlier_mask] )[0,1]
+
+                 coherence_mask[i,:,k][local_valid_mask][outlier_mask]=False
+                 coherence_mask[iprev,:,k][local_valid_mask][outlier_mask]=False
+
+                 if corrcoef < my_conf['threshold_corr']   :
+                    failed_correlation[i,k] = failed_correlation[i,k] + 1
+                    failed_correlation[iprev,k] = failed_correlation[iprev,k] + 1
+
+           if my_conf['compute_vertical_coherence']   :
+
+           #CONSIDER THE COHERENCE WITH THE NEIGHBOR BEAMS IN VERTICAL DIRECTION
+
+           #First get the number of undef values and generate a common undef mask.
+              local_valid_mask=np.logical_and( coherence_mask[i,:,k] , coherence_mask[i,:,kprev] )
+
+              n_valid = np.sum( local_valid_mask.astype(int) )
+
+              if ( n_valid / nr ) > my_conf['threshold_undef']   :
+
+                 tmp_vk = np.copy( v[i,:,k][local_valid_mask] )
+                 tmp_vkprev = np.copy( v[i,:,kprev][local_valid_mask] )
+
+                 #plt.plot( tmp_vk , tmp_vkprev ,'ob')
+                 #plt.plot( tmp_vk[inlier_mask] , tmp_vkprev[inlier_mask] , 'ok' )
+                 #plt.show()
+
+
+                 ransac.fit( tmp_vk.reshape(-1, 1) , tmp_vkprev.reshape(-1, 1) )
+                 inlier_mask = ransac.inlier_mask_
+                 outlier_mask = np.logical_not( inlier_mask )
+ 
+                 #Compute the correlation between the adjacent rays for the inlier mask. 
+                 corrcoef=np.corrcoef( tmp_vk[inlier_mask] ,  tmp_vkprev[inlier_mask] )[0,1]
+
+                 coherence_mask[i,:,k][local_valid_mask][outlier_mask]=False
+                 coherence_mask[i,:,kprev][local_valid_mask][outlier_mask]=False
+
+                 if corrcoef < my_conf['threshold_corr']   :
+                    failed_correlation[i,k] = failed_correlation[i,k] + 1
+                    failed_correlation[i,kprev] = failed_correlation[i,kprev] + 1
+
+
+   for k in range(ne)  :
+      for i in range(na)  :
+         if( failed_correlation[i,k] >= 2 )   :
+           #If a beam failed to correlate properly with its neighbors then it is eliminated
+           coherence_mask[i,:,k] = False  
+
+   v[ np.logical_not( coherence_mask ) ]=undef
+
+   print( np.sum( coherence_mask.astype(int) ) )
+
+
+   return v 
 
 def interference_filter ( ref , undef , min_ref , r , my_conf )  :
 

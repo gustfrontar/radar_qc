@@ -1066,7 +1066,7 @@ DO ii=1,nx
        DO i=imin,imax
         DO j=jmin,jmax
          DO k=kmin,kmax
-           IF( var(i,j,k) /= undef )THEN
+           IF( var2(i,j,k) /= undef )THEN
               ndata=ndata+1
               dist(ii,jj,kk) = dist(ii,jj,kk) + var2(i,j,k)
            ENDIF

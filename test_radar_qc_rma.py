@@ -38,6 +38,12 @@ elev=0
 
 if conf.options['Dealiasing']['flag']  :
    qcpt.plot_dealiasing( qc_output , conf.options , figname='DealiasingTest.png' , elev=elev)
+if conf.options['DopplerNoiseFilter']['flag']  :
+   qcpt.plot_dopplernoisefilter( qc_output , conf.options , figname='DopplerNoiseFilterTest.png' , elev=elev )
+if conf.options['DopplerLocalStdFilter']['flag']  :
+   qcpt.plot_dopplerlocalstdfilter( qc_output , conf.options , figname='DopplerLocalStdFilterTest.png' , elev=elev )
+if conf.options['DopplerSpatialCoherenceFilter']['flag']  :
+   qcpt.plot_dopplerspatialcoherencefilter( qc_output , conf.options , figname='DopplerSpatialCoherenceFilterTest.png' , elev=elev , show = True)
 if conf.options['RhoFilter']['flag']   :
    qcpt.plot_rhofilter( qc_output , conf.options , figname='RhoFilterTest.png' , elev=elev )
 if conf.options['EchoTopFilter']['flag'] :
@@ -61,7 +67,8 @@ if conf.options['LowElevFilter']['flag'] :
 if conf.options['LowDopplerFilter']['flag'] :
    qcpt.plot_lowdopplerfilter( qc_output , conf.options , figname='LowDopplerFilter.png' , elev=elev )
 if conf.options['InterferenceFilter']['flag'] :
-   qcpt.plot_interferencefilter( qc_output , conf.options , figname='InterferenceFilter.png' , elev=elev , show=True)
+   qcpt.plot_interferencefilter( qc_output , conf.options , figname='InterferenceFilter.png' , elev=elev )
+
 
 
 

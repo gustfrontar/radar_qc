@@ -308,6 +308,147 @@ def plot_dopplertexturefilter( qc_output , options , elev=0 , figname='out.png',
     return
 
 
+def plot_dopplerlocalstdfilter( qc_output , options , elev=0 , figname='out.png',vmin=-30,vmax=30,cmap='pyart_NWSVel',show=False)  :
+
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+
+    filter_name='DopplerLocalStdFilter'
+
+    plt.figure(figsize=(8, 8))
+    plt.subplot(2,2,1)
+
+    tmp_v=np.ma.masked_array( qc_output['v'] , qc_output['v'] == qc_output['undef_v'] )
+    tmp_cv=np.ma.masked_array( qc_output['cv'] , qc_output['cv'] == qc_output['undef_v'] )
+    tmp_std=np.ma.masked_array( qc_output['v_std'] , qc_output['v_std'] == qc_output['undef_v'] )
+
+    plt.pcolor(qc_output['x'][:,:,elev]/1e3,qc_output['y'][:,:,elev]/1e3,tmp_cv[:,:,elev],vmin=vmin,vmax=vmax,cmap=cmap)
+    plt.title('Corrected Doppler Velocity')
+    plt.colorbar()
+
+    plt.subplot(2,2,2)
+    plt.pcolor(qc_output['x'][:,:,elev]/1e3,qc_output['y'][:,:,elev]/1e3,tmp_v[:,:,elev],vmin=vmin,vmax=vmax,cmap=cmap)
+    plt.title('Original Doppler Velocity')
+    plt.colorbar()
+
+    plt.subplot(2,2,3)
+    plt.pcolor(qc_output['x'][:,:,elev]/1e3,qc_output['y'][:,:,elev]/1e3, tmp_std[:,:,elev]  )
+    plt.title('Local Std')
+    plt.colorbar()
+
+    plt.subplot(2,2,4)
+    plt.pcolor(qc_output['x'][:,:,elev]/1e3,qc_output['y'][:,:,elev]/1e3, ( qc_output['qcv'][:,:,elev]==options[filter_name]['code'] ).astype(float) )
+    plt.title('Pixels eliminated by Texture Filter')
+    plt.colorbar()
+
+    if show  :
+
+        plt.show()
+
+    plt.savefig(figname, dpi=None, facecolor='w', edgecolor='w',
+                   orientation='portrait', papertype=None, format=None,
+                   transparent=False, bbox_inches=None, pad_inches=0.1,
+                   frameon=None)
+
+
+    return
+
+def plot_dopplerspatialcoherencefilter( qc_output , options , elev=0 , figname='out.png',vmin=-30,vmax=30,cmap='pyart_NWSVel',show=False)  :
+
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+
+    filter_name='DopplerSpatialCoherenceFilter'
+
+    plt.figure(figsize=(8, 8))
+    plt.subplot(2,2,1)
+
+    tmp_v=np.ma.masked_array( qc_output['v'] , qc_output['v'] == qc_output['undef_v'] )
+    tmp_cv=np.ma.masked_array( qc_output['cv'] , qc_output['cv'] == qc_output['undef_v'] )
+
+    plt.pcolor(qc_output['x'][:,:,elev]/1e3,qc_output['y'][:,:,elev]/1e3,tmp_cv[:,:,elev],vmin=vmin,vmax=vmax,cmap=cmap)
+    plt.title('Corrected Doppler Velocity')
+    plt.colorbar()
+
+    plt.subplot(2,2,2)
+    plt.pcolor(qc_output['x'][:,:,elev]/1e3,qc_output['y'][:,:,elev]/1e3,tmp_v[:,:,elev],vmin=vmin,vmax=vmax,cmap=cmap)
+    plt.title('Original Doppler Velocity')
+    plt.colorbar()
+
+    plt.subplot(2,2,3)
+    plt.pcolor(qc_output['x'][:,:,elev]/1e3,qc_output['y'][:,:,elev]/1e3, np.abs(qc_output['v'][:,:,elev] - qc_output['cv'][:,:,elev]) )
+    plt.title('Doppler wind difference')
+    plt.colorbar()
+
+    plt.subplot(2,2,4)
+    plt.pcolor(qc_output['x'][:,:,elev]/1e3,qc_output['y'][:,:,elev]/1e3, ( qc_output['qcv'][:,:,elev]==options[filter_name]['code'] ).astype(float) )
+    plt.title('Pixels Eliminated by DSCF')
+    plt.colorbar()
+
+    if show  :
+
+        plt.show()
+
+    plt.savefig(figname, dpi=None, facecolor='w', edgecolor='w',
+                   orientation='portrait', papertype=None, format=None,
+                   transparent=False, bbox_inches=None, pad_inches=0.1,
+                   frameon=None)
+
+
+    return
+
+
+
+def plot_dopplernoisefilter( qc_output , options , elev=0 , figname='out.png',vmin=-30,vmax=30,cmap='pyart_NWSVel',show=False)  :
+
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+    filter_name='DopplerNoiseFilter'
+
+    plt.figure(figsize=(8, 8))
+    plt.subplot(2,2,1)
+
+    tmp_v=np.ma.masked_array( qc_output['v'] , qc_output['v'] == qc_output['undef_v'] )
+    tmp_cv=np.ma.masked_array( qc_output['cv'] , qc_output['cv'] == qc_output['undef_v'] )
+
+    tmp_tmp=np.ma.masked_array( qc_output['distance_1'] , qc_output['distance_1'] == qc_output['undef_v'] )
+
+    plt.pcolor(qc_output['x'][:,:,elev]/1e3,qc_output['y'][:,:,elev]/1e3,tmp_cv[:,:,elev],vmin=vmin,vmax=vmax,cmap=cmap)
+    plt.title('Corrected Doppler Velocity')
+    plt.colorbar()
+
+    plt.subplot(2,2,2)
+    plt.pcolor(qc_output['x'][:,:,elev]/1e3,qc_output['y'][:,:,elev]/1e3,tmp_v[:,:,elev],vmin=vmin,vmax=vmax,cmap=cmap)
+    plt.title('Original Doppler Velocity')
+    plt.colorbar()
+
+    plt.subplot(2,2,3)
+    plt.pcolor(qc_output['x'][:,:,elev]/1e3,qc_output['y'][:,:,elev]/1e3, tmp_tmp[:,:,elev] )
+    plt.title('Noise index')
+    plt.colorbar()
+
+    plt.subplot(2,2,4)
+    plt.pcolor(qc_output['x'][:,:,elev]/1e3,qc_output['y'][:,:,elev]/1e3, ( qc_output['qcv'][:,:,elev]==options[filter_name]['code'] ).astype(float) )
+    plt.title('Pixels eliminated by Noise Filter')
+    plt.colorbar()
+
+    if show  :
+
+        plt.show()
+
+    plt.savefig(figname, dpi=None, facecolor='w', edgecolor='w',
+                   orientation='portrait', papertype=None, format=None,
+                   transparent=False, bbox_inches=None, pad_inches=0.1,
+                   frameon=None)
+
+
+    return
+
+
+
 def plot_reflectivitytexturefilter( qc_output , options , elev=0 , figname='out.png',vmin=-10,vmax=70,cmap='pyart_NWSRef',show=False)  :
 
     import numpy as np

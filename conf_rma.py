@@ -291,7 +291,7 @@ options[filter_name]['use_terrain']=True                       #Wether AGL heigh
 #This filter is not included in the Fuzzy-logic approach.
 filter_name='InterferenceFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=True                             #Enable / Disable filter
+options[filter_name]['flag']=False                             #Enable / Disable filter
 options[filter_name]['save']=True                              #Save filter aux fields to output?
 options[filter_name]['nx']=0                                   #NX
 options[filter_name]['ny']=4                                   #NY
@@ -325,6 +325,43 @@ options[filter_name]['code']= 1
 options[filter_name]['force']=False                            #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                        #Threshold for force
 
+
+#Doppler Local Std Filter            ==============================================================
+filter_name='DopplerLocalStdFilter'
+options[filter_name]=dict()
+options[filter_name]['flag']=False                             #Enable / Disable filter
+options[filter_name]['nx']=1                                   #NX
+options[filter_name]['ny']=1                                   #NY
+options[filter_name]['nz']=0                                   #NZ
+options[filter_name]['ify']=np.array([0,0,1,1])                #Importance function y
+options[filter_name]['ifx']=np.array([0,5,6,10])               #Importance function x
+options[filter_name]['save']=True                              #Save filter aux fields to output?
+options[filter_name]['w']=1.0                                  #Relative parameter weigth. 
+options[filter_name]['code']= 1
+options[filter_name]['force']=False                            #Wether we will reject data based on this filter alone.
+options[filter_name]['force_value']=0.5                        #Threshold for force
+
+
+#Doppler Spatial Coherence Filter ==============================================================
+filter_name='DopplerSpatialCoherenceFilter'
+options[filter_name]=dict()
+options[filter_name]['flag']=True                              #Enable / Disable filter
+options[filter_name]['nx']=1                                   #NX
+options[filter_name]['ny']=1                                   #NY
+options[filter_name]['nz']=0                                   #NZ
+options[filter_name]['threshold_undef']=0.2                    #Minimum percentage of valid points required
+options[filter_name]['threshold_corr'] =0.5                    #Minimum correlation required to keep a ray.
+options[filter_name]['compute_horizontal_coherence']=True      #Flag to consider coherence in azimuth.
+options[filter_name]['compute_vertical_coherence']=True        #Flag to consider coherence in elevation
+options[filter_name]['ify']=np.array([0,0,1,1])                #Importance function y
+options[filter_name]['ifx']=np.array([0,5,6,10])               #Importance function x
+options[filter_name]['save']=True                              #Save filter aux fields to output?
+options[filter_name]['w']=1.0                                  #Relative parameter weigth. 
+options[filter_name]['code']= 1
+options[filter_name]['force']=False                            #Wether we will reject data based on this filter alone.
+options[filter_name]['force_value']=0.5                        #Threshold for force
+
+
 #Doppler Noise filter            ==============================================================
 filter_name='DopplerNoiseFilter'
 options[filter_name]=dict()
@@ -335,7 +372,7 @@ options[filter_name]['nz']=0                                   #NZ
 options[filter_name]['nx2']=10                                 #NX
 options[filter_name]['ny2']=10                                 #NY
 options[filter_name]['nz2']=0                                  #NZ
-options[filter_name]['threshold_1']=4
+options[filter_name]['threshold_1']=1.0
 options[filter_name]['threshold_2']=15       
 options[filter_name]['n_filter_pass']=3                        #Filter repetition
 options[filter_name]['save']=True                              #Save filter aux fields to output?
