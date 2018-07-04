@@ -378,8 +378,8 @@ def plot_dopplerspatialcoherencefilter( qc_output , options , elev=0 , figname='
     plt.colorbar()
 
     plt.subplot(2,2,3)
-    plt.pcolor(qc_output['x'][:,:,elev]/1e3,qc_output['y'][:,:,elev]/1e3, np.abs(qc_output['v'][:,:,elev] - qc_output['cv'][:,:,elev]) )
-    plt.title('Doppler wind difference')
+    plt.pcolor(qc_output['x'][:,:,elev]/1e3,qc_output['y'][:,:,elev]/1e3, qc_output['coherence_index'][:,:,elev] )
+    plt.title('Coherence Index')
     plt.colorbar()
 
     plt.subplot(2,2,4)

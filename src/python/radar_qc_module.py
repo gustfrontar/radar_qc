@@ -892,12 +892,10 @@ def main_qc( filename , options ) :
 
       tmp_v=np.copy( output['v'] )
 
-      output['cv'] = dopplerspatialcoherence_filter( tmp_v , output['undef_v'] , options[filter_name] )
+      output['coherence_index'] = dopplerspatialcoherence_filter( tmp_v , output['undef_v'] , options[filter_name] )
 
-      print( np.sum( (np.abs( output['cv'] - output['v'] ) > 0 ).astype(int) ) )
-
-
-      output['qcv'][ np.abs( output['v'] - output['cv'] ) > 0 ]=options[filter_name]['code']
+      output['cv'][ output['coherence_index'] > options[filter_name]['threshold_coherence_index'] ] = output['undef_v']
+      output['qcv'][ output['coherence_index'] > options[filter_name]['threshold_coherence_index'] ]=options[filter_name]['code']
 
       end=time.time()
 
@@ -1297,32 +1295,32 @@ def dopplerspatialcoherence_filter( v , undef , my_conf ) :
    ne=v.shape[2]
 
    #Coherence mask starts flagging the undef values
-   coherence_mask = ( v != undef )
+   available_mask = ( v != undef )
 
-   print( np.sum( coherence_mask.astype(int) ) )
+   coherence_index = np.zeros( np.shape( v ) )
 
    failed_correlation = np.zeros([ na , ne ] )
 
    ransac = linear_model.RANSACRegressor()
 
-   for k in range(1,ne)  :
+   if my_conf['compute_horizontal_coherence']   :
+   #CONSIDER THE COHERENCE WITH THE NEIGHBOR BEAMS IN AZIMUTH DIRECTION
 
-      kprev = k - 1 
+      for k in range(ne)  :
 
-      for i in range(na)  :
+         for i in range(na)  :
 
-           iprev = i - 1
-           if i == 0    :
-                iprev = na-1
+              iprev = i - 1
+              if i == 0    :
+                   iprev = na-1
 
-           #CONSIDER THE COHERENCE WITH THE NEIGHBOR BEAMS IN AZIMUTH DIRECTION
-
-           if my_conf['compute_horizontal_coherence']   :
 
               #First get the number of undef values and generate a common undef mask.
-              local_valid_mask=np.logical_and( coherence_mask[i,:,k] , coherence_mask[iprev,:,k] )
+              local_valid_mask = np.logical_and( available_mask[i,:,k] , available_mask[iprev,:,k] )
 
               n_valid = np.sum( local_valid_mask.astype(int) ) 
+
+              coherence_index[i,:,k][ np.logical_not( local_valid_mask ) ]=coherence_index[i,:,k][ np.logical_not( local_valid_mask ) ] + 1.0
 
               if ( n_valid / nr ) > my_conf['threshold_undef']   :
 
@@ -1340,59 +1338,137 @@ def dopplerspatialcoherence_filter( v , undef , my_conf ) :
                  #Compute the correlation between the adjacent rays for the inlier mask. 
                  corrcoef=np.corrcoef( tmp_vi[inlier_mask] ,  tmp_viprev[inlier_mask] )[0,1]
 
-                 coherence_mask[i,:,k][local_valid_mask][outlier_mask]=False
-                 coherence_mask[iprev,:,k][local_valid_mask][outlier_mask]=False
+                 tmp=coherence_index[i,:,k][local_valid_mask]
+                 tmp[outlier_mask]=tmp[outlier_mask] + 3.0
+                 coherence_index[i,:,k][local_valid_mask]=tmp
+
+                 tmp=coherence_index[iprev,:,k][local_valid_mask]
+                 tmp[outlier_mask]=tmp[outlier_mask] + 3.0
+                 coherence_index[iprev,:,k][local_valid_mask]=tmp
+
 
                  if corrcoef < my_conf['threshold_corr']   :
-                    failed_correlation[i,k] = failed_correlation[i,k] + 1
-                    failed_correlation[iprev,k] = failed_correlation[iprev,k] + 1
 
-           if my_conf['compute_vertical_coherence']   :
+                    coherence_index[i,:,k] = coherence_index[i,:,k] + 3.0
+                    coherence_index[iprev,:,k] = coherence_index[iprev,:,k] + 3.0
 
-           #CONSIDER THE COHERENCE WITH THE NEIGHBOR BEAMS IN VERTICAL DIRECTION
+   if my_conf['compute_vertical_coherence']   :
+   #CONSIDER THE COHERENCE WITH THE NEIGHBOR BEAMS IN VERTICAL DIRECTION
 
-           #First get the number of undef values and generate a common undef mask.
-              local_valid_mask=np.logical_and( coherence_mask[i,:,k] , coherence_mask[i,:,kprev] )
+      for k in range(1,ne)  :
+ 
+         kprev = k - 1
+
+         for i in range(na)  :
+
+
+              #First get the number of undef values and generate a common undef mask.
+              local_valid_mask = np.logical_and( available_mask[i,:,k] , available_mask[i,:,kprev] )
 
               n_valid = np.sum( local_valid_mask.astype(int) )
 
+              coherence_index[i,:,k][ np.logical_not( local_valid_mask ) ]=coherence_index[i,:,k][ np.logical_not( local_valid_mask ) ] + 1.0
+
               if ( n_valid / nr ) > my_conf['threshold_undef']   :
 
-                 tmp_vk = np.copy( v[i,:,k][local_valid_mask] )
-                 tmp_vkprev = np.copy( v[i,:,kprev][local_valid_mask] )
+                 tmp_vi = np.copy( v[i,:,k][local_valid_mask] )
+                 tmp_viprev = np.copy( v[i,:,kprev][local_valid_mask] )
 
-                 #plt.plot( tmp_vk , tmp_vkprev ,'ob')
-                 #plt.plot( tmp_vk[inlier_mask] , tmp_vkprev[inlier_mask] , 'ok' )
-                 #plt.show()
-
-
-                 ransac.fit( tmp_vk.reshape(-1, 1) , tmp_vkprev.reshape(-1, 1) )
+                 ransac.fit( tmp_vi.reshape(-1, 1) , tmp_viprev.reshape(-1, 1) )
                  inlier_mask = ransac.inlier_mask_
                  outlier_mask = np.logical_not( inlier_mask )
- 
-                 #Compute the correlation between the adjacent rays for the inlier mask. 
-                 corrcoef=np.corrcoef( tmp_vk[inlier_mask] ,  tmp_vkprev[inlier_mask] )[0,1]
 
-                 coherence_mask[i,:,k][local_valid_mask][outlier_mask]=False
-                 coherence_mask[i,:,kprev][local_valid_mask][outlier_mask]=False
+                 #plt.plot( tmp_vi , tmp_viprev ,'ob')
+                 #plt.plot( tmp_vi[inlier_mask] , tmp_viprev[inlier_mask] , 'ok' )
+                 #plt.show()
+
+                 #Compute the correlation between the adjacent rays for the inlier mask. 
+                 corrcoef=np.corrcoef( tmp_vi[inlier_mask] ,  tmp_viprev[inlier_mask] )[0,1]
+
+                 tmp=coherence_index[i,:,k][local_valid_mask]
+                 tmp[outlier_mask]=tmp[outlier_mask] + 3.0
+                 coherence_index[i,:,k][local_valid_mask]=tmp
+
+                 tmp=coherence_index[i,:,kprev][local_valid_mask]
+                 tmp[outlier_mask]=tmp[outlier_mask] + 3.0
+                 coherence_index[i,:,kprev][local_valid_mask]=tmp
+
+                 #coherence_index[i,:,k][local_valid_mask][outlier_mask] = coherence_index[i,:,k][local_valid_mask][outlier_mask] + 3.0 
+                 #coherence_index[iprev,:,k][local_valid_mask][outlier_mask] = coherence_index[iprev,:,k][local_valid_mask][outlier_mask] + 3.0 
 
                  if corrcoef < my_conf['threshold_corr']   :
-                    failed_correlation[i,k] = failed_correlation[i,k] + 1
-                    failed_correlation[i,kprev] = failed_correlation[i,kprev] + 1
+
+                    coherence_index[i,:,k] = coherence_index[i,:,k] + 3.0
+                    coherence_index[i,:,kprev] = coherence_index[iprev,:,kprev] + 3.0
+
+   for ifilter in range( my_conf['npass_filter'] )  :
+
+      for k in range(ne) :
+
+         for i in range(na) :
+            if  my_conf['azimuthfilter']         :  #DETECT ISOLATED PIXELS IN AZIMUTH
+
+               if ( i > 1 ) & ( i < na-2 ) :
+
+                  #If we have in only one ray but not in the neighbors this suggest an interference pattern.
+                  tmp_mask = np.logical_and( v[i-1,:,k] == undef , v[i+1,:,k] == undef )
+                  coherence_index[i,:,k][ np.logical_and( tmp_mask , v[i,:,k] != undef  ) ] = 10.0
+
+                  tmp_mask = np.logical_and( v[i-2,:,k] == undef , v[i+2,:,k] == undef )
+                  v[i,:,k][ np.logical_and( tmp_mask , v[i,:,k] != undef ) ] = 10.0
+
+               elif  i==na-1   :
+                  tmp_mask = np.logical_and( v[i-1,:,k] == undef , v[0,:,k] == undef )
+                  v[i,:,k][ np.logical_and( tmp_mask , v[i,:,k] != undef ) ] = 10.0
+
+                  tmp_mask = np.logical_and( v[i-2,:,k] == undef , v[1,:,k] == undef )
+                  v[i,:,k][ np.logical_and( tmp_mask , v[i,:,k] != undef ) ] = 10.0
+
+               elif  i==na-3   :
+                  tmp_mask = np.logical_and( v[i-1,:,k] == undef , v[i,:,k] == undef )
+                  v[i,:,k][ np.logical_and( tmp_mask , v[i,:,k] != undef ) ] = 10.0
+
+                  tmp_mask = np.logical_and( v[i-2,:,k] == undef , v[0,:,k] == undef )
+                  v[i,:,k][ np.logical_and( tmp_mask , v[i,:,k] != undef ) ] = 10.0
+
+               elif  i==0      :
+
+                  tmp_mask = np.logical_and( v[na-1,:,k] == undef , v[i+1,:,k] == undef )
+                  v[i,:,k][ np.logical_and( tmp_mask , v[i,:,k] != undef ) ] = 10.0
+
+                  tmp_mask = np.logical_and( v[na-2,:,k] == undef , v[i+2,:,k] == undef )
+                  v[i,:,k][ np.logical_and( tmp_mask , v[i,:,k] != undef ) ] = 10.0
+
+               elif  i==1      :
+
+                  tmp_mask = np.logical_and( v[i-1,:,k] == undef  , v[i+1,:,k] == undef )
+                  v[i,:,k][ np.logical_and( tmp_mask , v[i,:,k] != undef ) ] = 10.0
+
+                  tmp_mask = np.logical_and( v[na-1,:,k] == undef , v[i+2,:,k] == undef )
+                  v[i,:,k][ np.logical_and( tmp_mask , v[i,:,k] != undef ) ] = 10.0
+
+            if  my_conf['elevationfilter']         :   #DETECT ISOLATED PIXELS IN ELEVATION
+
+               if ( k > 0 ) & ( k < ne-1 ) :
+
+                  tmp_mask = np.logical_and( v[i,:,k-1] == undef , v[i,:,k+1] == undef )
+                  v[i,:,k][ np.logical_and( tmp_mask , v[i,:,k] != undef ) ] = 10.0
+
+               if ( k == 0 )                :
+
+                  tmp_mask = np.logical_and( v[i,:,k+2] == undef , v[i,:,k+1] == undef )
+                  v[i,:,k][ np.logical_and( tmp_mask , v[i,:,k] != undef ) ] = 10.0
+
+               if ( k == ne-1 )            :
+
+                  tmp_mask = np.logical_and( v[i,:,k-2] == undef  , v[i,:,k-1] == undef )
+                  v[i,:,k][ np.logical_and( tmp_mask , v[i,:,k] != undef ) ] = 10.0
 
 
-   for k in range(ne)  :
-      for i in range(na)  :
-         if( failed_correlation[i,k] >= 2 )   :
-           #If a beam failed to correlate properly with its neighbors then it is eliminated
-           coherence_mask[i,:,k] = False  
-
-   v[ np.logical_not( coherence_mask ) ]=undef
-
-   print( np.sum( coherence_mask.astype(int) ) )
 
 
-   return v 
+
+   return coherence_index
 
 def interference_filter ( ref , undef , min_ref , r , my_conf )  :
 
