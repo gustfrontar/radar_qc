@@ -64,7 +64,7 @@ options['w_tr']=0.5                  #When total normalized weight is greather t
 filter_name='Dealiasing'
 
 options[filter_name]=dict()
-options[filter_name]['flag']=False
+options[filter_name]['flag']=True
 options[filter_name]['interval_split']=3
 options[filter_name]['skip_between_ray']=10
 options[filter_name]['skip_along_ray']=10
@@ -76,11 +76,13 @@ options[filter_name]['nz']=0
 options[filter_name]['texture_code']=44
 options[filter_name]['code']=43
 
+options[filter_name]['sequential'] = True      #If sequential = true then following filters will use the dealiased data.
+
 #Rho filter parameters  ===================================================================== 
 
 filter_name='RhoFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=True                          #Enable / disable filter
+options[filter_name]['flag']=False                          #Enable / disable filter
 options[filter_name]['nx']=2                                #NX
 options[filter_name]['ny']=2                                #NY
 options[filter_name]['nz']=0                                #NZ
@@ -117,7 +119,7 @@ options[filter_name]['force_value']=0.5                     #Threshold for force
 
 filter_name='EchoTopFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=True                          #Enable / disable filter
+options[filter_name]['flag']=False                          #Enable / disable filter
 options[filter_name]['nx']=2                                #NX
 options[filter_name]['ny']=2                                #NY
 options[filter_name]['nz']=0                                #NZ
@@ -290,7 +292,7 @@ options[filter_name]['use_terrain']=True                       #Wether AGL heigh
 #This filter is not included in the Fuzzy-logic approach.
 filter_name='InterferenceFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=True                             #Enable / Disable filter
+options[filter_name]['flag']=False                             #Enable / Disable filter
 options[filter_name]['save']=True                              #Save filter aux fields to output?
 options[filter_name]['nx']=0                                   #NX
 options[filter_name]['ny']=4                                   #NY
@@ -304,7 +306,7 @@ options[filter_name]['AzimuthFilter']=True                     #Enable filter to
 options[filter_name]['ElevationFilter']=True                   #Enable filter to remove isolated pixels in elevation.
 options[filter_name]['npass_filter']=2                         #Number of passes of the azimuthal continuity filter.
 options[filter_name]['percent_valid_threshold']=0.1            #Rays with valid pixels over this percentaje will be examinated.
-options[filter_name]['corr_threshold']=0.7                     #Rays that correlates well with the interference pattern will be flagged as 
+options[filter_name]['corr_threshold']=0.5                     #Rays that correlates well with the interference pattern will be flagged as 
                                                                #contaminated.
 options[filter_name]['ref_threshold']=5.0                      #Reflectivity threshold to count pixels which are close to the interference pattern.
 options[filter_name]['percent_ref_threshold']=0.3              #If more than this percent of the ray correlates well with the interference pattern, then
@@ -323,6 +325,52 @@ options[filter_name]['code']= 1
 options[filter_name]['force']=False                            #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                        #Threshold for force
 
+#Doppler Local Std Filter            ==============================================================
+filter_name='DopplerLocalStdFilter'
+options[filter_name]=dict()
+options[filter_name]['flag']=False                             #Enable / Disable filter
+options[filter_name]['nx']=1                                   #NX
+options[filter_name]['ny']=1                                   #NY
+options[filter_name]['nz']=0                                   #NZ
+options[filter_name]['ify']=np.array([0,0,1,1])                #Importance function y
+options[filter_name]['ifx']=np.array([0,5,6,10])               #Importance function x
+options[filter_name]['save']=True                              #Save filter aux fields to output?
+options[filter_name]['w']=1.0                                  #Relative parameter weigth. 
+options[filter_name]['code']= 1
+options[filter_name]['force']=False                            #Wether we will reject data based on this filter alone.
+options[filter_name]['force_value']=0.5                        #Threshold for force
+
+#Doppler Spatial Coherence Filter ==============================================================
+filter_name='DopplerSpatialCoherenceFilter'
+options[filter_name]=dict()
+options[filter_name]['flag']=True                              #Enable / Disable filter
+options[filter_name]['nx']=2                                   #NX
+options[filter_name]['ny']=2                                   #NY
+options[filter_name]['nz']=0                                   #NZ
+options[filter_name]['threshold_undef']=0.1                    #Minimum percentage of valid points required
+options[filter_name]['threshold_corr'] =0.7                    #Minimum correlation required to keep a ray.
+options[filter_name]['threshold_coherence_index']=1            #Threshold to decied which pixels will be removed.
+options[filter_name]['compute_horizontal_coherence']=True      #Flag to consider coherence in azimuth.
+options[filter_name]['compute_vertical_coherence']=False       #Flag to consider coherence in elevation
+options[filter_name]['npass_filter']=2                         #Number of applications of the issolated data filter.
+options[filter_name]['azimuthfilter']=True                     #Apply issolated data filter in azimuth.
+options[filter_name]['rangefilter']=True                       #Apply issolated data filter in range.
+options[filter_name]['elevationfilter']=False                  #Apply issolated data filter in elevation
+
+options[filter_name]['enable_speckle']=True                    #Wether speckle filter will be applied to the remaining data.
+options[filter_name]['speckle_threshold']=0.3                  #Threshold to discard pixels based on speckle index.
+
+options[filter_name]['consistency_metric']='constant'          #Possible values are 'Ransac' or 'Constant'
+options[filter_name]['constant_consistency_threshold']=3.5     #Consecutive values which are farther than this threshold will be flagged.
+
+options[filter_name]['ify']=np.array([0,0,1,1])                #Importance function y
+options[filter_name]['ifx']=np.array([0,5,6,10])               #Importance function x
+options[filter_name]['save']=True                              #Save filter aux fields to output?
+options[filter_name]['w']=1.0                                  #Relative parameter weigth. 
+options[filter_name]['code']= 1
+options[filter_name]['force']=False                            #Wether we will reject data based on this filter alone.
+options[filter_name]['force_value']=0.5                        #Threshold for force
+
 #Doppler Noise filter            ==============================================================
 filter_name='DopplerNoiseFilter'
 options[filter_name]=dict()
@@ -333,7 +381,7 @@ options[filter_name]['nz']=0                                   #NZ
 options[filter_name]['nx2']=10                                 #NX
 options[filter_name]['ny2']=10                                 #NY
 options[filter_name]['nz2']=0                                  #NZ
-options[filter_name]['threshold_1']=4
+options[filter_name]['threshold_1']=1.0
 options[filter_name]['threshold_2']=15       
 options[filter_name]['n_filter_pass']=3                        #Filter repetition
 options[filter_name]['save']=True                              #Save filter aux fields to output?

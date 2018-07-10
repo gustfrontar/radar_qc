@@ -346,17 +346,25 @@ options[filter_name]['force_value']=0.5                        #Threshold for fo
 filter_name='DopplerSpatialCoherenceFilter'
 options[filter_name]=dict()
 options[filter_name]['flag']=True                              #Enable / Disable filter
-options[filter_name]['nx']=1                                   #NX
-options[filter_name]['ny']=1                                   #NY
+options[filter_name]['nx']=2                                   #NX
+options[filter_name]['ny']=2                                   #NY
 options[filter_name]['nz']=0                                   #NZ
-options[filter_name]['threshold_undef']=0.2                    #Minimum percentage of valid points required
+options[filter_name]['threshold_undef']=0.1                    #Minimum percentage of valid points required
 options[filter_name]['threshold_corr'] =0.7                    #Minimum correlation required to keep a ray.
-options[filter_name]['threshold_coherence_index']=2            #Threshold to decied which pixels will be removed.
+options[filter_name]['threshold_coherence_index']=1            #Threshold to decied which pixels will be removed.
 options[filter_name]['compute_horizontal_coherence']=True      #Flag to consider coherence in azimuth.
-options[filter_name]['compute_vertical_coherence']=False        #Flag to consider coherence in elevation
-options[filter_name]['npass_filter']=0                         #Number of applications of the issolated data filter.
+options[filter_name]['compute_vertical_coherence']=False       #Flag to consider coherence in elevation
+options[filter_name]['npass_filter']=2                         #Number of applications of the issolated data filter.
 options[filter_name]['azimuthfilter']=True                     #Apply issolated data filter in azimuth.
-options[filter_name]['elevationfilter']=True                   #Apply issolated data filter in elevation
+options[filter_name]['rangefilter']=True                       #Apply issolated data filter in range.
+options[filter_name]['elevationfilter']=False                  #Apply issolated data filter in elevation
+
+options[filter_name]['enable_speckle']=True                    #Wether speckle filter will be applied to the remaining data.
+options[filter_name]['speckle_threshold']=0.3                  #Threshold to discard pixels based on speckle index.
+
+options[filter_name]['consistency_metric']='constant'          #Possible values are 'Ransac' or 'Constant'
+options[filter_name]['constant_consistency_threshold']=3.5     #Consecutive values which are farther than this threshold will be flagged.
+
 options[filter_name]['ify']=np.array([0,0,1,1])                #Importance function y
 options[filter_name]['ifx']=np.array([0,5,6,10])               #Importance function x
 options[filter_name]['save']=True                              #Save filter aux fields to output?

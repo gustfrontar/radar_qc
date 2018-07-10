@@ -260,6 +260,10 @@ def main_qc( filename , options ) :
       mask=np.logical_and( output['cv'] != output['v'] , output['cv'] != output['undef_v'] )
       output['qcv'][ mask ]=options[filter_name]['code']
 
+      if options[filter_name]['sequential']     :
+         #Following filters will be computed using the corrected velocity.
+         output['v'] = output['cv']  
+
       end=time.time()
 
       print("The elapsed time in {:s} is {:2f}".format("dealiasing",end-start) )
@@ -892,9 +896,9 @@ def main_qc( filename , options ) :
 
       tmp_v=np.copy( output['v'] )
 
-      output['coherence_index'] = dopplerspatialcoherence_filter( tmp_v , output['undef_v'] , options[filter_name] )
+      output['cv'] , output['coherence_index'] = dopplerspatialcoherence_filter( tmp_v , output['undef_v'] , options[filter_name] )
 
-      output['cv'][ output['coherence_index'] > options[filter_name]['threshold_coherence_index'] ] = output['undef_v']
+      #output['cv'][ output['coherence_index'] > options[filter_name]['threshold_coherence_index'] ] = output['undef_v']
       output['qcv'][ output['coherence_index'] > options[filter_name]['threshold_coherence_index'] ]=options[filter_name]['code']
 
       end=time.time()
@@ -1299,8 +1303,6 @@ def dopplerspatialcoherence_filter( v , undef , my_conf ) :
 
    coherence_index = np.zeros( np.shape( v ) )
 
-   failed_correlation = np.zeros([ na , ne ] )
-
    ransac = linear_model.RANSACRegressor()
 
    if my_conf['compute_horizontal_coherence']   :
@@ -1327,15 +1329,21 @@ def dopplerspatialcoherence_filter( v , undef , my_conf ) :
                  tmp_vi = np.copy( v[i,:,k][local_valid_mask] )
                  tmp_viprev = np.copy( v[iprev,:,k][local_valid_mask] )
 
-                 ransac.fit( tmp_vi.reshape(-1, 1) , tmp_viprev.reshape(-1, 1) )
-                 inlier_mask = ransac.inlier_mask_
-                 outlier_mask = np.logical_not( inlier_mask )
+                 if my_conf['consistency_metric'] == 'ransac'   :
+                    #Use a robust correlation method to decide which
+                    #elements are spatially coherent.
 
-                 #plt.plot( tmp_vi , tmp_viprev ,'ob')
-                 #plt.plot( tmp_vi[inlier_mask] , tmp_viprev[inlier_mask] , 'ok' )
-                 #plt.show()
+                    ransac.fit( tmp_vi.reshape(-1, 1) , tmp_viprev.reshape(-1, 1) )
+                    inlier_mask = ransac.inlier_mask_
+                    outlier_mask = np.logical_not( inlier_mask )
 
-                 #Compute the correlation between the adjacent rays for the inlier mask. 
+                 if my_conf['consistency_metric'] == 'constant'  :
+                     #Use a constant threshold to define spatial coherence.
+
+                     inlier_mask = np.abs( tmp_vi - tmp_viprev ) < my_conf['constant_consistency_threshold'] 
+                     outlier_mask = np.logical_not( inlier_mask )
+
+
                  corrcoef=np.corrcoef( tmp_vi[inlier_mask] ,  tmp_viprev[inlier_mask] )[0,1]
 
                  tmp=coherence_index[i,:,k][local_valid_mask]
@@ -1346,11 +1354,13 @@ def dopplerspatialcoherence_filter( v , undef , my_conf ) :
                  tmp[outlier_mask]=tmp[outlier_mask] + 3.0
                  coherence_index[iprev,:,k][local_valid_mask]=tmp
 
-
                  if corrcoef < my_conf['threshold_corr']   :
 
                     coherence_index[i,:,k] = coherence_index[i,:,k] + 3.0
                     coherence_index[iprev,:,k] = coherence_index[iprev,:,k] + 3.0
+              else  :
+
+                 coherence_index[i,:,k] = coherence_index[i,:,k] + 3.0
 
    if my_conf['compute_vertical_coherence']   :
    #CONSIDER THE COHERENCE WITH THE NEIGHBOR BEAMS IN VERTICAL DIRECTION
@@ -1374,13 +1384,19 @@ def dopplerspatialcoherence_filter( v , undef , my_conf ) :
                  tmp_vi = np.copy( v[i,:,k][local_valid_mask] )
                  tmp_viprev = np.copy( v[i,:,kprev][local_valid_mask] )
 
-                 ransac.fit( tmp_vi.reshape(-1, 1) , tmp_viprev.reshape(-1, 1) )
-                 inlier_mask = ransac.inlier_mask_
-                 outlier_mask = np.logical_not( inlier_mask )
+                 if my_conf['consistency_metric'] == 'ransac'   :
+                    #Use a robust correlation method to decide which
+                    #elements are spatially coherent.
 
-                 #plt.plot( tmp_vi , tmp_viprev ,'ob')
-                 #plt.plot( tmp_vi[inlier_mask] , tmp_viprev[inlier_mask] , 'ok' )
-                 #plt.show()
+                    ransac.fit( tmp_vi.reshape(-1, 1) , tmp_viprev.reshape(-1, 1) )
+                    inlier_mask = ransac.inlier_mask_
+                    outlier_mask = np.logical_not( inlier_mask )
+
+                 if my_conf['consistency_metric'] == 'constant'  :
+                     #Use a constant threshold to define spatial coherence.
+
+                     inlier_mask = np.abs( tmp_vi - tmp_viprev ) < my_conf['constant_consistency_threshold']
+                     outlier_mask = np.logical_not( inlier_mask )
 
                  #Compute the correlation between the adjacent rays for the inlier mask. 
                  corrcoef=np.corrcoef( tmp_vi[inlier_mask] ,  tmp_viprev[inlier_mask] )[0,1]
@@ -1403,6 +1419,8 @@ def dopplerspatialcoherence_filter( v , undef , my_conf ) :
 
    for ifilter in range( my_conf['npass_filter'] )  :
 
+      v[ coherence_index > my_conf['threshold_coherence_index'] ] = undef
+
       for k in range(ne) :
 
          for i in range(na) :
@@ -1415,60 +1433,91 @@ def dopplerspatialcoherence_filter( v , undef , my_conf ) :
                   coherence_index[i,:,k][ np.logical_and( tmp_mask , v[i,:,k] != undef  ) ] = 10.0
 
                   tmp_mask = np.logical_and( v[i-2,:,k] == undef , v[i+2,:,k] == undef )
-                  v[i,:,k][ np.logical_and( tmp_mask , v[i,:,k] != undef ) ] = 10.0
+                  coherence_index[i,:,k][ np.logical_and( tmp_mask , v[i,:,k] != undef ) ] = 10.0
 
                elif  i==na-1   :
                   tmp_mask = np.logical_and( v[i-1,:,k] == undef , v[0,:,k] == undef )
-                  v[i,:,k][ np.logical_and( tmp_mask , v[i,:,k] != undef ) ] = 10.0
+                  coherence_index[i,:,k][ np.logical_and( tmp_mask , v[i,:,k] != undef ) ] = 10.0
 
                   tmp_mask = np.logical_and( v[i-2,:,k] == undef , v[1,:,k] == undef )
-                  v[i,:,k][ np.logical_and( tmp_mask , v[i,:,k] != undef ) ] = 10.0
+                  coherence_index[i,:,k][ np.logical_and( tmp_mask , v[i,:,k] != undef ) ] = 10.0
 
-               elif  i==na-3   :
+               elif  i==na-2   :
                   tmp_mask = np.logical_and( v[i-1,:,k] == undef , v[i,:,k] == undef )
-                  v[i,:,k][ np.logical_and( tmp_mask , v[i,:,k] != undef ) ] = 10.0
+                  coherence_index[i,:,k][ np.logical_and( tmp_mask , v[i,:,k] != undef ) ] = 10.0
 
                   tmp_mask = np.logical_and( v[i-2,:,k] == undef , v[0,:,k] == undef )
-                  v[i,:,k][ np.logical_and( tmp_mask , v[i,:,k] != undef ) ] = 10.0
+                  coherence_index[i,:,k][ np.logical_and( tmp_mask , v[i,:,k] != undef ) ] = 10.0
 
                elif  i==0      :
 
                   tmp_mask = np.logical_and( v[na-1,:,k] == undef , v[i+1,:,k] == undef )
-                  v[i,:,k][ np.logical_and( tmp_mask , v[i,:,k] != undef ) ] = 10.0
+                  coherence_index[i,:,k][ np.logical_and( tmp_mask , v[i,:,k] != undef ) ] = 10.0
 
                   tmp_mask = np.logical_and( v[na-2,:,k] == undef , v[i+2,:,k] == undef )
-                  v[i,:,k][ np.logical_and( tmp_mask , v[i,:,k] != undef ) ] = 10.0
+                  coherence_index[i,:,k][ np.logical_and( tmp_mask , v[i,:,k] != undef ) ] = 10.0
 
                elif  i==1      :
 
                   tmp_mask = np.logical_and( v[i-1,:,k] == undef  , v[i+1,:,k] == undef )
-                  v[i,:,k][ np.logical_and( tmp_mask , v[i,:,k] != undef ) ] = 10.0
+                  coherence_index[i,:,k][ np.logical_and( tmp_mask , v[i,:,k] != undef ) ] = 10.0
 
                   tmp_mask = np.logical_and( v[na-1,:,k] == undef , v[i+2,:,k] == undef )
-                  v[i,:,k][ np.logical_and( tmp_mask , v[i,:,k] != undef ) ] = 10.0
+                  coherence_index[i,:,k][ np.logical_and( tmp_mask , v[i,:,k] != undef ) ] = 10.0
 
-            if  my_conf['elevationfilter']         :   #DETECT ISOLATED PIXELS IN ELEVATION
+            if  my_conf['elevationfilter']       :   #DETECT ISOLATED PIXELS IN ELEVATION
 
                if ( k > 0 ) & ( k < ne-1 ) :
 
                   tmp_mask = np.logical_and( v[i,:,k-1] == undef , v[i,:,k+1] == undef )
-                  v[i,:,k][ np.logical_and( tmp_mask , v[i,:,k] != undef ) ] = 10.0
+                  coherence_index[i,:,k][ np.logical_and( tmp_mask , v[i,:,k] != undef ) ] = 10.0
 
                if ( k == 0 )                :
 
                   tmp_mask = np.logical_and( v[i,:,k+2] == undef , v[i,:,k+1] == undef )
-                  v[i,:,k][ np.logical_and( tmp_mask , v[i,:,k] != undef ) ] = 10.0
+                  coherence_index[i,:,k][ np.logical_and( tmp_mask , v[i,:,k] != undef ) ] = 10.0
 
                if ( k == ne-1 )            :
 
                   tmp_mask = np.logical_and( v[i,:,k-2] == undef  , v[i,:,k-1] == undef )
-                  v[i,:,k][ np.logical_and( tmp_mask , v[i,:,k] != undef ) ] = 10.0
+                  coherence_index[i,:,k][ np.logical_and( tmp_mask , v[i,:,k] != undef ) ] = 10.0
 
+         for i in range(nr) :
 
+            if  my_conf['rangefilter']           :   #DETECT ISOLATED PIXELS IN RANGE
 
+               if ( i  > 0 ) & ( i < nr-1 ) :
 
+                  tmp_mask = np.logical_and( v[:,i-1,k] == undef , v[:,i+1,k] == undef )
+                  coherence_index[:,i,k][ np.logical_and( tmp_mask , v[:,i,k] != undef ) ] = 10.0
 
-   return coherence_index
+               if ( i == 0 )                :
+
+                  tmp_mask = np.logical_and( v[:,i+2,k] == undef , v[:,i+1,k] == undef )
+                  coherence_index[:,i,k][ np.logical_and( tmp_mask , v[:,i,k] != undef ) ] = 10.0
+
+               if ( i == nr-1 )            :
+
+                  tmp_mask = np.logical_and( v[:,i-2,k] == undef  , v[:,i-1,k] == undef )
+                  coherence_index[:,i,k][ np.logical_and( tmp_mask , v[:,i,k] != undef ) ] = 10.0
+
+   if my_conf['enable_speckle']   :
+
+      tr=0.0
+      nx=my_conf['nx']
+      ny=my_conf['ny']
+      nz=my_conf['nz']
+      tmp=np.abs( v )
+      tmp[ v == undef ] = undef
+
+      speckle_v=qc.box_functions_2d(datain=tmp,na=na,nr=nr,ne=ne,undef=undef
+                                 ,boxx=nx,boxy=ny,boxz=nz,operation='COU2',threshold=tr)
+
+      coherence_index[ speckle_v < my_conf['speckle_threshold'] ] = 10.0
+
+   v[ coherence_index > my_conf['threshold_coherence_index'] ] = undef
+
+   return v , coherence_index
 
 def interference_filter ( ref , undef , min_ref , r , my_conf )  :
 

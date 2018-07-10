@@ -34,16 +34,22 @@ filename='./cfrad.20091117_174348.000_to_20091117_174737.000_PAR_SUR.nc3'    #Ej
 print('End of QC')
 
 
-elev=0
+elev=2
 
 if conf.options['Dealiasing']['flag']  :
-   qcpt.plot_dealiasing( qc_output , conf.options , figname='DealiasingTest.png' , elev=elev  )
+   qcpt.plot_dealiasing( qc_output , conf.options , figname='DealiasingTest.png' , elev=elev)
+if conf.options['DopplerNoiseFilter']['flag']  :
+   qcpt.plot_dopplernoisefilter( qc_output , conf.options , figname='DopplerNoiseFilterTest.png' , elev=elev )
+if conf.options['DopplerLocalStdFilter']['flag']  :
+   qcpt.plot_dopplerlocalstdfilter( qc_output , conf.options , figname='DopplerLocalStdFilterTest.png' , elev=elev )
+if conf.options['DopplerSpatialCoherenceFilter']['flag']  :
+   qcpt.plot_dopplerspatialcoherencefilter( qc_output , conf.options , figname='DopplerSpatialCoherenceFilterTest.png' , elev=elev , show = True)
 if conf.options['RhoFilter']['flag']   :
-   qcpt.plot_rhofilter( qc_output , conf.options , figname='RhoFilterTest.png' , elev=elev  )
+   qcpt.plot_rhofilter( qc_output , conf.options , figname='RhoFilterTest.png' , elev=elev )
 if conf.options['EchoTopFilter']['flag'] :
-   qcpt.plot_echotopfilter( qc_output , conf.options , figname='EchoTopFilter.png' , elev=elev  )
+   qcpt.plot_echotopfilter( qc_output , conf.options , figname='EchoTopFilter.png' , elev=elev )
 if conf.options['EchoDepthFilter']['flag'] :
-   qcpt.plot_echodepthfilter( qc_output , conf.options , figname='EchoDepthFilter.png' , elev=elev  )
+   qcpt.plot_echodepthfilter( qc_output , conf.options , figname='EchoDepthFilter.png' , elev=elev )
 if conf.options['RefSpeckleFilter']['flag'] :
    qcpt.plot_refspecklefilter( qc_output , conf.options , figname='RefSpeckleFilter.png' , elev=elev )
 if conf.options['DopplerSpeckleFilter']['flag'] :
@@ -61,7 +67,7 @@ if conf.options['LowElevFilter']['flag'] :
 if conf.options['LowDopplerFilter']['flag'] :
    qcpt.plot_lowdopplerfilter( qc_output , conf.options , figname='LowDopplerFilter.png' , elev=elev )
 if conf.options['InterferenceFilter']['flag'] :
-   qcpt.plot_interferencefilter( qc_output , conf.options , figname='InterferenceFilter.png' , elev=elev , show=True )
+   qcpt.plot_interferencefilter( qc_output , conf.options , figname='InterferenceFilter.png' , elev=elev )
 
 
 
