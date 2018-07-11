@@ -309,8 +309,13 @@ def main_qc( filename , options ) :
        output['wv']=output['wv'] + tmp_w * options[filter_name]['w']
        output['qcv'][ tmp_w > 0.5 ] = options[filter_name]['code']
        output['maxw_v']=output['maxw_v'] + options[filter_name]['w']
+
      else                                   :
-       output['cv'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_v']
+       if options[filter_name]['fill_value']  == 'undef'   :
+          output['cv'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_v']
+       else                                                :
+          output['cv'][ tmp_w > options[filter_name]['force_value'] ]=options[filter_name]['fill_value']
+
        output['qcv'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
 
      #If requested store the auxiliary fields and data in the output dictionary.
@@ -361,7 +366,13 @@ def main_qc( filename , options ) :
        output['qcref'][ tmp_w > 0.5 ] = options[filter_name]['code']
        output['maxw_ref']=output['maxw_ref'] + options[filter_name]['w']
      else                                   :
-       output['cref'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_ref']
+       if options[filter_name]['fill_value']  == 'undef'       :
+          output['cref'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_ref']
+       elif options[filter_name]['fill_value']  == 'min_ref'   :
+          output['cref'][ tmp_w > options[filter_name]['force_value'] ]=options['norainrefval']
+       else                                                    :
+          output['cref'][ tmp_w > options[filter_name]['force_value'] ]=options['filter_name']['fill_value']
+
        output['qcref'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
 
 
@@ -416,7 +427,13 @@ def main_qc( filename , options ) :
        output['qcref'][ tmp_w > 0.5 ] = options[filter_name]['code']
        output['maxw_ref']=output['maxw_ref'] + options[filter_name]['w']
      else                                   :
-       output['cref'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_ref']
+       if options[filter_name]['fill_value']  == 'undef'       :
+          output['cref'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_ref']
+       elif options[filter_name]['fill_value']  == 'min_ref'   :
+          output['cref'][ tmp_w > options[filter_name]['force_value'] ]=options['norainrefval']
+       else                                                    :
+          output['cref'][ tmp_w > options[filter_name]['force_value'] ]=options['filter_name']['fill_value']
+
        output['qcref'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
 
 
@@ -469,13 +486,19 @@ def main_qc( filename , options ) :
          output['qcref'][ tmp_w > 0.5 ] = options[filter_name]['code']
          output['maxw_ref']=output['maxw_ref'] + options[filter_name]['w']
       else                                   :
-         output['cref'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_ref']
+         if options[filter_name]['fill_value']  == 'undef'       :
+            output['cref'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_ref']
+         elif options[filter_name]['fill_value']  == 'min_ref'   :
+            output['cref'][ tmp_w > options[filter_name]['force_value'] ]=options['norainrefval']
+         else                                                    :
+            output['cref'][ tmp_w > options[filter_name]['force_value'] ]=options['filter_name']['fill_value']
+
          output['qcref'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
 
       #If requested store the auxiliary fields and data in the output dictionary.
       if  ( not options[filter_name]['save'] )     :
-          output.pop('smooth_ref')
-          computed_etfilter = False
+         output.pop('smooth_ref')
+         computed_etfilter = False
 
 
       end=time.time()
@@ -518,7 +541,14 @@ def main_qc( filename , options ) :
                output['qcref'][ tmp_w > 0.5 ] = options[filter_name]['code']
                output['maxw_ref']=output['maxw_ref'] + options[filter_name]['w']
             else                                   :
-               output['cref'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_ref']
+
+               if options[filter_name]['fill_value']  == 'undef'       :
+                  output['cref'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_ref']
+               elif options[filter_name]['fill_value']  == 'min_ref'   :
+                  output['cref'][ tmp_w > options[filter_name]['force_value'] ]=options['norainrefval']
+               else                                                    :
+                  output['cref'][ tmp_w > options[filter_name]['force_value'] ]=options['filter_name']['fill_value']
+
                output['qcref'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
 
       else   :
@@ -567,7 +597,13 @@ def main_qc( filename , options ) :
           output['qcref'][ tmp_w > 0.5 ] = options[filter_name]['code']
           output['maxw_ref']=output['maxw_ref'] + options[filter_name]['w']
        else                                   :
-          output['cref'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_ref']
+          if options[filter_name]['fill_value']  == 'undef'       :
+             output['cref'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_ref']
+          elif options[filter_name]['fill_value']  == 'min_ref'   :
+             output['cref'][ tmp_w > options[filter_name]['force_value'] ]=options['norainrefval']
+          else                                                    :
+             output['cref'][ tmp_w > options[filter_name]['force_value'] ]=options['filter_name']['fill_value']
+
           output['qcref'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
 
 
@@ -618,7 +654,11 @@ def main_qc( filename , options ) :
           output['qcv'][ tmp_w > 0.5 ] = options[filter_name]['code']
           output['maxw_v']=output['maxw_v'] + options[filter_name]['w']
        else                                   :
-          output['cv'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_v']
+          if options[filter_name]['fill_value']  == 'undef'   :
+             output['cv'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_v']
+          else                                                :
+             output['cv'][ tmp_w > options[filter_name]['force_value'] ]=options[filter_name]['fill_value']
+
           output['qcv'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
 
        if ( not options[filter_name]['save'] ) :
@@ -655,7 +695,13 @@ def main_qc( filename , options ) :
          output['qcref'][ tmp_w > 0.5 ] = options[filter_name]['code']
          output['maxw_ref']=output['maxw_ref'] + options[filter_name]['w']
       else                                   :
-         output['cref'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_ref']
+         if options[filter_name]['fill_value']  == 'undef'       :
+            output['cref'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_ref']
+         elif options[filter_name]['fill_value']  == 'min_ref'   :
+            output['cref'][ tmp_w > options[filter_name]['force_value'] ]=options['norainrefval']
+         else                                                    :
+            output['cref'][ tmp_w > options[filter_name]['force_value'] ]=options['filter_name']['fill_value']
+         
          output['qcref'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
 
       if  ( not options[filter_name]['save'] )  :
@@ -802,7 +848,11 @@ def main_qc( filename , options ) :
        output['qcv'][ tmp_w > 0.5 ] = options[filter_name]['code']
        output['maxw_ref']=output['maxw_ref'] + options[filter_name]['w']
      else                                   :
-       output['cv'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_v']
+       if options[filter_name]['fill_value']  == 'undef'   :
+          output['cv'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_v']
+       else                                                :
+          output['cv'][ tmp_w > options[filter_name]['force_value'] ]=options[filter_name]['fill_value']
+
        output['qcv'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
 
      if  not options[filter_name]['save']  :
@@ -839,17 +889,19 @@ def main_qc( filename , options ) :
 
       output['wv']=output['wv'] + tmp_w * options[filter_name]['w']
 
-      if name_ref in radar.fields :
+      if name_v in radar.fields :
          if not options[filter_name]['force']   :
             output['wv']=output['wv'] + tmp_w * options[filter_name]['w']
             output['qcv'][ tmp_w > 0.5 ] = options[filter_name]['code']
             output['maxw_v']=output['maxw_v'] + options[filter_name]['w']
-         else                                   :
-            output['cv'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_ref']
+         else                                   :    
+            if options[filter_name]['fill_value']  == 'undef'   :
+               output['cv'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_v']
+            else                                                :
+               output['cv'][ tmp_w > options[filter_name]['force_value'] ]=options[filter_name]['fill_value']
+
             output['qcv'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
 
-
-      print( options[filter_name]['save'] )
       if ( not options[filter_name]['save'] ) :
           output.pop('v_std')
 
@@ -898,7 +950,6 @@ def main_qc( filename , options ) :
 
       output['cv'] , output['coherence_index'] = dopplerspatialcoherence_filter( tmp_v , output['undef_v'] , options[filter_name] )
 
-      #output['cv'][ output['coherence_index'] > options[filter_name]['threshold_coherence_index'] ] = output['undef_v']
       output['qcv'][ output['coherence_index'] > options[filter_name]['threshold_coherence_index'] ]=options[filter_name]['code']
 
       end=time.time()
@@ -934,7 +985,13 @@ def main_qc( filename , options ) :
          output['qcref'][ tmp_w > 0.5 ] = options[filter_name]['code']
          output['maxw_ref']=output['maxw_ref'] + options[filter_name]['w']
       else                                   :
-         output['cref'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_ref']
+         if options[filter_name]['fill_value']  == 'undef'       :
+             output['cref'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_ref']
+         elif options[filter_name]['fill_value']  == 'min_ref'   :
+            output['cref'][ tmp_w > options[filter_name]['force_value'] ]=options['norainrefval']
+         else                                                    :
+            output['cref'][ tmp_w > options[filter_name]['force_value'] ]=options['filter_name']['fill_value']
+
          output['qcref'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
 
       if  not options[filter_name]['save']  :
@@ -978,7 +1035,13 @@ def main_qc( filename , options ) :
         output['qcref'][ tmp_w > 0.5 ] = options[filter_name]['code']
         output['maxw_ref']=output['maxw_ref'] + options[filter_name]['w']
      else                                   :
-        output['cref'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_ref']
+        if options[filter_name]['fill_value']  == 'undef'       :
+           output['cref'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_ref']
+        elif options[filter_name]['fill_value']  == 'min_ref'   :
+           output['cref'][ tmp_w > options[filter_name]['force_value'] ]=options['norainrefval']
+        else                                                    :
+           output['cref'][ tmp_w > options[filter_name]['force_value'] ]=options['filter_name']['fill_value']
+
         output['qcref'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
 
      if  not options[filter_name]['save']  :
@@ -1012,8 +1075,12 @@ def main_qc( filename , options ) :
         output['qcv'][ tmp_w > 0.5 ] = options[filter_name]['code']
         output['maxw_v']=output['maxw_v'] + options[filter_name]['w']
      else                                   :
-        output['cv'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_v']
-        output['qcv'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
+       if options[filter_name]['fill_value']  == 'undef'   :
+          output['cv'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_v']
+       else                                                :
+          output['cv'][ tmp_w > options[filter_name]['force_value'] ]=options[filter_name]['fill_value']
+                               
+       output['qcv'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
 
 
      if  not options[filter_name]['save']  :
@@ -1053,7 +1120,13 @@ def main_qc( filename , options ) :
             output['qcref'][ tmp_w > 0.5 ] = options[filter_name]['code']
             output['maxw_ref']=output['maxw_ref'] + options[filter_name]['w']
          else                                   :
-            output['cref'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_ref']
+            if options[filter_name]['fill_value']  == 'undef'       :
+               output['cref'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_ref']
+            elif options[filter_name]['fill_value']  == 'min_ref'   :
+               output['cref'][ tmp_w > options[filter_name]['force_value'] ]=options['norainrefval']
+            else                                                    :
+               output['cref'][ tmp_w > options[filter_name]['force_value'] ]=options['filter_name']['fill_value']
+
             output['qcref'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
 
       if name_v in radar.fields   :
@@ -1063,7 +1136,11 @@ def main_qc( filename , options ) :
             output['qcv'][ tmp_w > 0.5 ] = options[filter_name]['code']
             output['maxw_v']=output['maxw_v'] + options[filter_name]['w']
          else                                   :
-            output['cv'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_v']
+            if options[filter_name]['fill_value']  == 'undef'   :
+               output['cv'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_v']
+            else                                                :
+               output['cv'][ tmp_w > options[filter_name]['force_value'] ]=options[filter_name]['fill_value']
+
             output['qcv'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
 
 
@@ -1563,6 +1640,12 @@ def interference_filter ( ref , undef , min_ref , r , my_conf )  :
    corr_threshold=my_conf['corr_threshold']
    ref_threshold=my_conf['ref_threshold']
    percent_ref_threshold=my_conf['percent_ref_threshold']
+   if my_conf['fill_value'] == 'undef' :
+      fill_value=undef
+   elif my_conf['fill_value'] == 'min_ref' :
+      fill_value=minref
+   else                               :
+      fill_value=my_conf['fill_value']
 
    Power_Regression = my_conf['Power_Regression']
 
@@ -1645,7 +1728,7 @@ def interference_filter ( ref , undef , min_ref , r , my_conf )  :
               #If the reflectivity is far from the fitted interference, and is smaller than the fitted interference
               #then set that pixel as an undef pixel.
               tmp_mask = np.logical_and( tmp_z[i,:,k] - zrayo <= 5.0 , undef_mask )
-              ref[i, tmp_mask ,k] = min_ref
+              ref[i, tmp_mask ,k] = fill_value
 
               #if (k == 0) and (i == 348) :
               #   plt.plot( r[undef_mask] , tmp_z[i,:,k][undef_mask] )
@@ -1669,57 +1752,57 @@ def interference_filter ( ref , undef , min_ref , r , my_conf )  :
  
                   #If we have reflectivity in only one ray but not in the neighbors this suggest an interference pattern.
                   tmp_mask = np.logical_and( ref[i-1,:,k] <= min_ref , ref[i+1,:,k] <= min_ref )
-                  ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
+                  ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = fill_value
 
                   tmp_mask = np.logical_and( ref[i-2,:,k] <= min_ref , ref[i+2,:,k] <= min_ref )
-                  ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
+                  ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = fill_value
  
                elif  i==na-1   :
                   tmp_mask = np.logical_and( ref[i-1,:,k] <= min_ref , ref[0,:,k] <= min_ref )
-                  ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
+                  ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = fill_value
 
                   tmp_mask = np.logical_and( ref[i-2,:,k] <= min_ref , ref[1,:,k] <= min_ref )
-                  ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
+                  ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = fill_value
 
                elif  i==na-3   :
                   tmp_mask = np.logical_and( ref[i-1,:,k] <= min_ref , ref[i,:,k] <= min_ref )
-                  ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
+                  ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = fill_value
 
                   tmp_mask = np.logical_and( ref[i-2,:,k] <= min_ref , ref[0,:,k] <= min_ref )
-                  ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
+                  ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = fill_value
 
                elif  i==0      :
 
                   tmp_mask = np.logical_and( ref[na-1,:,k] <= min_ref , ref[i+1,:,k] <= min_ref )
-                  ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
+                  ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = fill_value
 
                   tmp_mask = np.logical_and( ref[na-2,:,k] <= min_ref , ref[i+2,:,k] <= min_ref )
-                  ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
+                  ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = fill_value
 
                elif  i==1      :
 
                   tmp_mask = np.logical_and( ref[i-1,:,k] <= min_ref , ref[i+1,:,k] <= min_ref )
-                  ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
+                  ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = fill_value
 
                   tmp_mask = np.logical_and( ref[na-1,:,k] <= min_ref , ref[i+2,:,k] <= min_ref )
-                  ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
+                  ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = fill_value
 
             if ElevationFilter         :   #DETECT ISOLATED PIXELS IN ELEVATION
 
                if ( k > 0 ) & ( k < ne-1 ) :
 
                   tmp_mask = np.logical_and( ref[i,:,k-1] <= min_ref , ref[i,:,k+1] <= min_ref )
-                  ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
+                  ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = fill_value
 
                if ( k == 0 )                :
 
                   tmp_mask = np.logical_and( ref[i,:,k+2] <= min_ref , ref[i,:,k+1] <= min_ref )
-                  ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
+                  ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = fill_value
 
                if ( k == ne-1 )            :
 
                   tmp_mask = np.logical_and( ref[i,:,k-2] <= min_ref , ref[i,:,k-1] <= min_ref )
-                  ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = min_ref
+                  ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = fill_value
 
    return ref
 
