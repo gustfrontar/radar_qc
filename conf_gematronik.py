@@ -68,15 +68,12 @@ options[filter_name]['flag']=True
 options[filter_name]['interval_split']=3
 options[filter_name]['skip_between_ray']=10
 options[filter_name]['skip_along_ray']=10
-options[filter_name]['texture_filter']=False    #Wether a texture filter will be applied before performing dealiasing.
-options[filter_name]['texture_thr']=1          #Texture filter threshold.
 options[filter_name]['nx']=3
 options[filter_name]['ny']=3
 options[filter_name]['nz']=0
-options[filter_name]['texture_code']=44
 options[filter_name]['code']=43
-
 options[filter_name]['sequential'] = True      #If sequential = true then following filters will use the dealiased data.
+options[filter_name]['order'] = [1]
 
 #Rho filter parameters  ===================================================================== 
 
@@ -94,6 +91,7 @@ options[filter_name]['code']=10
 options[filter_name]['force']=False                         #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                     #Threshold for force
 options[filter_name]['fill_value']='minref'                 #Possible values, undef, minref or fill value
+options[filter_name]['order'] = [2]
 
 #Model filter parameters  ===================================================================== 
 
@@ -116,6 +114,7 @@ options[filter_name]['code']=25
 options[filter_name]['force']=False                         #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                     #Threshold for force
 options[filter_name]['fill_value']='minref'                 #Possible values, undef, minref or fill value
+options[filter_name]['order'] = [2]
 
 #Echo top filter parameters ===================================================================
 
@@ -135,6 +134,7 @@ options[filter_name]['heigthtr']=3000                       #Do not use this fil
 options[filter_name]['force']=False                         #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                     #Threshold for force
 options[filter_name]['fill_value']='minref'                 #Possible values, undef, minref or fill value
+options[filter_name]['order'] = [3]
 
 #Echo depth filter parameters ===================================================================
 
@@ -153,6 +153,7 @@ options[filter_name]['heigthtr']=3000                       #Do not use this fil
 options[filter_name]['force']=False                         #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                     #Threshold for force
 options[filter_name]['fill_value']='minref'                 #Possible values, undef, minref or fill value
+options[filter_name]['order'] = [4]
 
 #Reflectivity speckle filter  parameters ==========================================================
 
@@ -171,6 +172,7 @@ options[filter_name]['reftr']=5                             #Reflectivity thresh
 options[filter_name]['force']=False                         #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                     #Threshold for force
 options[filter_name]['fill_value']='minref'                 #Possible values, undef, minref or fill value
+options[filter_name]['order'] = [5]
 
 #Doppler speckle filter  parameters ==============================================================
 
@@ -189,6 +191,7 @@ options[filter_name]['dvtr']=0.0                            #Wind threshold.
 options[filter_name]['force']=False                         #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                     #Threshold for force
 options[filter_name]['fill_value']='undef'                  #Possible values, undef, minref or fill value
+options[filter_name]['order'] = [6]
 
 #Doppler texture filter  parameters ==============================================================
 
@@ -206,6 +209,7 @@ options[filter_name]['code']=15
 options[filter_name]['force']=False                         #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                     #Threshold for force
 options[filter_name]['fill_value']='undef'                  #Possible values, undef, minref or fill value
+options[filter_name]['order'] = [7]
 
 #Reflectivity texture filter  parameters ==============================================================
 
@@ -225,6 +229,7 @@ options[filter_name]['code']=16
 options[filter_name]['force']=False                         #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                     #Threshold for force
 options[filter_name]['fill_value']='undef'                  #Possible values, undef, minref or fill value
+options[filter_name]['order'] = [8]
 
 #Attenuation parameters           ==============================================================
 filter_name='AttenuationFilter'
@@ -244,6 +249,7 @@ options[filter_name]['att_coefs']=np.array([543,1.36,1.55e-3,1.30]) #Coefficient
 options[filter_name]['force']=False                         #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                     #Threshold for force
 options[filter_name]['fill_value']='undef'                  #Possible values, undef, minref or fill value
+options[filter_name]['order'] = [9]
 
 #Coefficients for C-Band radars based on
 #Quantification of Path-Integrated Attenuation for X- and C-Band Weather
@@ -264,7 +270,7 @@ options[filter_name]['blocking_threshold']=0.5              #Beams with blocking
 options[filter_name]['save']=True                           #Save blocking factor into qc_output dictionary.
 options[filter_name]['code']=40                             #QC output code
 options[filter_name]['fill_value']='undef'                  #Possible values, undef, minref or fill value
-
+options[filter_name]['order'] = [10]
 
 #Low elevation angles filter parameters ==============================================================
 filter_name='LowElevFilter'
@@ -281,6 +287,7 @@ options[filter_name]['code']=18
 options[filter_name]['force']=False                            #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                        #Threshold for force
 options[filter_name]['fill_value']='undef'                     #Possible values, undef, minref or fill value
+options[filter_name]['order'] = [11]
 
 #Low doppler velocity filter            ==============================================================
 filter_name='LowDopplerFilter'
@@ -299,6 +306,7 @@ options[filter_name]['force_value']=0.5                        #Threshold for fo
 options[filter_name]['height_thr']=1000                        #Height threshold.
 options[filter_name]['use_terrain']=True                       #Wether AGL height is used.
 options[filter_name]['fill_value']='undef'                     #Possible values, undef, minref or fill value
+options[filter_name]['order'] = [12]
 
 #Interference filter            ==============================================================
 #This filter is not included in the Fuzzy-logic approach.
@@ -324,6 +332,7 @@ options[filter_name]['ref_threshold']=5.0                      #Reflectivity thr
 options[filter_name]['percent_ref_threshold']=0.3              #If more than this percent of the ray correlates well with the interference pattern, then
                                                                #the ray is flagged as contaminated by interference.
 options[filter_name]['fill_value']='minref'                    #Possible values, undef, minref or fill value
+options[filter_name]['order'] = [13]
 
 #Dealiasing border filter            ==============================================================
 filter_name='DealiasingBorderFilter'
@@ -338,6 +347,7 @@ options[filter_name]['code']= 1
 options[filter_name]['force']=False                            #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                        #Threshold for force
 options[filter_name]['fill_value']='undef'                     #Possible values, undef, minref or fill value
+options[filter_name]['order'] = [14]
 
 #Doppler Local Std Filter            ==============================================================
 filter_name='DopplerLocalStdFilter'
@@ -354,6 +364,7 @@ options[filter_name]['code']= 1
 options[filter_name]['force']=False                            #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                        #Threshold for force
 options[filter_name]['fill_value']='undef'                     #Possible values, undef, minref or fill value
+options[filter_name]['order'] = [15]
 
 #Doppler Spatial Coherence Filter ==============================================================
 filter_name='DopplerSpatialCoherenceFilter'
@@ -371,13 +382,10 @@ options[filter_name]['npass_filter']=2                         #Number of applic
 options[filter_name]['azimuthfilter']=True                     #Apply issolated data filter in azimuth.
 options[filter_name]['rangefilter']=True                       #Apply issolated data filter in range.
 options[filter_name]['elevationfilter']=False                  #Apply issolated data filter in elevation
-
 options[filter_name]['enable_speckle']=True                    #Wether speckle filter will be applied to the remaining data.
 options[filter_name]['speckle_threshold']=0.3                  #Threshold to discard pixels based on speckle index.
-
 options[filter_name]['consistency_metric']='constant'          #Possible values are 'Ransac' or 'Constant'
 options[filter_name]['constant_consistency_threshold']=3.5     #Consecutive values which are farther than this threshold will be flagged.
-
 options[filter_name]['ify']=np.array([0,0,1,1])                #Importance function y
 options[filter_name]['ifx']=np.array([0,5,6,10])               #Importance function x
 options[filter_name]['save']=True                              #Save filter aux fields to output?
@@ -386,6 +394,7 @@ options[filter_name]['code']= 1
 options[filter_name]['force']=False                            #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                        #Threshold for force
 options[filter_name]['fill_value']='undef'                     #Possible values, undef, minref or fill value
+options[filter_name]['order'] = [16]
 
 #Doppler Noise filter            ==============================================================
 filter_name='DopplerNoiseFilter'
@@ -410,6 +419,7 @@ options[filter_name]['code']= 1
 options[filter_name]['force']=False                            #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                        #Threshold for force
 options[filter_name]['fill_value']='undef'                     #Possible values, undef, minref or fill value
+options[filter_name]['order'] = [17]
 
 #Missing reflectivity filter ==================================================================
 #Detects holes in high reflectivity regions. 
@@ -424,10 +434,14 @@ options[filter_name]['code']= 22
 options[filter_name]['force']=False                            #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                        #Threshold for force
 options[filter_name]['fill_value']='undef'                     #Possible values, undef, minref or fill value
-
+options[filter_name]['order'] = [18]
 
 #Topography parameters
 
-options['toporawdatapath']="/home/jruiz/share/radar_qc_da/data/terrain_data/raw/"
-options['toporadardatapath']="/home/jruiz/share/radar_qc_da/data/terrain_data/radar/"
+#options['toporawdatapath']="/home/jruiz/share/radar_qc_da/data/terrain_data/raw/"
+#options['toporadardatapath']="/home/jruiz/share/radar_qc_da/data/terrain_data/radar/"
+
+options['toporawdatapath']="/media/jruiz/PAWR/Dropbox/DATA/radar_qc_da/data/terrain_data/raw/"
+options['toporadardatapath']="/media/jruiz/PAWR/Dropbox/DATA/radar_qc_da/data/terrain_data/radar/"
+
 

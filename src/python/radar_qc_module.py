@@ -10,32 +10,20 @@ def main_qc( filename , options ) :
 
    import numpy as np
    import numpy.ma as ma
-   import matplotlib.pyplot as plt
    import pyart
    from common_qc_tools  import qc  #Fortran code routines.
-   from scipy.interpolate import interp2d
    import netCDF4
    import os
    from netCDF4 import Dataset
 
-   import matplotlib.pyplot as plt
 
-   undef          = options['undef']   #This set the undef value for the rest of the script.
+   start=time.time()
 
    output=dict() #Initialize output dictionary.
 
    computed_etfilter=False   #Flag to indicate if echo top has been computed already.
 
-#  Constant parameters
-
-   #Shortcut to variable names
-   name_v   =options['name_v']
-   name_ref =options['name_ref']
-   name_rho =options['name_rho']
-
-   name_cref=options['name_cref']
-   name_cv  =options['name_cv']
-
+   #Read the data
    radar = pyart.io.read(filename)
 
    if options['is_rma']  :
@@ -55,20 +43,58 @@ def main_qc( filename , options ) :
    output['maxw_ref']=0.0
    output['maxw_v']  =0.0
 
+
    #===================================================
-   # RESHAPE VARIABLES
+   # SOME PRELIMINARY PROCEDURES.
    #===================================================
+
+   #From cfradial format to azimuth,range,elevation order
+   [ radar , output ] = reshape_variables( radar , output , options )
+   #Compute X,Y,lat and lon for each pixel
+   [ radar , output ] = georeference_data( radar , output , options )
+   #Compute the terrain height corresponding to each pixel
+   [ radar , output ] = get_topography( radar , output , options )
+
+   #===================================================
+   # FILTER APPLICATION
+   #===================================================
+
+   #This functions runs the selected filters in the selected
+   #order.
+
+   [ radar , output ] = run_filters( radar , output , options )
+
+   end=time.time()
+
+   print("The elapsed time in {:s} is {:2f}".format("the entire QC",end-start) )
+
+   return radar , output
+
+
+#===================================================
+# FUNCIONES GENERALES ------------------------------
+#===================================================
+
+
+#===================================================
+# RESHAPE VARIABLES
+#===================================================
+
+def reshape_variables( radar , output , options )    :
+
+   import numpy as np
+   import time
    #From time,range -> azimuth,range,elevation
 
    startt=time.time()
 
 
-   if name_ref in radar.fields :
+   if options['name_ref'] in radar.fields :
         start=time.time()
 
-        output['undef_ref']=radar.fields[name_ref]['_FillValue']
+        output['undef_ref']=radar.fields[options['name_ref']]['_FillValue']
 
-        [ output['ref'] , output['az'] , output['level'] , output['time'] , output['index'] , output['az_exact'] ]=order_variable( radar , name_ref , output['undef_ref'] )
+        [ output['ref'] , output['az'] , output['level'] , output['time'] , output['index'] , output['az_exact'] ]=order_variable( radar , options['name_ref'] , output['undef_ref'] )
         na=output['ref'].shape[0]
         nr=output['ref'].shape[1]
         ne=output['ref'].shape[2]
@@ -92,13 +118,13 @@ def main_qc( filename , options ) :
 
         print("The elapsed time in {:s} is {:2f}".format("ref -> az,r,el",end-start) )
  
-   if name_v in radar.fields  : 
+   if options['name_v'] in radar.fields  : 
 
         start=time.time()
 
-        output['undef_v']=radar.fields[ name_v ]['_FillValue']
+        output['undef_v']=radar.fields[ options['name_v'] ]['_FillValue']
 
-        [ output['v'] , output['az'] , output['level'] , output['time'] , output['index'] , output['az_exact']  ]=order_variable( radar , name_v , output['undef_v']  )
+        [ output['v'] , output['az'] , output['level'] , output['time'] , output['index'] , output['az_exact']  ]=order_variable( radar , options['name_v'] , output['undef_v']  )
  
         na=output['ref'].shape[0]
         nr=output['ref'].shape[1]
@@ -119,19 +145,25 @@ def main_qc( filename , options ) :
 
         print("The elapsed time in {:s} is {:2f}".format("v -> az,r,el",end-start) )
 
-   #===================================================
-   # GEOREFERENCE RADAR DATA
-   #===================================================
+   return radar , output
 
+#===================================================
+# GEOREFERENCE RADAR DATA
+#===================================================
+
+def georeference_data( radar , output , options )    :
+
+   import numpy as np
+   import time
    #Use pyart rutines to compute x, y and z at each grid point
    #Reorder data
    start=time.time()
 
    #dm is a dummy variable
 
-   [ output['altitude'] , dm , dm , dm , dm , dm ] = order_variable( radar , 'altitude' , undef )
-   [ output['x']        , dm , dm , dm , dm , dm ] = order_variable( radar , 'x' , undef ) 
-   [ output['y']        , dm , dm , dm , dm , dm ] = order_variable( radar , 'y' , undef )
+   [ output['altitude'] , dm , dm , dm , dm , dm ] = order_variable( radar , 'altitude' , options['undef'] )
+   [ output['x']        , dm , dm , dm , dm , dm ] = order_variable( radar , 'x' , options['undef'] ) 
+   [ output['y']        , dm , dm , dm , dm , dm ] = order_variable( radar , 'y' , options['undef'] )
 
 
    #Compute distance to radar for the first azimuth (we assume that distance to radar will be the same.
@@ -142,9 +174,22 @@ def main_qc( filename , options ) :
 
    print("The elapsed time in {:s} is {:2f}".format("x,y,z -> az,r,el",end-start) )
 
-   #===================================================
-   # READ AND INTERPOLATE TOPOGRAPHY DATA
-   #===================================================
+   return radar , output 
+
+#===================================================
+# READ AND INTERPOLATE TOPOGRAPHY DATA
+#===================================================
+
+def get_topography( radar , output , options )  :
+
+   import time
+   import numpy as np
+   import os
+   from scipy.interpolate import interp2d
+
+   na=output['na']
+   nr=output['nr']
+   ne=output['ne']
 
    start=time.time()
 
@@ -187,7 +232,7 @@ def main_qc( filename , options ) :
    #Define a "interpolator"
    interpolator = interp2d(topo_r,topo_a,my_topo['mean'], kind='linear')
 
-   output['topo'] = np.zeros((na,nr,ne))
+   output['topo'] = np.zeros((output['na'],output['nr'],output['ne']))
 
    #Loop over the vertical levels.
    for ie in range( 0 , ne )   :
@@ -204,58 +249,173 @@ def main_qc( filename , options ) :
 
    print("The elapsed time in {:s} is {:2f}".format("topography interpolation",end-start) )
 
+   return radar , output
+
+#===================================================
+# COMPUTE THE FINAL WEIGHT AND APPLY FUZZY LOGIC QC
+#===================================================
  
-   #===================================================
-   # DEALIASING 
-   #===================================================
+def weight_computation( output , options )   :
+
+   import numpy as np
+
+   if output['maxw_ref'] == 0    :
+      output['wref'][:]=0.0
+   else                          :
+      output['wref']=output['wref'] / output['maxw_ref']
+
+   if output['maxw_v'] == 0      :
+      output['wv'][:]=0.0
+   else                          :
+      output['wv']=output['wv'] / output['maxw_v']
+
+   #All the grid points where the probability of non-meteorological echoes
+   #is greather than 0.5 will be flagged as missing.
+   output['cref'][ output['wref'] > options['w_tr'] ] = output['undef_ref']
+   output['cv'][output['wv'] > options['w_tr'] ] = output['undef_v']
+
+   return output
+
+#===================================================
+# ADD CORRECTED DATA TO RADAR OBJECT
+#===================================================
+
+def  update_radar_object( radar , output , options )   :
+
+   import numpy as np
+
+   if options['name_ref'] in radar.fields :
+
+      tmp=order_variable_inv( radar , output['cref'] , output['index'] , output['undef_ref'] )
+
+      radar.fields[ options['name_cref'] ] = dict()
+
+      radar.fields[ options['name_cref'] ] = radar.fields[ options['name_ref'] ]
+
+      radar.fields[ options['name_cref'] ]['data']=np.ma.masked_array(tmp , tmp==output['undef_ref'] )
+
+   if options['name_v'] in radar.fields :
+
+      tmp=order_variable_inv( radar , output['cv'] , output['index'] , output['undef_v'] )
+
+      radar.fields[ options['name_cv'] ]= dict()
+
+      radar.fields[ options['name_cv'] ]= radar.fields[ options['name_v'] ]
+
+      radar.fields[ options['name_cv'] ]['data']=np.ma.masked_array(tmp , tmp==output['undef_v'] )
+
+   return radar , output 
+
+
+#====================================================
+# RUN THE SELECTED FILTERS IN THE CORRESPONDING ORDER
+#====================================================
+
+def run_filters( radar , output , options )   :
+
+   import time
+   import numpy as np
+
+   my_filters       = list()
+
+   my_filters_order = list()
+
+   #First get the list of enabled filters from the options structure.
+   #Note that 'order' can include several instances so filters can be 
+   #Applied several times to the same data set
+  
+   for key in options  :
+       
+       if type( options[key] ) == dict  :
+
+          if 'flag' in options[key]  :
+           
+              if options[key]['flag']  :
+                 
+                 for ii in range(len(options[key]['order'])) :
+ 
+                     #Filters can be applied several times to the same data.
+                     my_filters.append( key )
+                     my_filters_order.append( options[key]['order'][ii] )
+
+   #Sort the filters according to the order associated with each filter.   
+ 
+   my_sorted_filters=[x for _,x in sorted(zip(my_filters,my_filters_order))]
+   print('-------------------------------------------')
+   print('The following filters will be applied')
+   print('In the following order')
+   print('-------------------------------------------')
+   print('')
+   for ifilter in my_filters  :
+       print( ifilter )
+
+   print('')
+   print('-------------------------------------------')
+              
+   print('')
+   print('-------------------------------------------')
+   print('Running the filters')
+   print('-------------------------------------------')
+   print('')
+
+   #Run the filtesr in the selected order.
+
+   for ifilter in my_filters :
+
+       start=time.time()
+
+       if globals().get(ifilter) is None  :
+          #If I can not find the corresponding function raise an error.
+          print("Error: No filter called {}".format(ifilter))
+       else                                      :
+          #Run the filter (call the function named after the filter name.
+          print('')
+          print('-------------------------------------------')
+          print('Running filter ' + ifilter )
+          print('-------------------------------------------')
+          print('')
+          exec("[ radar , output ] = " + ifilter + "( radar , output , options )")
+
+          end=time.time()
+          print("The elapsed time in {:s} is {:2f}".format(ifilter,end-start) )
+
+   return radar , output 
+
+#===================================================
+# FUNCIONES PARA LA IMPLEMENTACION DE DIVERSOS 
+# FILTROS QUE COMPONEN EL QC.
+#===================================================
+ 
+#===================================================
+# DEALIASING 
+#===================================================
+
+def Dealiasing( radar , output , options )   :
+
+   import numpy as np
 
    filter_name='Dealiasing'
-   if options[filter_name]['flag']  and ( name_v in radar.fields ) :
-      start=time.time()
+   if options[filter_name]['flag']  and ( options['name_v'] in radar.fields ) :
 
-      if options[filter_name]['texture_filter']  :
+      radar.fields[ options['name_cv'] ] = dict()
 
-         #Perform a texture filter before applying the dealiasing to the velocity field.
-         #This is required to avoid applying the dealiasing algorithm to noisy data. 
+      radar.fields[ options['name_cv'] ] = radar.fields[ options['name_v'] ]
 
-         output['dv_texture']=qc.compute_texture(var=output['v'],na=na,nr=nr,ne=ne,
-                                                 undef=output['undef_v'],
-                                                 nx=options[filter_name]['nx'],
-                                                 ny=options[filter_name]['ny'],
-                                                 nz=options[filter_name]['nz'])
+      tmp = order_variable_inv(  radar , output['cv'] , output['index'] , output['undef_v'] )
 
-         output['cv'][ output['dv_texture'] > options[filter_name]['texture_thr'] ] = output['undef_v']
-         output['qcv'][ output['dv_texture'] > options[filter_name]['texture_thr'] ] = options[filter_name]['texture_code']
-
-         tmp = order_variable_inv(  radar , output['cv'] , output['index'] , output['undef_v'] )
-
-         radar.fields[ name_cv ] = dict()
-
-         radar.fields[ name_cv ] = radar.fields[ name_v ]
-
-         radar.fields[name_cv]['data']= np.ma.masked_array( tmp , tmp==output['undef_v'] ) 
-
-      else   :
-
-          radar.fields[ name_cv ] = dict()
-
-          radar.fields[ name_cv ] = radar.fields[ name_v ]
-
-          tmp = order_variable_inv(  radar , output['cv'] , output['index'] , output['undef_v'] )
-
-          radar.fields[name_cv]['data']= np.ma.masked_array( tmp , tmp==output['undef_v'] )
+      radar.fields[ options['name_cv'] ]['data']= np.ma.masked_array( tmp , tmp==output['undef_v'] )
 
       #Uso una de las funciones de dealiasing de pyart con los parametros por defecto
       winddealias=pyart.correct.region_dealias.dealias_region_based(radar,interval_splits=options[filter_name]['interval_split'],interval_limits=None, 
                  skip_between_rays=options[filter_name]['skip_between_ray'],skip_along_ray=options[filter_name]['skip_along_ray'],centered=True,nyquist_vel=None,
                  check_nyquist_uniform=True,gatefilter=False,rays_wrap_around=True,keep_original=False,set_limits=True,
-                 vel_field=name_cv,corr_vel_field=None)
+                 vel_field=options['name_cv'] ,corr_vel_field=None)
 
       #Replace cv wind by dealiased winds.
-      radar.fields[ name_cv ]['data'] = winddealias['data']
+      radar.fields[ options['name_cv'] ]['data'] = winddealias['data']
 
       #Re-order dealiased wind data.
-      [ output['cv'] , output['az'] , output['level'] , output['time'] , output['index'] , output['az_exact']  ]=order_variable( radar , name_cv , output['undef_v']  )
+      [ output['cv'] , output['az'] , output['level'] , output['time'] , output['index'] , output['az_exact']  ]=order_variable( radar , options['name_cv'] , output['undef_v']  )
     
       mask=np.logical_and( output['cv'] != output['v'] , output['cv'] != output['undef_v'] )
       output['qcv'][ mask ]=options[filter_name]['code']
@@ -264,22 +424,34 @@ def main_qc( filename , options ) :
          #Following filters will be computed using the corrected velocity.
          output['v'] = output['cv']  
 
-      end=time.time()
+   
+   return radar , output 
 
-      print("The elapsed time in {:s} is {:2f}".format("dealiasing",end-start) )
+#===================================================
+# MODEL FILTER 
+#===================================================
 
+def ModelFilter( radar , output , options)   :
 
-   #===================================================
-   # MODEL FILTER 
-   #===================================================
+   import numpy as np
 
-     #TODO
-     #TODO
-      
+   #TODO
+   #TODO
+   print('This filter is not ready yet')
+     
+   return radar , output 
 
-   #===================================================
-   # DEALIASING BORDER FILTER
-   #===================================================
+#===================================================
+# DEALIASING BORDER FILTER
+#===================================================
+
+def DealiasingBorderFilter( radar , output , options )    :
+
+   import numpy as np
+
+   na=output['na']
+   nr=output['nr']
+   ne=output['ne']
 
    filter_name='DealiasingBorderFilter'  
 
@@ -323,14 +495,18 @@ def main_qc( filename , options ) :
         output.pop('edge_intensity')
         output.pop('edge_mask')
 
-     end=time.time()
+   return radar , output 
 
-   #===================================================
-   # ECHO TOP FILTER  
-   #===================================================
+#===================================================
+# ECHO TOP FILTER  
+#===================================================
+
+def EchoTopFilter( radar , output , options )   :
+
+   import numpy as np
+
    filter_name='EchoTopFilter'
-   if options[filter_name]['flag'] & ( name_ref in radar.fields ) :
-     start=time.time()
+   if options[filter_name]['flag'] & ( options['name_ref'] in radar.fields ) :
 
      if ( not computed_etfilter )     :
      #Compute the filter field.
@@ -381,16 +557,24 @@ def main_qc( filename , options ) :
         output.pop('echo_top') 
         computed_etfilter = False
 
-     end=time.time()
 
-     print("The elapsed time in {:s} is {:2f}".format(filter_name,end-start) )
+   return radar , output 
 
-   #===================================================
-   # ECHO DEPTH FILTER 
-   #===================================================
+#===================================================
+# ECHO DEPTH FILTER 
+#===================================================
+
+def EchoDepthFilter( radar , output , options )   :
+
+   import numpy as np
+
+   na=output['na']
+   nr=output['nr']
+   ne=output['ne']
+
+
    filter_name='EchoDepthFilter'
-   if options[filter_name]['flag'] & ( name_ref in radar.fields ) :
-     start=time.time()
+   if options[filter_name]['flag'] & ( options['name_ref'] in radar.fields ) :
 
      if ( not computed_etfilter )     :
      #Compute the filter field.
@@ -401,7 +585,7 @@ def main_qc( filename , options ) :
 
         tmp_max_z=np.zeros((na,nr,ne))
 
-        for ii in range(0,output['ne'])     :       #Estimate the maximum radar data height assoicated with each gate.
+        for ii in range(0,ne)     :       #Estimate the maximum radar data height assoicated with each gate.
            tmp_max_z[:,:,ii]=output['altitude'][:,:,output['ne']-1]
 
         [tmp_data_3d,tmp_data_2d]=qc.echo_top(reflectivity=output['ref'],heigth=output['altitude'][0,:,:]
@@ -442,28 +626,28 @@ def main_qc( filename , options ) :
         output.pop('echo_top')
         computed_etfilter = False
 
-     end=time.time()
 
-     print("The elapsed time in {:s} is {:2f}".format(filter_name,end-start) )
+   return radar , output 
 
-   #===================================================
-   # LOW ELEVATION ANGLE REFLECTIVITY FILTER
-   #===================================================
+#===================================================
+# LOW ELEVATION ANGLE REFLECTIVITY FILTER
+#===================================================
 
-   #Remove echos which are present at low elevation angles but not at higher elevation
-   #angles. This will help to remove clutter produced by anomalous propagation.
-   #This can also help to remove second trip echoes which are usually observed only at low elevation
-   #angles.
-   #This can also eliminate distant convective cells that are only seen in low 
-   #elevation angles near the radar range edge. However these cells are of little interest
-   #for data assimilation since that information is usually not enough to adequatelly constrain
-   #the evolution of the convective cells.
+def LowElevFilter( radar , output , options)  :
+
+   import numpy as np
+#Remove echos which are present at low elevation angles but not at higher elevation
+#angles. This will help to remove clutter produced by anomalous propagation.
+#This can also help to remove second trip echoes which are usually observed only at low elevation
+#angles.
+#This can also eliminate distant convective cells that are only seen in low 
+#elevation angles near the radar range edge. However these cells are of little interest
+#for data assimilation since that information is usually not enough to adequatelly constrain
+#the evolution of the convective cells.
 
    filter_name='LowElevFilter'
 
-   if options[filter_name]['flag']  & ( name_ref in radar.fields ) :
-
-      start=time.time()
+   if options[filter_name]['flag']  & ( options['name_ref'] in radar.fields ) :
 
       nx=options[filter_name]['nx']
       ny=options[filter_name]['ny']
@@ -500,29 +684,34 @@ def main_qc( filename , options ) :
          output.pop('smooth_ref')
          computed_etfilter = False
 
+ 
+   return radar , output 
 
-      end=time.time()
-      print("The elapsed time in {:s} is {:2f}".format(filter_name,end-start) )
+#===================================================
+# RHO HV FILTER
+#===================================================
 
-   #===================================================
-   # RHO HV FILTER
-   #===================================================
+def RhoFilter( radar , output , options )  :
+
+   import numpy as np
+
+   na=output['na']
+   nr=output['nr']
+   ne=output['ne']
 
    filter_name = 'RhoFilter'
 
    if options[filter_name]['flag']  :
 
-      start=time.time()
-
       nx=options[filter_name]['nx']
       ny=options[filter_name]['ny']
       nz=options[filter_name]['nz']
 
-      if name_rho in radar.fields  :
+      if options['name_rho'] in radar.fields  :
 
-         output['undef_rho']=radar.fields[ name_rho ]['_FillValue']
+         output['undef_rho']=radar.fields[ options['name_rho'] ]['_FillValue']
 
-         [ output['rho'] , dm , dm , dm , dm , dm  ]=order_variable( radar , name_rho , output['undef_rho']  )
+         [ output['rho'] , dm , dm , dm , dm , dm  ]=order_variable( radar , options['name_rho'] , output['undef_rho']  )
 
          #Compute the filter parameter
          output['rho_smooth']=qc.box_functions_2d(datain=output['rho'],na=na,nr=nr,ne=ne,undef=output['undef_rho']
@@ -535,7 +724,7 @@ def main_qc( filename , options ) :
 
          output['wref']=output['wref'] + tmp_w * options[filter_name]['w']
 
-         if name_ref in radar.fields :
+         if options['name_ref'] in radar.fields :
             if not options[filter_name]['force']   :
                output['wref']=output['wref'] + tmp_w * options[filter_name]['w']
                output['qcref'][ tmp_w > 0.5 ] = options[filter_name]['code']
@@ -559,20 +748,24 @@ def main_qc( filename , options ) :
           output.pop('rho_smooth')
           output.pop('rho')
 
-      end=time.time()
 
-      print("The elapsed time in {:s} is {:2f}".format(filter_name,end-start) )
+   return radar , output
  
-   #===================================================
-   # REFLECTIVITY SPECKLE FILTER
-   #===================================================
+#===================================================
+# REFLECTIVITY SPECKLE FILTER
+#===================================================
+
+def RefSpeckleFilter( radar , output , options )    :
+
+   import numpy as np
+
+   na=output['na']
+   nr=output['nr']
+   ne=output['ne']
 
    filter_name='RefSpeckleFilter'
 
-   if options[filter_name]['flag']  & ( name_ref in radar.fields ) :
-
-       start=time.time()
-
+   if options[filter_name]['flag']  & ( options['name_ref'] in radar.fields ) :
 
        #Compute the number pixels with reflectivities over spfiltertr sourrounding each pixels in the box defined by nx,ny,nz.
        nx=options[filter_name]['nx']
@@ -611,21 +804,23 @@ def main_qc( filename , options ) :
        if ( not options[filter_name]['save'] ) :
           output.pop('speckle_ref')
 
-       end=time.time()
+   return radar , output 
 
-       print("The elapsed time in {:s} is {:2f}".format(filter_name,end-start) )
+#===================================================
+# DOPPLER SPECKLE FILTER
+#===================================================
 
+def DopplerSpeckleFilter( radar , output , options )   :
 
-   #===================================================
-   # DOPPLER SPECKLE FILTER
-   #===================================================
+   import numpy as np
+
+   na=output['na']
+   nr=output['nr']
+   ne=output['ne']
 
    filter_name='DopplerSpeckleFilter'
 
-   if options[filter_name]['flag'] & ( name_v in radar.fields ) :
-
-       start=time.time()
-
+   if options[filter_name]['flag'] & ( options['name_v'] in radar.fields ) :
 
        #Compute the number pixels with reflectivities over spfiltertr sourrounding each pixels in the box defined by nx,ny,nz.
        nx=options[filter_name]['nx']
@@ -663,20 +858,24 @@ def main_qc( filename , options ) :
 
        if ( not options[filter_name]['save'] ) :
           output.pop('speckle_v')
+ 
+   return radar , output 
 
-       end=time.time()
+#===================================================
+# ATTENUATION FILTER
+#===================================================
 
-       print("The elapsed time in {:s} is {:2f}".format(filter_name,end-start) )
+def AttenuationFilter( radar , output , options )   :
 
-   #===================================================
-   # ATTENUATION FILTER
-   #===================================================
+   import numpy as np
+
+   na=output['na']
+   nr=output['nr']
+   ne=output['ne']
 
    filter_name='AttenuationFilter'
 
-   if options[filter_name]['flag'] & ( name_ref in radar.fields ) :
-      
-      start=time.time()
+   if options[filter_name]['flag'] & ( options['name_ref'] in radar.fields ) :
 
       beaml=radar.range['data'][1]-radar.range['data'][0] #Get beam length
 
@@ -707,19 +906,23 @@ def main_qc( filename , options ) :
       if  ( not options[filter_name]['save'] )  :
           output.pop('attenuation')
 
-      end=time.time()
+   return radar , output 
 
-      print("The elapsed time in {:s} is {:2f}".format(filter_name,end-start) )
+#===================================================
+# TOPOGRAPHY BLOCKING FILTER
+#===================================================
 
-   #===================================================
-   # TOPOGRAPHY BLOCKING FILTER
-   #===================================================
+def BlockingFilter( radar , outuput , options )   :
+
+   import numpy as np
+
+   na=output['na']
+   nr=output['nr']
+   ne=output['ne']
 
    filter_name='BlockingFilter'  #This is not included in the fuzzy logic algorithm
 
    if options[filter_name]['flag']   :
-
-      start=time.time()
 
       output['blocking']=qc.compute_blocking( radarz=output['altitude'] , topo=output['topo'] , na=na , nr=nr , ne=ne      ,
                                               undef=output['undef_ref']                                                    ,
@@ -728,7 +931,7 @@ def main_qc( filename , options ) :
                                               radarrange=radar.range['data'] , radarelev=output['elevations'] )  
 
       #Compute correction 
-      if options[filter_name]['blocking_correction'] & ( name_ref in radar.fields )  :
+      if options[filter_name]['blocking_correction'] & ( options['name_ref'] in radar.fields )  :
          #Correct partially blocked precipitation echoes.
          mask=np.logical_and( output['blocking'] > 0.1 , output['blocking'] <= 0.3 )
          mask=np.logical_and( mask , output['cref'] > options['norainrefval'] )
@@ -746,30 +949,34 @@ def main_qc( filename , options ) :
          output['cref'][mask] = output['cref'][mask] + 3.0
 
       #Set the pixels with values below the threshold as undef. 
-      if name_ref in radar.fields :
+      if options['name_ref'] in radar.fields :
           output['cref'][ output['blocking'] > options[filter_name]['blocking_threshold']  ] = output['undef_ref']
           output['qcref'][ output['blocking'] > options[filter_name]['blocking_threshold'] ] = options[filter_name]['code']
 
-      if name_v in radar.fields :
+      if options['name_v'] in radar.fields :
           output['cv'][ output['blocking']   > options[filter_name]['blocking_threshold']  ] = output['undef_v']
           output['qcv']  [ output['blocking'] > options[filter_name]['blocking_threshold'] ] = options[filter_name]['code']
 
       if  ( not options[filter_name]['save'] ) :
           output.pop('blocking')  
 
-      end=time.time()
+   return radar , output 
 
-      print("The elapsed time in {:s} is {:2f}".format(filter_name,end-start) )
+#===================================================
+# DOPPLER NOISE FILTER
+#===================================================
 
-   #===================================================
-   # DOPPLER NOISE FILTER
-   #===================================================
+def DopplerNoiseFilter( radar , output , options )   :
+
+   import numpy as np
+
+   na=output['na']
+   nr=output['nr']
+   ne=output['ne']
 
    filter_name='DopplerNoiseFilter'
 
-   if options[filter_name]['flag'] & ( name_v in radar.fields ) :
-
-     start=time.time()
+   if options[filter_name]['flag'] & ( options['name_v'] in radar.fields ) :
 
      nx=options[filter_name]['nx']
      ny=options[filter_name]['ny']
@@ -859,18 +1066,23 @@ def main_qc( filename , options ) :
           output.pop('distance_1')
           output.pop('distance_2')
 
-     end=time.time()
+   return radar , output 
 
+#===================================================
+#  DOPPLER LOCAL STD FILTER
+#===================================================
 
-     print("The elapsed time in {:s} is {:2f}".format(filter_name,end-start) )
+def DopplerLocalStdFilter( radar , output , options )   :
 
-   #===================================================
-   #  DOPPLER LOCAL STD FILTER
-   #===================================================
+   import numpy as np
+
+   na=output['na']
+   nr=output['nr']
+   ne=output['ne']
 
    filter_name = 'DopplerLocalStdFilter'
 
-   if options[filter_name]['flag']  & ( name_v in radar.fields ) :
+   if options[filter_name]['flag']  & ( options['name_v'] in radar.fields ) :
 
       start=time.time()
 
@@ -889,7 +1101,7 @@ def main_qc( filename , options ) :
 
       output['wv']=output['wv'] + tmp_w * options[filter_name]['w']
 
-      if name_v in radar.fields :
+      if options['name_v'] in radar.fields :
          if not options[filter_name]['force']   :
             output['wv']=output['wv'] + tmp_w * options[filter_name]['w']
             output['qcv'][ tmp_w > 0.5 ] = options[filter_name]['code']
@@ -905,19 +1117,23 @@ def main_qc( filename , options ) :
       if ( not options[filter_name]['save'] ) :
           output.pop('v_std')
 
-      end=time.time()
+   return radar , output 
 
-      print("The elapsed time in {:s} is {:2f}".format(filter_name,end-start) )
+#===================================================
+# INTERFERENCE FILTER
+#===================================================
 
-   #===================================================
-   # INTERFERENCE FILTER
-   #===================================================
+def InterferenceFilter( radar , output , options )   :
 
+   import numpy as np
    #Clean rays affected by interference.
+   na=output['na']
+   nr=output['nr']
+   ne=output['ne']
 
    filter_name = 'InterferenceFilter'
 
-   if options[filter_name]['flag'] & ( name_ref in radar.fields ) :
+   if options[filter_name]['flag'] & ( options['name_ref'] in radar.fields ) :
 
       start=time.time()
 
@@ -929,20 +1145,23 @@ def main_qc( filename , options ) :
 
       output['qcref'][ np.abs( output['ref'] - output['cref'] ) > 0 ]=options[filter_name]['code']
 
-      end=time.time()
- 
-      print("The elapsed time in {:s} is {:2f}".format(filter_name,end-start) )  
+   return radar , output 
 
+#===================================================
+# DOPPLER SPATIAL COHERENCE FILTER
+#===================================================
 
-   #===================================================
-   # DOPPLER SPATIAL COHERENCE FILTER
-   #===================================================
+def DopplerSpatialCoherenceFilter( radar , output , options )   :
 
+   import numpy as np
    #Clean pixels which shows no coherence with their neighbors
+   na=output['na']
+   nr=output['nr']
+   ne=output['ne']
 
    filter_name = 'DopplerSpatialCoherenceFilter'
 
-   if options[filter_name]['flag'] & ( name_v in radar.fields ) :
+   if options[filter_name]['flag'] & ( options['name_v'] in radar.fields ) :
 
       start=time.time()
 
@@ -952,27 +1171,41 @@ def main_qc( filename , options ) :
 
       output['qcv'][ output['coherence_index'] > options[filter_name]['threshold_coherence_index'] ]=options[filter_name]['code']
 
-      end=time.time()
+   return radar , output 
 
-      print("The elapsed time in {:s} is {:2f}".format(filter_name,end-start) )
+#===================================================
+# POWER FILTER
+#===================================================
 
+def PowerFilter( radar , output , options )   :
 
+   import numpy as np
 
-   #===================================================
-   # POWER FILTER
-   #===================================================
+   na=output['na']
+   nr=output['nr']
+   ne=output['ne']
+
+   filter_name = 'PowerFilter' 
+
+   if options[filter_name]['flag'] & ( options['name_v'] in radar.fields ) :
+
+      print('This filter has not been coded yet')
 
    #TODO
 
-   #===================================================
-   # DETECT MISSING REFLECTIVITY VALUES
-   #===================================================
+   return radar , output 
+
+#===================================================
+# DETECT MISSING REFLECTIVITY VALUES
+#===================================================
+
+def MissingRefFilter( radar , output , options )    :
+
+   import numpy as np
 
    filter_name='MissingRefFilter'
 
-   if options[filter_name]['flag'] & ( name_ref in radar.fields ) :
-
-      start=time.time()
+   if options[filter_name]['flag'] & ( options['name_ref'] in radar.fields ) :
 
       options['missing_mask'] = qc.detect_missing(  output['ref'],na=na,nr=nr,ne=ne,undef=output['undef_ref']
                                                    ,min_ref=options['norainrefval'],threshold=options[filter_name]['threshold'] 
@@ -997,17 +1230,23 @@ def main_qc( filename , options ) :
       if  not options[filter_name]['save']  :
            output.pop('missing_mask')
 
-      end=time.time()
+   return radar , output 
 
-      print("The elapsed time in {:s} is {:2f}".format(filter_name,end-start) )
+#===================================================
+# REFLECTIIVTY TEXTURE FILTER
+#===================================================
 
-   #===================================================
-   # REFLECTIIVTY TEXTURE FILTER
-   #===================================================
+def ReflectivityTextureFilter( radar , output , options )   :
+
+   import numpy as np
+
+   na=output['na']
+   nr=output['nr']
+   ne=output['ne']
 
    filter_name='ReflectivityTextureFilter'
 
-   if  options[filter_name]['flag'] & ( name_ref in radar.fields ) : 
+   if  options[filter_name]['flag'] & ( options['name_ref'] in radar.fields ) : 
 
      nx=options[filter_name]['nx']
      ny=options[filter_name]['ny']
@@ -1047,18 +1286,23 @@ def main_qc( filename , options ) :
      if  not options[filter_name]['save']  :
           output.pop('texture_v')
 
-     end=time.time()
+   return radar , output 
 
+#===================================================
+# DOPPER VELOCITY TEXTURE FILTER
+#===================================================
 
-     print("The elapsed time in {:s} is {:2f}".format(filter_name,end-start) )
+def DopplerTextureFilter( radar , output , options )   :
 
-   #===================================================
-   # DOPPER VELOCITY TEXTURE FILTER
-   #===================================================
+   import numpy as np
+
+   na=output['na']
+   nr=output['nr']
+   ne=output['ne']
 
    filter_name='DopplerTextureFilter'
 
-   if  options[filter_name]['flag'] & ( name_ref in radar.fields ) :
+   if  options[filter_name]['flag'] & ( options['name_ref'] in radar.fields ) :
 
      nx=options[filter_name]['nx']
      ny=options[filter_name]['ny']
@@ -1086,20 +1330,25 @@ def main_qc( filename , options ) :
      if  not options[filter_name]['save']  :
           output.pop('texture_v')
 
-     end=time.time()
+   return radar , output
 
-     print("The elapsed time in {:s} is {:2f}".format(filter_name,end-start) )
+#===================================================
+# LOW DOPPLER VOLOCITY FILTER
+#===================================================
 
-   #===================================================
-   # LOW DOPPLER VOLOCITY FILTER
-   #===================================================
+def LowDopplerFilter( radar , output , options )   :
  
    #This filter removes reflectivity values which are close to the surface and 
    #have a low associated doppler velocity. 
+   import numpy as np
+
+   na=output['na']
+   nr=output['nr']
+   ne=output['ne']
 
    filter_name='LowDopplerFilter'
 
-   if options[filter_name]['flag'] & ( name_v in radar.fields ) :
+   if options[filter_name]['flag'] & ( options['name_v'] in radar.fields ) :
 
 
       #Compute the corresponding weigth.
@@ -1113,7 +1362,7 @@ def main_qc( filename , options ) :
       else                                    :
           tmp_w[ output['altitude'] > options[filter_name]['height_thr'] ] = 0.0
 
-      if name_ref in radar.fields   :
+      if options['name_ref'] in radar.fields   :
          if not options[filter_name]['force']   :
          
             output['wref']=output['wref'] + tmp_w * options[filter_name]['w']
@@ -1129,7 +1378,7 @@ def main_qc( filename , options ) :
 
             output['qcref'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
 
-      if name_v in radar.fields   :
+      if options['name_v'] in radar.fields   :
          if not options[filter_name]['force']   :
 
             output['wv']=output['wv'] + tmp_w * options[filter_name]['w']
@@ -1143,64 +1392,8 @@ def main_qc( filename , options ) :
 
             output['qcv'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
 
+   return radar , output 
 
-      end=time.time()
-
-      print("The elapsed time in {:s} is {:2f}".format(filter_name,end-start) )
-
-   #===================================================
-   # COMPUTE THE FINAL WEIGHT AND APPLY FUZZY LOGIC QC
-   #===================================================
-   if output['maxw_ref'] == 0    :
-      output['wref'][:]=0.0
-   else                          :
-      output['wref']=output['wref'] / output['maxw_ref']
-
-   if output['maxw_v'] == 0      :
-      output['wv'][:]=0.0
-   else                          :
-      output['wv']=output['wv'] / output['maxw_v']
-
-   #All the grid points where the probability of non-meteorological echoes
-   #is greather than 0.5 will be flagged as missing.
-   output['cref'][ output['wref'] > options['w_tr'] ] = output['undef_ref']
-   output['cv'][output['wv'] > options['w_tr'] ] = output['undef_v']
-
-   #===================================================
-   # ADD CORRECTED DATA TO RADAR OBJECT
-   #===================================================
-
-   if name_ref in radar.fields :
-
-      tmp=order_variable_inv( radar , output['cref'] , output['index'] , output['undef_ref'] )
-
-      radar.fields[ name_cref ] = dict()
-
-      radar.fields[ name_cref ] = radar.fields[ name_ref ] 
-
-      radar.fields[ name_cref ]['data']=np.ma.masked_array(tmp , tmp==output['undef_ref'] )
-
-   if name_v in radar.fields :
-
-      tmp=order_variable_inv( radar , output['cv'] , output['index'] , output['undef_v'] )
-
-      radar.fields[ name_cv ]= dict()
-
-      radar.fields[ name_cv ]= radar.fields[ name_v ] 
-
-      radar.fields[ name_cv ]['data']=np.ma.masked_array(tmp , tmp==output['undef_v'] )
-
-
-   #===================================================
-   # END
-   #===================================================
-
-
-   endt=time.time()
-
-   print("The elapsed time in {:s} is {:2f}".format("the entire QC",endt-startt) )
-
-   return radar , output
 
 #===========================================================================================================
 # OTRAS FUNCIONES CONTENIDAS EN ESTE MODULO
@@ -1212,6 +1405,7 @@ def order_variable ( radar , var_name , undef )  :
 
    import numpy as np
    import numpy.ma as ma
+   import warnings 
 
    #order_var es la variable ordenada con los azimuths entre 0 y 360 (si hay rayos repetidos se promedian).
    #order_azimuth es el azimuth "aproximado" utilizando 0 como azimuth inicial y avanzando en intervalos regulares e iguales a la resolucion
@@ -1282,9 +1476,14 @@ def order_variable ( radar , var_name , undef )  :
       az_index=np.logical_or( azlev <= ray_angle_res/2.0 , azlev >= 360 - ray_angle_res/2.0 )
      
       if ( np.sum(az_index) > 0 ) : 
-         order_var[0,:,ilev] = np.nanmean( varlev[az_index,:] , 0 )
-         order_time[0,ilev] = np.nanmean( timelev[ az_index ] )
-         azimuth_exact[0,ilev] = np.nanmean( azlev[ az_index ] )
+         with warnings.catch_warnings():
+              #Run time warnings resulting from all nan array in nanmean are expected
+              #and supressed in this block.
+              warnings.simplefilter("ignore", category=RuntimeWarning)
+
+              order_var[0,:,ilev] = np.nanmean( varlev[az_index,:] , 0 )
+              order_time[0,ilev] = np.nanmean( timelev[ az_index ] )
+              azimuth_exact[0,ilev] = np.nanmean( azlev[ az_index ] )
          order_index[0,ilev]   = np.where( az_index )[0][0] + min_index
 
       #Para los que vienen despues.
@@ -1292,9 +1491,13 @@ def order_variable ( radar , var_name , undef )  :
          #Search for all the rays that are close to the current azimuth and level.
          az_index=np.logical_and( azlev <= order_azimuth[iaz] + ray_angle_res/2.0 , azlev >= order_azimuth[iaz] - ray_angle_res/2.0 )
          if( np.sum( az_index ) > 0 ) :
-            order_var[iaz,:,ilev] = np.nanmean( varlev[az_index,:] , 0 )
-            order_time[iaz,ilev] = np.nanmean( timelev[ az_index ] )
-            azimuth_exact[iaz,ilev] = np.nanmean( azlev[ az_index ] )
+            with warnings.catch_warnings():
+                 #Run time warnings resulting from all nan array in nanmean are expected
+                 #and supressed in this block.
+                 warnings.simplefilter("ignore", category=RuntimeWarning)
+                 order_var[iaz,:,ilev] = np.nanmean( varlev[az_index,:] , 0 )
+                 order_time[iaz,ilev] = np.nanmean( timelev[ az_index ] )
+                 azimuth_exact[iaz,ilev] = np.nanmean( azlev[ az_index ] )
             order_index[iaz,ilev] = np.where(az_index)[0][0] + min_index #If multiple levels corresponds to a single azimuth / elevation chose the first one.
 
    order_var[ np.isnan( order_var ) ]= undef
@@ -1304,6 +1507,7 @@ def order_variable ( radar , var_name , undef )  :
 
 #From ARE order to Pyart order 
 def order_variable_inv (  radar , var , order_index , undef )  :
+
     import numpy as np
    
     #Esta funcion es la inversa de la funcion order variable. Es decir que toma un array ordenado como azimuth , range y elevation y lo vuelve
@@ -1335,27 +1539,48 @@ def order_variable_inv (  radar , var , order_index , undef )  :
 
 def get_rma_strat ( filename , radar )  :
 
-    #Get the corresponding radar strategy depending on the filename.
+    import numpy as np
+    import numpy.ma as ma
+
+    local_fill_value = -9999.0
+    levels=np.unique(radar.elevation['data'])
+
+    #Add missing structures to the radar object.
     if radar.altitude_agl == None :
        radar.altitude_agl = dict()
     if radar.metadata == None :
        radar.metadata = dict()
     if radar.instrument_parameters == None :
        radar.instrument_parameters = dict()
+       radar.instrument_parameters['nyquist_velocity']=dict()
+       radar.instrument_parameters['nyquist_velocity']['long_name']='unambiguous_doppler_velocity'
+       radar.instrument_parameters['nyquist_velocity']['units']='meters per second'
+       radar.instrument_parameters['nyquist_velocity']['_FillValue']= local_fill_value
+       radar.instrument_parameters['nyquist_velocity']['meta_group']='instrument_parameters'
     if radar.range == None :
        radar.range = dict()
     if radar.ray_angle_res == None :
        radar.ray_angle_res = dict()
-
+       radar.ray_angle_res['long_name']='angular_resolution_between_rays'
+       radar.ray_angle_res['units']='degrees'
+       radar.ray_angle_res['_FillValue']= local_fill_value
+       
+    #Get the corresponding radar strategy depending on the filename.
     radar.altitude_agl['data'] = 0.0   
 
     radar.metadata['instrument_name'] = 'RMA' + filename[ filename.find('RMA') + 3 ]
 
     if '0122_03' in filename  :  #122-3 STRATEGY
+       nyquist_velocity     = 13.35
+       ray_angle_res        = 1.0
+       meters_between_gates = 300
 
-        radar.instrument_parameters['nyquist_velocity']=13.25
-        radar.ray_angle_res['data']=1.0
-        radar.range['meters_between_gates']=300.0
+
+    #Apply the missing parameters to the radar structure.
+    radar.instrument_parameters['nyquist_velocity']['data'] = ma.array(np.ones( np.shape(radar.azimuth['data']) )*nyquist_velocity , mask = np.zeros( np.shape(radar.azimuth['data']) , dtype=bool ) , fill_value = local_fill_value )
+    radar.ray_angle_res['data'] = ma.array( np.ones( np.shape( levels ) )*ray_angle_res , mask = np.zeros( np.shape( levels ) , dtype=bool ) , fill_value = local_fill_value )
+    radar.range['meters_between_gates']= meters_between_gates
+    radar.range['meters_to_center_of_first_gate']= meters_between_gates / 2.0
 
 
     return radar

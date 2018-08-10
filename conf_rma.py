@@ -64,17 +64,16 @@ options['w_tr']=0.5                  #When total normalized weight is greather t
 filter_name='Dealiasing'
 
 options[filter_name]=dict()
-options[filter_name]['flag']=False
+options[filter_name]['flag']=True
 options[filter_name]['interval_split']=3
 options[filter_name]['skip_between_ray']=10
 options[filter_name]['skip_along_ray']=10
-options[filter_name]['texture_filter']=False    #Wether a texture filter will be applied before performing dealiasing.
-options[filter_name]['texture_thr']=1          #Texture filter threshold.
 options[filter_name]['nx']=3
 options[filter_name]['ny']=3
 options[filter_name]['nz']=0
-options[filter_name]['texture_code']=44
 options[filter_name]['code']=43
+options[filter_name]['sequential']=True
+options[filter_name]['order'] = [1]
 
 #Rho filter parameters  ===================================================================== 
 
@@ -92,6 +91,7 @@ options[filter_name]['w']=1.0                               #Relative parameter 
 options[filter_name]['code']=10
 options[filter_name]['force']=False                         #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                     #Threshold for force
+options[filter_name]['order'] = [2]
 
 #Model filter parameters  ===================================================================== 
 
@@ -113,6 +113,7 @@ options[filter_name]['w']=1.0                               #Relative parameter 
 options[filter_name]['code']=25
 options[filter_name]['force']=False                         #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                     #Threshold for force
+options[filter_name]['order'] = [3]
 
 #Echo top filter parameters ===================================================================
 
@@ -131,6 +132,7 @@ options[filter_name]['heigthtr']=3000                       #Do not use this fil
                                                             #is lower than this threshold
 options[filter_name]['force']=False                         #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                     #Threshold for force
+options[filter_name]['order'] = [4]
 
 #Echo depth filter parameters ===================================================================
 
@@ -148,6 +150,7 @@ options[filter_name]['code']=12
 options[filter_name]['heigthtr']=3000                       #Do not use this filter if volume height 
 options[filter_name]['force']=False                         #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                     #Threshold for force
+options[filter_name]['order'] = [5]
 
 #Reflectivity speckle filter  parameters ==========================================================
 
@@ -165,6 +168,7 @@ options[filter_name]['code']=13
 options[filter_name]['reftr']=5                             #Reflectivity threshold
 options[filter_name]['force']=False                         #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                     #Threshold for force
+options[filter_name]['order'] = [6]
 
 #Doppler speckle filter  parameters ==============================================================
 
@@ -182,6 +186,7 @@ options[filter_name]['code']=14
 options[filter_name]['dvtr']=0.0                            #Wind threshold.
 options[filter_name]['force']=False                         #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                     #Threshold for force
+options[filter_name]['order'] = [7]
 
 #Doppler texture filter  parameters ==============================================================
 
@@ -198,6 +203,7 @@ options[filter_name]['w']=1.0                               #Relative parameter 
 options[filter_name]['code']=15
 options[filter_name]['force']=False                         #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                     #Threshold for force
+options[filter_name]['order'] = [8]
 
 #Reflectivity texture filter  parameters ==============================================================
 
@@ -216,6 +222,7 @@ options[filter_name]['w']=1.0                               #Relative parameter 
 options[filter_name]['code']=16
 options[filter_name]['force']=False                         #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                     #Threshold for force
+options[filter_name]['order'] = [9]
 
 #Attenuation parameters           ==============================================================
 filter_name='AttenuationFilter'
@@ -234,6 +241,7 @@ options[filter_name]['is_power']=False                      #If input is in mm^6
 options[filter_name]['att_coefs']=np.array([543,1.36,1.55e-3,1.30]) #Coefficients for the computation of attenuation (see below) 
 options[filter_name]['force']=False                         #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                     #Threshold for force
+options[filter_name]['order'] = [10]
 
 #Coefficients for C-Band radars based on
 #Quantification of Path-Integrated Attenuation for X- and C-Band Weather
@@ -253,7 +261,7 @@ options[filter_name]['blocking_correction']=True            #Wether correction w
 options[filter_name]['blocking_threshold']=0.5              #Beams with blocking above this threshold will be eliminated.
 options[filter_name]['save']=True                           #Save blocking factor into qc_output dictionary.
 options[filter_name]['code']=40                             #QC output code
-
+options[filter_name]['order'] = [11]
 
 #Low elevation angles filter parameters ==============================================================
 filter_name='LowElevFilter'
@@ -269,6 +277,7 @@ options[filter_name]['w']=1.0                                  #Relative paramet
 options[filter_name]['code']=18
 options[filter_name]['force']=False                            #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                        #Threshold for force
+options[filter_name]['order'] = [12]
 
 #Low doppler velocity filter            ==============================================================
 filter_name='LowDopplerFilter'
@@ -286,6 +295,7 @@ options[filter_name]['force']=False                            #Wether we will r
 options[filter_name]['force_value']=0.5                        #Threshold for force
 options[filter_name]['height_thr']=1000                        #Height threshold.
 options[filter_name]['use_terrain']=True                       #Wether AGL height is used.
+options[filter_name]['order'] = [13]
 
 #Interference filter            ==============================================================
 #This filter is not included in the Fuzzy-logic approach.
@@ -311,6 +321,7 @@ options[filter_name]['corr_threshold']=0.5                     #Rays that correl
 options[filter_name]['ref_threshold']=5.0                      #Reflectivity threshold to count pixels which are close to the interference pattern.
 options[filter_name]['percent_ref_threshold']=0.3              #If more than this percent of the ray correlates well with the interference pattern, then
                                                                #the ray is flagged as contaminated by interference.
+options[filter_name]['order'] = [14]
 
 #Dealiasing border filter            ==============================================================
 filter_name='DealiasingBorderFilter'
@@ -324,7 +335,7 @@ options[filter_name]['w']=1.0                                  #Relative paramet
 options[filter_name]['code']= 1
 options[filter_name]['force']=False                            #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                        #Threshold for force
-
+options[filter_name]['order'] = [15]
 
 #Doppler Local Std Filter            ==============================================================
 filter_name='DopplerLocalStdFilter'
@@ -340,7 +351,7 @@ options[filter_name]['w']=1.0                                  #Relative paramet
 options[filter_name]['code']= 1
 options[filter_name]['force']=False                            #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                        #Threshold for force
-
+options[filter_name]['order'] = [16]
 
 #Doppler Spatial Coherence Filter ==============================================================
 filter_name='DopplerSpatialCoherenceFilter'
@@ -372,7 +383,7 @@ options[filter_name]['w']=1.0                                  #Relative paramet
 options[filter_name]['code']= 1
 options[filter_name]['force']=False                            #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                        #Threshold for force
-
+options[filter_name]['order'] = [17]
 
 #Doppler Noise filter            ==============================================================
 filter_name='DopplerNoiseFilter'
@@ -396,6 +407,7 @@ options[filter_name]['w']=1.0                                  #Relative paramet
 options[filter_name]['code']= 1
 options[filter_name]['force']=False                            #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                        #Threshold for force
+options[filter_name]['order'] = [18]
 
 #Missing reflectivity filter ==================================================================
 #Detects holes in high reflectivity regions. 
@@ -409,11 +421,18 @@ options[filter_name]['w']=1.0                                  #Relative paramet
 options[filter_name]['code']= 22
 options[filter_name]['force']=False                            #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                        #Threshold for force
-
+options[filter_name]['order'] = [19]
 
 
 #Topography parameters
 
-options['toporawdatapath']="/home/jruiz/share/radar_qc_da/data/terrain_data/raw/"
-options['toporadardatapath']="/home/jruiz/share/radar_qc_da/data/terrain_data/radar/"
+#options['toporawdatapath']="./data/terrain_data/raw/"
+#options['toporadardatapath']="./data/terrain_data/radar/"
+
+options['toporawdatapath']="/media/jruiz/PAWR/Dropbox/DATA/radar_qc/data/terrain_data/raw/"
+options['toporadardatapath']="/media/jruiz/PAWR/Dropbox/DATA/radar_qc/data/terrain_data/radar/"
+
+#options['toporawdatapath']="/home/jruiz/Dropbox/DATA/radar_qc/data/terrain_data/raw/"
+#options['toporadardatapath']="/home/jruiz/Dropbox/DATA/radar_qc/data/terrain_data/radar/"
+
 

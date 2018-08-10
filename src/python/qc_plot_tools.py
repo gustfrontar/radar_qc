@@ -23,10 +23,10 @@ def plot_dealiasing( qc_output , options , elev=0 , figname='out.png',vmin=-30,v
     plt.title('Original Doppler Velocity')
     plt.colorbar()
 
-    plt.subplot(2,2,3)
-    plt.pcolor(qc_output['x'][:,:,elev]/1e3,qc_output['y'][:,:,elev]/1e3, ( qc_output['qcv'][:,:,elev]==options[filter_name]['texture_code'] ).astype(float) )
-    plt.title('Pixels eliminated by texture texture filter')
-    plt.colorbar()
+#    plt.subplot(2,2,3)
+#    plt.pcolor(qc_output['x'][:,:,elev]/1e3,qc_output['y'][:,:,elev]/1e3, ( qc_output['qcv'][:,:,elev]==options[filter_name]['texture_code'] ).astype(float) )
+#    plt.title('Pixels eliminated by texture texture filter')
+#    plt.colorbar()
 
     plt.subplot(2,2,4)
     plt.pcolor(qc_output['x'][:,:,elev]/1e3,qc_output['y'][:,:,elev]/1e3, ( qc_output['qcv'][:,:,elev]==options[filter_name]['code'] ).astype(float) )
