@@ -379,6 +379,20 @@ def run_filters( radar , output , options )   :
           end=time.time()
           print("The elapsed time in {:s} is {:2f}".format(ifilter,end-start) )
 
+
+   print('')
+   print('-------------------------------------------')
+   print('Running the filters')
+   print('-------------------------------------------')
+   print('')
+
+   print('')
+   print('-------------------------------------------')
+   print('Finish running the filters')
+   print('-------------------------------------------')
+   print('')
+
+
    return radar , output 
 
 #===================================================
@@ -393,6 +407,7 @@ def run_filters( radar , output , options )   :
 def Dealiasing( radar , output , options )   :
 
    import numpy as np
+   import pyart
 
    filter_name='Dealiasing'
    if options[filter_name]['flag']  and ( options['name_v'] in radar.fields ) :
@@ -1162,8 +1177,6 @@ def DopplerSpatialCoherenceFilter( radar , output , options )   :
    filter_name = 'DopplerSpatialCoherenceFilter'
 
    if options[filter_name]['flag'] & ( options['name_v'] in radar.fields ) :
-
-      start=time.time()
 
       tmp_v=np.copy( output['v'] )
 
