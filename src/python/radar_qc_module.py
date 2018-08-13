@@ -49,9 +49,30 @@ def main_qc( filename , options ) :
    #===================================================
 
    #From cfradial format to azimuth,range,elevation order
+
+   print('')
+   print('-------------------------------------------')
+   print('Reshaping the variables')
+   print('-------------------------------------------')
+   print('')
+
    [ radar , output ] = reshape_variables( radar , output , options )
    #Compute X,Y,lat and lon for each pixel
+
+   print('')
+   print('-------------------------------------------')
+   print('Georeferencing the data')
+   print('-------------------------------------------')
+   print('')
+
    [ radar , output ] = georeference_data( radar , output , options )
+
+   print('')
+   print('-------------------------------------------')
+   print('Interpolating the terrain')
+   print('-------------------------------------------')
+   print('')
+
    #Compute the terrain height corresponding to each pixel
    [ radar , output ] = get_topography( radar , output , options )
 
@@ -61,6 +82,12 @@ def main_qc( filename , options ) :
 
    #This functions runs the selected filters in the selected
    #order.
+
+   print('')
+   print('-------------------------------------------')
+   print('Quality control routines')
+   print('-------------------------------------------')
+   print('')
 
    [ radar , output ] = run_filters( radar , output , options )
 
@@ -86,11 +113,9 @@ def reshape_variables( radar , output , options )    :
    import time
    #From time,range -> azimuth,range,elevation
 
-   startt=time.time()
-
+   start=time.time()
 
    if options['name_ref'] in radar.fields :
-        start=time.time()
 
         output['undef_ref']=radar.fields[options['name_ref']]['_FillValue']
 
@@ -102,10 +127,9 @@ def reshape_variables( radar , output , options )    :
         output['nr']=nr
         output['ne']=ne
 
-        output['cref'] = np.copy(output['ref']) 
-
-        output['cref'][:] = output['ref']                 #Initialize the corrected reflectivity array.
-
+        output['cref'] = np.copy(output['ref'])           #Initialize the corrected reflectivity array.
+        output['ref_input'] = np.copy(output['ref'])      #Initialize the input reflectivity array (for ploting only)
+ 
         output['cref'][ output['cref'] == output['undef_ref'] ]=options['norainrefval']
         output['ref'] [ output['ref']  == output['undef_ref'] ]=options['norainrefval']
 
@@ -114,13 +138,7 @@ def reshape_variables( radar , output , options )    :
 
         output['elevations']=np.unique(radar.elevation['data'])
 
-        end=time.time()
-
-        print("The elapsed time in {:s} is {:2f}".format("ref -> az,r,el",end-start) )
- 
    if options['name_v'] in radar.fields  : 
-
-        start=time.time()
 
         output['undef_v']=radar.fields[ options['name_v'] ]['_FillValue']
 
@@ -133,7 +151,8 @@ def reshape_variables( radar , output , options )    :
         output['nr']=nr
         output['ne']=ne
  
-        output['cv'] = np.copy(output['v']) 
+        output['cv'] = np.copy(output['v'])              #Initialize the corrected velocity array
+        output['input_v'] = np.copy(output['v'])         #Initialize the input velocity array (for ploting only)
 
         output['qcv'] = np.zeros(output['v'].shape)      #Set the qc flag array to 0.
 
@@ -141,9 +160,8 @@ def reshape_variables( radar , output , options )    :
 
         output['elevations']=np.unique(radar.elevation['data'])
 
-        end=time.time()
-
-        print("The elapsed time in {:s} is {:2f}".format("v -> az,r,el",end-start) )
+   end=time.time()
+   print("The elapsed time in {:s} is {:2f}".format("Data reshape",end-start) )
 
    return radar , output
 
@@ -172,7 +190,7 @@ def georeference_data( radar , output , options )    :
 
    end=time.time()
 
-   print("The elapsed time in {:s} is {:2f}".format("x,y,z -> az,r,el",end-start) )
+   print("The elapsed time in {:s} is {:2f}".format("Data georeferentiation",end-start) )
 
    return radar , output 
 
@@ -308,6 +326,184 @@ def  update_radar_object( radar , output , options )   :
 
 
 #====================================================
+# UPDATE OUTPUT BASED ON FILTER DATA
+#====================================================
+
+def output_update( output , qc_index , options , filter_name )  :
+
+   from common_qc_tools  import qc  #Fortran code routines.
+   import numpy as np
+
+   na=output['na']
+   nr=output['nr']
+   ne=output['ne']
+
+   #Compute the corresponding weigth.
+   weigth = qc.multiple_1d_interpolation( field=qc_index , nx=na , ny=nr , nz=ne
+                                         , undef=output['undef_ref'] , xx=options[filter_name]['ifx']
+                                         , yy=options[filter_name]['ify'] , nxx=np.size(options[filter_name]['ifx']) )
+
+   if 'ref' in options[filter_name]['var_update_list']   : 
+      #Update reflectivity
+      if options[filter_name]['sequential']   :
+         #Preserve the data used as input for the filter for ploting pourposes.
+         output['input_ref']=np.copy(output['ref'])
+
+      if not options[filter_name]['force']   :
+         output['wref']=output['wref'] + weigth * options[filter_name]['w']
+         output['qcref'][ weigth > 0.5 ] = options[filter_name]['code']
+         output['maxw_ref']=output['maxw_ref'] + options[filter_name]['w']
+      else                                   :
+         if options[filter_name]['fill_value']  == 'undef'       :
+            output['cref'][ weigth > options[filter_name]['force_value'] ]=output['undef_ref']
+            if options[filter_name]['sequential']   :
+               output['ref'][ weigth > options[filter_name]['force_value'] ]=output['undef_ref']
+         elif options[filter_name]['fill_value']  == 'min_ref'   :
+            output['cref'][ weigth > options[filter_name]['force_value'] ]=options['norainrefval'] 
+            if options[filter_name]['sequential']   :
+               output['ref'][ weigth > options[filter_name]['force_value'] ]=options['norainrefval']
+         else                                                    :
+            output['cref'][ weigth > options[filter_name]['force_value'] ]=options[filter_name]['fill_value']
+            if options[filter_name]['sequential']   :
+               output['ref'][ weigth > options[filter_name]['force_value'] ]=options[filter_name]['fill_value']
+
+
+         output['qcref'][ weigth > options[filter_name]['force_value'] ] = options[filter_name]['code']
+   
+   if 'v' in options[filter_name]['var_update_list']   :
+      #Update radial velocity
+      if options[filter_name]['sequential']   :
+         #Preserve the data used as input for the filter for ploting pourposes.
+         output['input_v']=np.copy(output['v'])
+
+      if not options[filter_name]['force']   :
+         output['wv']=output['wv'] + weigth * options[filter_name]['w']
+         output['qcv'][ weigth > 0.5 ] = options[filter_name]['code']
+         output['maxw_v']=output['maxw_v'] + options[filter_name]['w']
+      else                                   :
+         if (options[filter_name]['fill_value']  == 'undef') or  (options[filter_name]['fill_value']  == 'min_ref')  :
+            output['cv'][ weigth > options[filter_name]['force_value'] ]=output['undef_v']
+            if options[filter_name]['sequential']   :
+               output['v'][ weigth > options[filter_name]['force_value'] ]=output['undef_v']
+         else                                                    :
+            output['cv'][ weigth > options[filter_name]['force_value'] ]= options[filter_name]['fill_value']
+            if options[filter_name]['sequential']   :
+               output['v'][ weigth > options[filter_name]['force_value'] ]=options[filter_name]['fill_value']
+
+
+         output['qcv'][ weigth > options[filter_name]['force_value'] ] = options[filter_name]['code']
+
+
+   #If "save" is true, then store the qc_index and the weigth computed for this particular 
+   #filter. This will be stored in a dictionary named after the filter and which is part of the 
+   #output dictionary. 
+   if  options[filter_name]['save']      :
+      output[filter_name]=dict()
+      output[filter_name]['qc_index']=qc_index
+      output[filter_name]['weight']=weigth
+
+   #Plot filter diagnostics if this option is available.
+   if  options['plot']['Enable']    :
+      plot_filter( output , qc_index , weigth , options , filter_name )
+
+   return output
+
+#====================================================
+# PLOT THE FILTER
+#====================================================
+
+def plot_filter( output , qc_index , weigth , options , filter_name )  :
+
+   import numpy as np
+   import matplotlib.pyplot as plt
+
+   if 'ref' in options[filter_name]['var_update_list']   :
+
+    tmp_ref=np.ma.masked_array( output['ref_input'] , output['ref_input'] == output['undef_ref'] )
+    tmp_cref=np.ma.masked_array( output['cref'] , output['cref'] == output['undef_ref'] )
+    tmp_qc_index=np.ma.masked_array( qc_index , qc_index == output['undef_ref'] )
+
+    for ilev in options['plot']['Elevs']  :
+
+       plt.figure(figsize=(8, 8))
+       plt.subplot(2,2,1)
+
+       plt.pcolor(output['x'][:,:,ilev]/1e3,output['y'][:,:,ilev]/1e3, tmp_ref[:,:,ilev],vmin=options['plot']['DbzMin'],vmax=options['plot']['DbzMax'],cmap=options['plot']['CmapDbz'])
+       plt.title('Original Reflectivity')
+       plt.colorbar()
+
+       plt.subplot(2,2,2)
+       plt.pcolor(output['x'][:,:,ilev]/1e3,output['y'][:,:,ilev]/1e3, tmp_cref[:,:,ilev],vmin=options['plot']['DbzMin'],vmax=options['plot']['DbzMax'],cmap=options['plot']['CmapDbz'])
+       plt.title('Corrected Reflectivity')
+       plt.colorbar()
+
+       plt.subplot(2,2,3)
+       plt.pcolor(output['x'][:,:,ilev]/1e3,output['y'][:,:,ilev]/1e3, ( output['qcref'][:,:,ilev]==options[filter_name]['code'] ).astype(float) )
+       plt.title('Pixels corrected by ' + filter_name)
+       plt.colorbar()
+
+       plt.subplot(2,2,4)
+       plt.pcolor(output['x'][:,:,ilev]/1e3,output['y'][:,:,ilev]/1e3, ( tmp_qc_index[:,:,ilev] ) )
+       plt.title('QC Index')
+       plt.colorbar()
+                                                                                                    
+       if options['plot']['Show']  :
+
+           plt.show()
+
+       figname=options['plot']['FigNamePrefix'] + '_elev_' + str(ilev) + '_' + filter_name + '_ref_' + options['plot']['FigNameSufix']
+       plt.savefig(figname, dpi=None, facecolor='w', edgecolor='w',
+                   orientation='portrait', papertype=None, format=None,
+                   transparent=False, bbox_inches=None, pad_inches=0.1,
+                   frameon=None)
+        
+       plt.close()
+
+   if 'v' in options[filter_name]['var_update_list']   :
+
+    tmp_v=np.ma.masked_array( output['input_v'] , output['input_v'] == output['undef_v'] )
+    tmp_cv=np.ma.masked_array( output['cv'] , output['cv'] == output['undef_v'] )
+    tmp_qc_index=np.ma.masked_array( qc_index , qc_index == output['undef_v'] )
+
+    for ilev in options['plot']['Elevs']   :
+
+       plt.figure(figsize=(8, 8))
+       plt.subplot(2,2,1)
+
+       plt.pcolor(output['x'][:,:,ilev]/1e3,output['y'][:,:,ilev]/1e3,tmp_cv[:,:,ilev],vmin=options['plot']['VrMin'],vmax=options['plot']['VrMax'],cmap=options['plot']['CmapWind'])
+       plt.title('Corrected Doppler Velocity')
+       plt.colorbar()
+
+       plt.subplot(2,2,2)
+       plt.pcolor(output['x'][:,:,ilev]/1e3,output['y'][:,:,ilev]/1e3,tmp_v[:,:,ilev],vmin=options['plot']['VrMin'],vmax=options['plot']['VrMax'],cmap=options['plot']['CmapWind'])
+       plt.title('Original Doppler Velocity')
+       plt.colorbar()
+
+       plt.subplot(2,2,3)
+       plt.pcolor(output['x'][:,:,ilev]/1e3,output['y'][:,:,ilev]/1e3, ( output['qcv'][:,:,ilev]==options[filter_name]['code'] ).astype(float) )
+       plt.title('Pixels corrected by ' + filter_name)
+       plt.colorbar()
+
+       plt.subplot(2,2,4)
+       plt.pcolor(output['x'][:,:,ilev]/1e3,output['y'][:,:,ilev]/1e3, tmp_qc_index[:,:,ilev] )
+       plt.title('QC index')
+       plt.colorbar()
+
+       if options['plot']['Show']  :
+
+           plt.show()
+
+       figname=options['plot']['FigNamePrefix'] + '_elev_' + str(ilev) + '_' + filter_name + '_v_' + options['plot']['FigNameSufix']
+       plt.savefig(figname, dpi=None, facecolor='w', edgecolor='w',
+                   orientation='portrait', papertype=None, format=None,
+                   transparent=False, bbox_inches=None, pad_inches=0.1,
+                   frameon=None)
+
+       plt.close()
+
+    return
+
+#====================================================
 # RUN THE SELECTED FILTERS IN THE CORRESPONDING ORDER
 #====================================================
 
@@ -340,13 +536,13 @@ def run_filters( radar , output , options )   :
 
    #Sort the filters according to the order associated with each filter.   
  
-   my_sorted_filters=[x for _,x in sorted(zip(my_filters,my_filters_order))]
+   my_sorted_filters=[x for _,x in sorted(zip(my_filters_order,my_filters))]
    print('-------------------------------------------')
    print('The following filters will be applied')
    print('In the following order')
    print('-------------------------------------------')
    print('')
-   for ifilter in my_filters  :
+   for ifilter in my_sorted_filters  :
        print( ifilter )
 
    print('')
@@ -359,8 +555,9 @@ def run_filters( radar , output , options )   :
    print('')
 
    #Run the filtesr in the selected order.
+   #If ploting is enabled then plot diagnostics.
 
-   for ifilter in my_filters :
+   for ifilter in my_sorted_filters :
 
        start=time.time()
 
@@ -377,14 +574,25 @@ def run_filters( radar , output , options )   :
           exec("[ radar , output ] = " + ifilter + "( radar , output , options )")
 
           end=time.time()
+          print('')
           print("The elapsed time in {:s} is {:2f}".format(ifilter,end-start) )
+          print('')
 
-
-   print('')
-   print('-------------------------------------------')
-   print('Running the filters')
-   print('-------------------------------------------')
-   print('')
+#       if globals().get('plot_' + ifilter) is None  :
+#          #If I can not find the corresponding function raise an error.
+#          print("Error: No plotting function for {}".format(ifilter))
+#       else                                      :
+#          #Run the filter (call the function named after the filter name.
+#          print('')
+#          print('-------------------------------------------')
+#          print('Plotting diagnostics for ' + ifilter )
+#          print('-------------------------------------------')
+#          print('')
+#          exec("plot_" + ifilter + "( output , options )")
+#          print('')
+#          end=time.time()
+#          print("The elapsed time in ploting {:s} is {:2f}".format(ifilter,end-start) )
+#          print('')
 
    print('')
    print('-------------------------------------------')
@@ -411,13 +619,10 @@ def Dealiasing( radar , output , options )   :
 
    filter_name='Dealiasing'
    if options[filter_name]['flag']  and ( options['name_v'] in radar.fields ) :
-
+      #Define a new instance of the radar strcture containing the wind (potentially affected by previous filters).
       radar.fields[ options['name_cv'] ] = dict()
-
       radar.fields[ options['name_cv'] ] = radar.fields[ options['name_v'] ]
-
-      tmp = order_variable_inv(  radar , output['cv'] , output['index'] , output['undef_v'] )
-
+      tmp = order_variable_inv(  radar , output['v'] , output['index'] , output['undef_v'] )
       radar.fields[ options['name_cv'] ]['data']= np.ma.masked_array( tmp , tmp==output['undef_v'] )
 
       #Uso una de las funciones de dealiasing de pyart con los parametros por defecto
@@ -435,9 +640,14 @@ def Dealiasing( radar , output , options )   :
       mask=np.logical_and( output['cv'] != output['v'] , output['cv'] != output['undef_v'] )
       output['qcv'][ mask ]=options[filter_name]['code']
 
+      #Plot the data (this filter do not call update_output so we need to plot it here).
+      tmp_index  = output['cv'] - output['v']
+      tmp_weigth = np.zeros( np.shape( tmp_index ) )
+      plot_filter( output , tmp_index , tmp_weigth , options , filter_name )   
+
       if options[filter_name]['sequential']     :
          #Following filters will be computed using the corrected velocity.
-         output['v'] = output['cv']  
+         output['v'] = output['cv'] 
 
    
    return radar , output 
@@ -463,6 +673,7 @@ def ModelFilter( radar , output , options)   :
 def DealiasingBorderFilter( radar , output , options )    :
 
    import numpy as np
+   from common_qc_tools  import qc  #Fortran code routines.
 
    na=output['na']
    nr=output['nr']
@@ -470,45 +681,20 @@ def DealiasingBorderFilter( radar , output , options )    :
 
    filter_name='DealiasingBorderFilter'  
 
-   if options[filter_name]['flag']  and options['ifdealias'] :
+   if options['Dealiasing']['flag'] :
 
-     #Use a simple edge detection routine to detect the borders between dealiased and non-dealiased regions.
-     #Flag this grid points and eliminate all the non-dealiased corrected pixels near by.
-
-     tmp_diff=output['cv'] - output['v']
-
-     mask = np.logical_or( output['cv'] == output['undef_v'] , output['v'] == output['undef_v'] )
-     tmp_diff[ mask ] = output['undef_v']
+      #Use a simple edge detection routine to detect the borders between dealiased and non-dealiased regions.
+      #Flag this grid points and eliminate all the non-dealiased corrected pixels near by.
+      mask =  ( output['qcv'] == options['Dealiasing']['code'] ).astype(float)  
     
-     v_nyquist = radar.instrument_parameters['nyquist_velocity']['data'].max()
- 
-     if v_nyquist < 0 :
-        v_nyquist = 40.0 #Put some value that can detect strong jumps in the doppler velocity field.
-
-     [ output['edge_intensity'] , output['edge_mask'] ]=qc.simple_edge_filter( field=tmp_diff , nx=na,ny=nr,nz=ne,undef=output['undef_v'],
+      [ edge_intensity , edge_mask ]=qc.simple_edge_filter( field=mask , nx=na,ny=nr,nz=ne,undef=output['undef_v'],
                                                                                nboxx=options[filter_name]['nx'],nboxy=options[filter_name]['ny'],
-                                                                               nboxz=options[filter_name]['nz'],edge_tr=v_nyquist )
+                                                                               nboxz=options[filter_name]['nz'],edge_tr=0.5 )
 
-     #Find the pixels which are close to a dealiased region but which has not been corrected by the dealiasing.
-     tmp_w = np.logical_and( output['edge_mask'] , tmp_diff == 0 ).astype(int) 
+      #Find the pixels which are close to a dealiased region but which has not been corrected by the dealiasing.
+      tmp_index = np.logical_and( edge_mask , mask == 0 ).astype(float) 
 
-     if not options[filter_name]['force']   :   
-       output['wv']=output['wv'] + tmp_w * options[filter_name]['w']
-       output['qcv'][ tmp_w > 0.5 ] = options[filter_name]['code']
-       output['maxw_v']=output['maxw_v'] + options[filter_name]['w']
-
-     else                                   :
-       if options[filter_name]['fill_value']  == 'undef'   :
-          output['cv'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_v']
-       else                                                :
-          output['cv'][ tmp_w > options[filter_name]['force_value'] ]=options[filter_name]['fill_value']
-
-       output['qcv'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
-
-     #If requested store the auxiliary fields and data in the output dictionary.
-     if  ( not options[filter_name]['save'] )     :
-        output.pop('edge_intensity')
-        output.pop('edge_mask')
+      output = output_update( output , tmp_index , options , filter_name ) 
 
    return radar , output 
 
@@ -519,60 +705,36 @@ def DealiasingBorderFilter( radar , output , options )    :
 def EchoTopFilter( radar , output , options )   :
 
    import numpy as np
+   from common_qc_tools  import qc  #Fortran code routines.
 
    filter_name='EchoTopFilter'
-   if options[filter_name]['flag'] & ( options['name_ref'] in radar.fields ) :
+   if options['name_ref'] in radar.fields  :
 
-     if ( not computed_etfilter )     :
-     #Compute the filter field.
-
-        nx=options[filter_name]['nx']
-        ny=options[filter_name]['ny']
-        nz=options[filter_name]['nz']
+      na=output['na']
+      nr=output['nr']
+      ne=output['ne']
+      nx=options[filter_name]['nx']
+      ny=options[filter_name]['ny']
+      nz=options[filter_name]['nz']
                                    
-        tmp_max_z=np.zeros((na,nr,ne))
+      tmp_max_z=np.zeros((na,nr,ne))
 
-        for ii in range(0,output['ne'])     :       #Estimate the maximum radar data height assoicated with each gate.
-           tmp_max_z[:,:,ii]=output['altitude'][:,:,output['ne']-1]
+      for ii in range(0,output['ne'])     :       #Estimate the maximum radar data height assoicated with each gate.
+         tmp_max_z[:,:,ii]=output['altitude'][:,:,output['ne']-1]
  
-        [tmp_data_3d,tmp_data_2d]=qc.echo_top(reflectivity=output['ref'],heigth=output['altitude'][0,:,:]
+      [tmp_data_3d,tmp_data_2d]=qc.echo_top(reflectivity=output['ref'],heigth=output['altitude'][0,:,:]
                                                 ,rrange=output['distance'],na=na,nr=nr,ne=ne
                                                 ,undef=output['undef_ref'],nx=nx,ny=ny,nz=nz)
 
-        output['echo_top']=tmp_data_3d[:,:,:,0]
-        output['echo_depth']=tmp_data_3d[:,:,:,2]
+      tmp_index=tmp_data_3d[:,:,:,0]
+        
+      computed_etfilter = True  #In case we need any of the other variables computed in this routine.
 
-        computed_etfilter = True  #In case we need any of the other variables computed in this routine.
-
-     #Compute the corresponding weigth.
-     tmp_w = qc.multiple_1d_interpolation( field=output['echo_top'] , nx=na , ny=nr , nz=ne
-                                           , undef=output['undef_ref'] , xx=options[filter_name]['ifx']
-                                           , yy=options[filter_name]['ify'] , nxx=np.size(options[filter_name]['ifx']) )
-
-     tmp_w[ tmp_max_z < options[filter_name]['heigthtr'] ] = 0.0  #Do not consider this filter when the volume maximum heigth is below
+      tmp_index[ tmp_max_z < options[filter_name]['heigthtr'] ] = 1.0e6  #Do not consider this filter when the volume maximum heigth is below
                                                                   #the specified threshold (i.e. pixels close to the radar)
 
-     if not options[filter_name]['force']   :
-       output['wref']=output['wref'] + tmp_w * options[filter_name]['w']
-       output['qcref'][ tmp_w > 0.5 ] = options[filter_name]['code']
-       output['maxw_ref']=output['maxw_ref'] + options[filter_name]['w']
-     else                                   :
-       if options[filter_name]['fill_value']  == 'undef'       :
-          output['cref'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_ref']
-       elif options[filter_name]['fill_value']  == 'min_ref'   :
-          output['cref'][ tmp_w > options[filter_name]['force_value'] ]=options['norainrefval']
-       else                                                    :
-          output['cref'][ tmp_w > options[filter_name]['force_value'] ]=options['filter_name']['fill_value']
-
-       output['qcref'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
-
-
-     #If requested store the auxiliary fields and data in the output dictionary.
-     if  ( not options[filter_name]['save'] )     : 
-        output.pop('echo_top') 
-        computed_etfilter = False
-
-
+      output = output_update( output , tmp_index , options , filter_name ) 
+    
    return radar , output 
 
 #===================================================
@@ -582,64 +744,34 @@ def EchoTopFilter( radar , output , options )   :
 def EchoDepthFilter( radar , output , options )   :
 
    import numpy as np
-
-   na=output['na']
-   nr=output['nr']
-   ne=output['ne']
-
+   from common_qc_tools  import qc  #Fortran code routines.
 
    filter_name='EchoDepthFilter'
-   if options[filter_name]['flag'] & ( options['name_ref'] in radar.fields ) :
+   if options['name_ref'] in radar.fields  :
 
-     if ( not computed_etfilter )     :
-     #Compute the filter field.
+     na=output['na']
+     nr=output['nr']
+     ne=output['ne']
+     nx=options[filter_name]['nx']
+     ny=options[filter_name]['ny']
+     nz=options[filter_name]['nz']
 
-        nx=options[filter_name]['nx']
-        ny=options[filter_name]['ny']
-        nz=options[filter_name]['nz']
+     tmp_max_z=np.zeros((na,nr,ne))
 
-        tmp_max_z=np.zeros((na,nr,ne))
+     for ii in range(0,ne)     :       #Estimate the maximum radar data height assoicated with each gate.
+        tmp_max_z[:,:,ii]=output['altitude'][:,:,output['ne']-1]
 
-        for ii in range(0,ne)     :       #Estimate the maximum radar data height assoicated with each gate.
-           tmp_max_z[:,:,ii]=output['altitude'][:,:,output['ne']-1]
-
-        [tmp_data_3d,tmp_data_2d]=qc.echo_top(reflectivity=output['ref'],heigth=output['altitude'][0,:,:]
+     [tmp_data_3d,tmp_data_2d]=qc.echo_top(reflectivity=output['ref'],heigth=output['altitude'][0,:,:]
                                                 ,rrange=output['distance'],na=na,nr=nr,ne=ne
                                                 ,undef=output['undef_ref'],nx=nx,ny=ny,nz=nz)
 
-        output['echo_top']=tmp_data_3d[:,:,:,0]
-        output['echo_depth']=tmp_data_3d[:,:,:,2]
-
-        computed_etfilter = True  #In case we need any of the other variables computed in this routine.
+     tmp_index=tmp_data_3d[:,:,:,2]
 
 
-     #Compute the corresponding weigth.
-     tmp_w = qc.multiple_1d_interpolation( field=output['echo_depth'] , nx=na , ny=nr , nz=ne
-                                           , undef=output['undef_ref'] , xx=options[filter_name]['ifx']
-                                           , yy=options[filter_name]['ify'] , nxx=np.size(options[filter_name]['ifx']) )
-
-     tmp_w[ tmp_max_z < options[filter_name]['heigthtr'] ] = 0.0  #Do not consider this filter when the volume maximum heigth is below
+     tmp_index[ tmp_max_z < options[filter_name]['heigthtr'] ] = 1.0e6  #Do not consider this filter when the volume maximum heigth is below
                                                                   #the specified threshold (i.e. pixels close to the radar)
 
-     if not options[filter_name]['force']   :
-       output['wref']=output['wref'] + tmp_w * options[filter_name]['w']
-       output['qcref'][ tmp_w > 0.5 ] = options[filter_name]['code']
-       output['maxw_ref']=output['maxw_ref'] + options[filter_name]['w']
-     else                                   :
-       if options[filter_name]['fill_value']  == 'undef'       :
-          output['cref'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_ref']
-       elif options[filter_name]['fill_value']  == 'min_ref'   :
-          output['cref'][ tmp_w > options[filter_name]['force_value'] ]=options['norainrefval']
-       else                                                    :
-          output['cref'][ tmp_w > options[filter_name]['force_value'] ]=options['filter_name']['fill_value']
-
-       output['qcref'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
-
-
-     #If requested store the auxiliary fields and data in the output dictionary.
-     if  ( not options[filter_name]['save'] )     :
-        output.pop('echo_top')
-        computed_etfilter = False
+     output = output_update( output , tmp_index , options , filter_name ) 
 
 
    return radar , output 
@@ -651,55 +783,41 @@ def EchoDepthFilter( radar , output , options )   :
 def LowElevFilter( radar , output , options)  :
 
    import numpy as np
-#Remove echos which are present at low elevation angles but not at higher elevation
-#angles. This will help to remove clutter produced by anomalous propagation.
-#This can also help to remove second trip echoes which are usually observed only at low elevation
-#angles.
-#This can also eliminate distant convective cells that are only seen in low 
-#elevation angles near the radar range edge. However these cells are of little interest
-#for data assimilation since that information is usually not enough to adequatelly constrain
-#the evolution of the convective cells.
+   from common_qc_tools  import qc  #Fortran code routines.
+   #Remove echos which are present at low elevation angles but not at higher elevation 
+   #angles. This will help to remove clutter produced by anomalous propagation. 
+   #This can also help to remove second trip echoes which are usually observed only at low elevation
+   #angles.
+   #This can also eliminate distant convective cells that are only seen in low 
+   #elevation angles near the radar range edge. However these cells are of little interest
+   #for data assimilation since that information is usually not enough to adequatelly constrain
+   #the evolution of the convective cells.
 
    filter_name='LowElevFilter'
 
-   if options[filter_name]['flag']  & ( options['name_ref'] in radar.fields ) :
+   if  options['name_ref'] in radar.fields :
 
-      nx=options[filter_name]['nx']
-      ny=options[filter_name]['ny']
-      nz=options[filter_name]['nz']
+     na=output['na']
+     nr=output['nr']
+     ne=output['ne']
+     nx=options[filter_name]['nx']
+     ny=options[filter_name]['ny']
+     nz=options[filter_name]['nz']
 
-      #Get the angles that will be used based on the selected threshold.
-      tmp_angles= output['elevations'][ output['elevations'] < options[filter_name]['min_angle']]
-      tmp_n_angles = np.size( tmp_angles )
+     #Get the angles that will be used based on the selected threshold.
+     tmp_angles= output['elevations'][ output['elevations'] < options[filter_name]['min_angle']]
+     tmp_n_angles = np.size( tmp_angles )
 
-      output['smooth_ref']=qc.box_functions_2d(datain=output['ref'],na=na,nr=nr,ne=ne,undef=output['undef_ref']
+     output['smooth_ref']=qc.box_functions_2d(datain=output['ref'],na=na,nr=nr,ne=ne,undef=output['undef_ref']
                                                ,boxx=nx,boxy=ny,boxz=nz,operation='MEAN',threshold=0.0)
      
-      tmp_w=np.zeros([na,nr,ne]) 
-      for ie in range( 0 , tmp_n_angles )  :
-         tmp_w[:,:,ie]=np.logical_and( output['ref'][:,:,ie] > options['norainrefval'] , output['smooth_ref'][:,:,tmp_n_angles] <= options['norainrefval'] )
-         tmp_w[:,:,ie][ output['altitude'][:,:,tmp_n_angles] > options[filter_name]['height_thr'] ] = 0.0
+     tmp_index=np.zeros([na,nr,ne]) 
+     for ie in range( 0 , tmp_n_angles )  :
+        tmp_index[:,:,ie]=np.logical_and( output['ref'][:,:,ie] > options['norainrefval'] , output['smooth_ref'][:,:,tmp_n_angles] <= options['norainrefval'] )
+        tmp_index[:,:,ie][ output['altitude'][:,:,tmp_n_angles] > options[filter_name]['height_thr'] ] = 0.0
 
-      if not options[filter_name]['force']   :
-         output['wref']=output['wref'] + tmp_w * options[filter_name]['w']
-         output['qcref'][ tmp_w > 0.5 ] = options[filter_name]['code']
-         output['maxw_ref']=output['maxw_ref'] + options[filter_name]['w']
-      else                                   :
-         if options[filter_name]['fill_value']  == 'undef'       :
-            output['cref'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_ref']
-         elif options[filter_name]['fill_value']  == 'min_ref'   :
-            output['cref'][ tmp_w > options[filter_name]['force_value'] ]=options['norainrefval']
-         else                                                    :
-            output['cref'][ tmp_w > options[filter_name]['force_value'] ]=options['filter_name']['fill_value']
+     output = output_update( output , tmp_index , options , filter_name ) 
 
-         output['qcref'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
-
-      #If requested store the auxiliary fields and data in the output dictionary.
-      if  ( not options[filter_name]['save'] )     :
-         output.pop('smooth_ref')
-         computed_etfilter = False
-
- 
    return radar , output 
 
 #===================================================
@@ -709,60 +827,29 @@ def LowElevFilter( radar , output , options)  :
 def RhoFilter( radar , output , options )  :
 
    import numpy as np
+   from common_qc_tools  import qc  #Fortran code routines.
+
+   filter_name = 'RhoFilter'
 
    na=output['na']
    nr=output['nr']
    ne=output['ne']
+   nx=options[filter_name]['nx']
+   ny=options[filter_name]['ny']
+   nz=options[filter_name]['nz']
 
-   filter_name = 'RhoFilter'
+   if options['name_rho'] in radar.fields  :
 
-   if options[filter_name]['flag']  :
+      output['undef_rho']=radar.fields[ options['name_rho'] ]['_FillValue']
 
-      nx=options[filter_name]['nx']
-      ny=options[filter_name]['ny']
-      nz=options[filter_name]['nz']
+      [ rhohv , dm , dm , dm , dm , dm  ]=order_variable( radar , options['name_rho'] , output['undef_rho']  )
 
-      if options['name_rho'] in radar.fields  :
+      #Compute the filter parameter
+      tmp_index=qc.box_functions_2d(datain=rhohv,na=na,nr=nr,ne=ne,undef=output['undef_rho']
+                                              ,boxx=nx,boxy=ny,boxz=nz,operation='MEAN',threshold=0.0)
 
-         output['undef_rho']=radar.fields[ options['name_rho'] ]['_FillValue']
-
-         [ output['rho'] , dm , dm , dm , dm , dm  ]=order_variable( radar , options['name_rho'] , output['undef_rho']  )
-
-         #Compute the filter parameter
-         output['rho_smooth']=qc.box_functions_2d(datain=output['rho'],na=na,nr=nr,ne=ne,undef=output['undef_rho']
-                                                 ,boxx=nx,boxy=ny,boxz=nz,operation='MEAN',threshold=0.0)
-
-         #Compute the corresponding weigth.
-         tmp_w = qc.multiple_1d_interpolation( field=output['rho_smooth'] , nx=na , ny=nr , nz=ne 
-                                              , undef=output['undef_rho'] , xx=options[filter_name]['ifx'] 
-                                              , yy=options[filter_name]['ify'] , nxx=np.size(options[filter_name]['ifx']) )
-
-         output['wref']=output['wref'] + tmp_w * options[filter_name]['w']
-
-         if options['name_ref'] in radar.fields :
-            if not options[filter_name]['force']   :
-               output['wref']=output['wref'] + tmp_w * options[filter_name]['w']
-               output['qcref'][ tmp_w > 0.5 ] = options[filter_name]['code']
-               output['maxw_ref']=output['maxw_ref'] + options[filter_name]['w']
-            else                                   :
-
-               if options[filter_name]['fill_value']  == 'undef'       :
-                  output['cref'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_ref']
-               elif options[filter_name]['fill_value']  == 'min_ref'   :
-                  output['cref'][ tmp_w > options[filter_name]['force_value'] ]=options['norainrefval']
-               else                                                    :
-                  output['cref'][ tmp_w > options[filter_name]['force_value'] ]=options['filter_name']['fill_value']
-
-               output['qcref'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
-
-      else   :
-         display('Warning: could not perform RHO-HV filter because rho was not found on this file')
-
-      print( options[filter_name]['save'] )
-      if ( not options[filter_name]['save'] ) :
-          output.pop('rho_smooth')
-          output.pop('rho')
-
+      output = output_update( output , tmp_index , options , filter_name ) 
+      
 
    return radar , output
  
@@ -773,51 +860,26 @@ def RhoFilter( radar , output , options )  :
 def RefSpeckleFilter( radar , output , options )    :
 
    import numpy as np
-
-   na=output['na']
-   nr=output['nr']
-   ne=output['ne']
+   from common_qc_tools  import qc  #Fortran code routines.
 
    filter_name='RefSpeckleFilter'
 
-   if options[filter_name]['flag']  & ( options['name_ref'] in radar.fields ) :
+   if options['name_ref'] in radar.fields :
 
        #Compute the number pixels with reflectivities over spfiltertr sourrounding each pixels in the box defined by nx,ny,nz.
+       na=output['na']
+       nr=output['nr']
+       ne=output['ne']
+
        nx=options[filter_name]['nx']
        ny=options[filter_name]['ny']
        nz=options[filter_name]['nz']
        tr=options[filter_name]['reftr']
 
-       output['speckle_ref']=qc.box_functions_2d(datain=output['ref'].data,na=na,nr=nr,ne=ne,undef=output['undef_ref']
+       tmp_index=qc.box_functions_2d(datain=output['ref'].data,na=na,nr=nr,ne=ne,undef=output['undef_ref']
                                                 ,boxx=nx,boxy=ny,boxz=nz,operation='COU2',threshold=tr) 
 
-
-       #Compute the corresponding weigth.
-       tmp_w = qc.multiple_1d_interpolation( field=output['speckle_ref'] , nx=na , ny=nr , nz=ne
-                                            , undef=output['undef_ref'] , xx=options[filter_name]['ifx']
-                                            , yy=options[filter_name]['ify'] , nxx=np.size(options[filter_name]['ifx']) )
-
-       tmp_w[ output['ref'] == output['undef_ref'] ] = 0.0 #If a grid point is already undef leave it as it is.
-
-
-       if not options[filter_name]['force']   :
-          output['wref']=output['wref'] + tmp_w * options[filter_name]['w']
-          output['qcref'][ tmp_w > 0.5 ] = options[filter_name]['code']
-          output['maxw_ref']=output['maxw_ref'] + options[filter_name]['w']
-       else                                   :
-          if options[filter_name]['fill_value']  == 'undef'       :
-             output['cref'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_ref']
-          elif options[filter_name]['fill_value']  == 'min_ref'   :
-             output['cref'][ tmp_w > options[filter_name]['force_value'] ]=options['norainrefval']
-          else                                                    :
-             output['cref'][ tmp_w > options[filter_name]['force_value'] ]=options['filter_name']['fill_value']
-
-          output['qcref'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
-
-
-
-       if ( not options[filter_name]['save'] ) :
-          output.pop('speckle_ref')
+       output = output_update( output , tmp_index , options , filter_name )
 
    return radar , output 
 
@@ -828,52 +890,29 @@ def RefSpeckleFilter( radar , output , options )    :
 def DopplerSpeckleFilter( radar , output , options )   :
 
    import numpy as np
-
-   na=output['na']
-   nr=output['nr']
-   ne=output['ne']
+   from common_qc_tools  import qc  #Fortran code routines.
 
    filter_name='DopplerSpeckleFilter'
 
-   if options[filter_name]['flag'] & ( options['name_v'] in radar.fields ) :
+   if  options['name_v'] in radar.fields :
 
-       #Compute the number pixels with reflectivities over spfiltertr sourrounding each pixels in the box defined by nx,ny,nz.
+       na=output['na']
+       nr=output['nr']
+       ne=output['ne']
        nx=options[filter_name]['nx']
        ny=options[filter_name]['ny']
        nz=options[filter_name]['nz']
        tr=options[filter_name]['dvtr']
 
-
        tmp=np.abs(output['v'].data)
 
        tmp[ output['v'] == output['undef_v'] ] = output['undef_v']
 
-       output['speckle_v']=qc.box_functions_2d(datain=tmp,na=na,nr=nr,ne=ne,undef=output['undef_v']
+       tmp_index=qc.box_functions_2d(datain=tmp,na=na,nr=nr,ne=ne,undef=output['undef_v']
                                                 ,boxx=nx,boxy=ny,boxz=nz,operation='COU2',threshold=tr)
 
+       output = output_update( output , tmp_index , options , filter_name )
 
-       #Compute the corresponding weigth.
-       tmp_w = qc.multiple_1d_interpolation( field=output['speckle_v'] , nx=na , ny=nr , nz=ne
-                                            , undef=output['undef_v'] , xx=options[filter_name]['ifx']
-                                            , yy=options[filter_name]['ify'] , nxx=np.size(options[filter_name]['ifx']) )
-
-       tmp_w[ output['v'] == output['undef_v'] ]=0.0 #Pixels which are already flagged as undef should remain undef.
-
-       if not options[filter_name]['force']   :
-          output['wv']=output['wv'] + tmp_w * options[filter_name]['w']
-          output['qcv'][ tmp_w > 0.5 ] = options[filter_name]['code']
-          output['maxw_v']=output['maxw_v'] + options[filter_name]['w']
-       else                                   :
-          if options[filter_name]['fill_value']  == 'undef'   :
-             output['cv'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_v']
-          else                                                :
-             output['cv'][ tmp_w > options[filter_name]['force_value'] ]=options[filter_name]['fill_value']
-
-          output['qcv'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
-
-       if ( not options[filter_name]['save'] ) :
-          output.pop('speckle_v')
- 
    return radar , output 
 
 #===================================================
@@ -883,43 +922,23 @@ def DopplerSpeckleFilter( radar , output , options )   :
 def AttenuationFilter( radar , output , options )   :
 
    import numpy as np
-
-   na=output['na']
-   nr=output['nr']
-   ne=output['ne']
+   from common_qc_tools  import qc  #Fortran code routines.
 
    filter_name='AttenuationFilter'
 
-   if options[filter_name]['flag'] & ( options['name_ref'] in radar.fields ) :
+   if options['name_ref'] in radar.fields :
+
+      na=output['na']
+      nr=output['nr']
+      ne=output['ne']
 
       beaml=radar.range['data'][1]-radar.range['data'][0] #Get beam length
 
-      output['attenuation']=qc.get_attenuation( var=output['cref'],na=na,nr=nr,ne=ne,undef=output['undef_ref']
+      tmp_index=qc.get_attenuation( var=output['cref'],na=na,nr=nr,ne=ne,undef=output['undef_ref']
                                                 ,beaml=beaml,cal_error=options[filter_name]['attcalerror']
                                                 ,is_power=options[filter_name]['is_power']
                                                 ,coefs=options[filter_name]['att_coefs'] )
-
-      #Compute the corresponding weigth.
-      tmp_w = qc.multiple_1d_interpolation( field=output['attenuation'] , nx=na , ny=nr , nz=ne
-                                            , undef=output['undef_ref'] , xx=options[filter_name]['ifx']
-                                            , yy=options[filter_name]['ify'] , nxx=np.size(options[filter_name]['ifx']) )
-
-      if not options[filter_name]['force']   :
-         output['wref']=output['wref'] + tmp_w * options[filter_name]['w']
-         output['qcref'][ tmp_w > 0.5 ] = options[filter_name]['code']
-         output['maxw_ref']=output['maxw_ref'] + options[filter_name]['w']
-      else                                   :
-         if options[filter_name]['fill_value']  == 'undef'       :
-            output['cref'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_ref']
-         elif options[filter_name]['fill_value']  == 'min_ref'   :
-            output['cref'][ tmp_w > options[filter_name]['force_value'] ]=options['norainrefval']
-         else                                                    :
-            output['cref'][ tmp_w > options[filter_name]['force_value'] ]=options['filter_name']['fill_value']
-         
-         output['qcref'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
-
-      if  ( not options[filter_name]['save'] )  :
-          output.pop('attenuation')
+      output = output_update( output , tmp_index , options , filter_name )
 
    return radar , output 
 
@@ -927,9 +946,10 @@ def AttenuationFilter( radar , output , options )   :
 # TOPOGRAPHY BLOCKING FILTER
 #===================================================
 
-def BlockingFilter( radar , outuput , options )   :
+def BlockingFilter( radar , output , options )   :
 
    import numpy as np
+   from common_qc_tools  import qc  #Fortran code routines.
 
    na=output['na']
    nr=output['nr']
@@ -937,43 +957,31 @@ def BlockingFilter( radar , outuput , options )   :
 
    filter_name='BlockingFilter'  #This is not included in the fuzzy logic algorithm
 
-   if options[filter_name]['flag']   :
-
-      output['blocking']=qc.compute_blocking( radarz=output['altitude'] , topo=output['topo'] , na=na , nr=nr , ne=ne      ,
-                                              undef=output['undef_ref']                                                    ,
+   tmp_index=qc.compute_blocking( radarz=output['altitude'] , topo=output['topo'] , na=na , nr=nr , ne=ne      ,
+                                              undef=output['undef_ref'],
                                               radar_beam_width_v=radar.instrument_parameters['radar_beam_width_v']['data'] , 
                                               beam_length=radar.range['meters_between_gates']                              , 
                                               radarrange=radar.range['data'] , radarelev=output['elevations'] )  
 
-      #Compute correction 
-      if options[filter_name]['blocking_correction'] & ( options['name_ref'] in radar.fields )  :
-         #Correct partially blocked precipitation echoes.
-         mask=np.logical_and( output['blocking'] > 0.1 , output['blocking'] <= 0.3 )
-         mask=np.logical_and( mask , output['cref'] > options['norainrefval'] )
+   #Compute correction 
+   if options[filter_name]['blocking_correction'] & ( options['name_ref'] in radar.fields )  :
+      #Correct partially blocked precipitation echoes.
+      mask=np.logical_and( tmp_index > 0.1 , tmp_index <= 0.3 )
+      mask=np.logical_and( mask , output['cref'] > options['norainrefval'] )
 
-         output['cref'][mask] = output['cref'][mask] + 1.0
+      output['cref'][mask] = output['cref'][mask] + 1.0
 
-         mask=np.logical_and( output['blocking'] > 0.3 , output['blocking'] <= 0.4 )
-         mask=np.logical_and( mask , output['cref'] > options['norainrefval'] )
+      mask=np.logical_and( tmp_index > 0.3 , tmp_index <= 0.4 )
+      mask=np.logical_and( mask , output['cref'] > options['norainrefval'] )
 
-         output['cref'][mask] = output['cref'][mask] + 2.0
+      output['cref'][mask] = output['cref'][mask] + 2.0
 
-         mask= output['blocking'] > 0.4 
-         mask=np.logical_and( mask , output['cref'] > options['norainrefval'] )
+      mask= tmp_index > 0.4 
+      mask=np.logical_and( mask , output['cref'] > options['norainrefval'] )
 
-         output['cref'][mask] = output['cref'][mask] + 3.0
+      output['cref'][mask] = output['cref'][mask] + 3.0
 
-      #Set the pixels with values below the threshold as undef. 
-      if options['name_ref'] in radar.fields :
-          output['cref'][ output['blocking'] > options[filter_name]['blocking_threshold']  ] = output['undef_ref']
-          output['qcref'][ output['blocking'] > options[filter_name]['blocking_threshold'] ] = options[filter_name]['code']
-
-      if options['name_v'] in radar.fields :
-          output['cv'][ output['blocking']   > options[filter_name]['blocking_threshold']  ] = output['undef_v']
-          output['qcv']  [ output['blocking'] > options[filter_name]['blocking_threshold'] ] = options[filter_name]['code']
-
-      if  ( not options[filter_name]['save'] ) :
-          output.pop('blocking')  
+   output = output_update( output , tmp_index , options , filter_name ) 
 
    return radar , output 
 
@@ -1090,47 +1098,24 @@ def DopplerNoiseFilter( radar , output , options )   :
 def DopplerLocalStdFilter( radar , output , options )   :
 
    import numpy as np
-
-   na=output['na']
-   nr=output['nr']
-   ne=output['ne']
+   from common_qc_tools  import qc  #Fortran code routines.
 
    filter_name = 'DopplerLocalStdFilter'
 
-   if options[filter_name]['flag']  & ( options['name_v'] in radar.fields ) :
+   if options['name_v'] in radar.fields :
 
-      start=time.time()
-
+      na=output['na']
+      nr=output['nr']
+      ne=output['ne']
       nx=options[filter_name]['nx']
       ny=options[filter_name]['ny']
       nz=options[filter_name]['nz']
 
       #Compute the filter parameter
-      output['v_std']=qc.box_functions_2d(datain=output['v'],na=na,nr=nr,ne=ne,undef=output['undef_v']
+      tmp_index=qc.box_functions_2d(datain=output['v'],na=na,nr=nr,ne=ne,undef=output['undef_v']
                                                ,boxx=nx,boxy=ny,boxz=nz,operation='SIGM',threshold=0.0)
 
-      #Compute the corresponding weigth.
-      tmp_w = qc.multiple_1d_interpolation( field=output['v_std'] , nx=na , ny=nr , nz=ne
-                                              , undef=output['undef_v'] , xx=options[filter_name]['ifx']
-                                              , yy=options[filter_name]['ify'] , nxx=np.size(options[filter_name]['ifx']) )
-
-      output['wv']=output['wv'] + tmp_w * options[filter_name]['w']
-
-      if options['name_v'] in radar.fields :
-         if not options[filter_name]['force']   :
-            output['wv']=output['wv'] + tmp_w * options[filter_name]['w']
-            output['qcv'][ tmp_w > 0.5 ] = options[filter_name]['code']
-            output['maxw_v']=output['maxw_v'] + options[filter_name]['w']
-         else                                   :    
-            if options[filter_name]['fill_value']  == 'undef'   :
-               output['cv'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_v']
-            else                                                :
-               output['cv'][ tmp_w > options[filter_name]['force_value'] ]=options[filter_name]['fill_value']
-
-            output['qcv'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
-
-      if ( not options[filter_name]['save'] ) :
-          output.pop('v_std')
+      output = output_update( output , tmp_index , options , filter_name ) 
 
    return radar , output 
 
@@ -1142,23 +1127,18 @@ def InterferenceFilter( radar , output , options )   :
 
    import numpy as np
    #Clean rays affected by interference.
-   na=output['na']
-   nr=output['nr']
-   ne=output['ne']
-
    filter_name = 'InterferenceFilter'
 
-   if options[filter_name]['flag'] & ( options['name_ref'] in radar.fields ) :
-
-      start=time.time()
+   if options['name_ref'] in radar.fields :
 
       tmp_ref=np.copy( output['ref'] )
 
-      output['cref'] = interference_filter ( tmp_ref , output['undef_ref'] , options['norainrefval'] 
+      #This function returns 1 if the pixel is sopossed to be contaminated by interference and
+      # 0 otherwise.
+      tmp_index = interference_filter ( tmp_ref , output['undef_ref'] , options['norainrefval'] 
                                             , radar.range['data'] , options[filter_name] ) 
 
-
-      output['qcref'][ np.abs( output['ref'] - output['cref'] ) > 0 ]=options[filter_name]['code']
+      output = output_update( output , tmp_index , options , filter_name ) 
 
    return radar , output 
 
@@ -1170,19 +1150,16 @@ def DopplerSpatialCoherenceFilter( radar , output , options )   :
 
    import numpy as np
    #Clean pixels which shows no coherence with their neighbors
-   na=output['na']
-   nr=output['nr']
-   ne=output['ne']
 
    filter_name = 'DopplerSpatialCoherenceFilter'
 
-   if options[filter_name]['flag'] & ( options['name_v'] in radar.fields ) :
+   if options['name_v'] in radar.fields  :
 
       tmp_v=np.copy( output['v'] )
 
-      output['cv'] , output['coherence_index'] = dopplerspatialcoherence_filter( tmp_v , output['undef_v'] , options[filter_name] )
+      tmp_index = dopplerspatialcoherence_filter( tmp_v , output['undef_v'] , options[filter_name] )
 
-      output['qcv'][ output['coherence_index'] > options[filter_name]['threshold_coherence_index'] ]=options[filter_name]['code']
+      output = output_update( output , tmp_index , options , filter_name )
 
    return radar , output 
 
@@ -1200,9 +1177,11 @@ def PowerFilter( radar , output , options )   :
 
    filter_name = 'PowerFilter' 
 
-   if options[filter_name]['flag'] & ( options['name_v'] in radar.fields ) :
+   if  options['name_v'] in radar.fields  :
 
       print('This filter has not been coded yet')
+
+      output = output_update( output , tmp_index , options , filter_name )
 
    #TODO
 
@@ -1355,56 +1334,19 @@ def LowDopplerFilter( radar , output , options )   :
    #have a low associated doppler velocity. 
    import numpy as np
 
-   na=output['na']
-   nr=output['nr']
-   ne=output['ne']
-
    filter_name='LowDopplerFilter'
 
-   if options[filter_name]['flag'] & ( options['name_v'] in radar.fields ) :
+   if  options['name_v'] in radar.fields :
 
+      na=output['na']
+      nr=output['nr']
+      ne=output['ne']
 
-      #Compute the corresponding weigth.
-      tmp_w = qc.multiple_1d_interpolation( field=output['v'] , nx=na , ny=nr , nz=ne
-                                            , undef=output['undef_v'] , xx=options[filter_name]['ifx']
-                                            , yy=options[filter_name]['ify'] , nxx=np.size(options[filter_name]['ifx']) )
-
-      #The filter will not produce any effect below a certain height
-      if  options[filter_name]['use_terrain']    :
-          tmp_w[ output['altitude_agl'] >  options[filter_name]['height_thr'] ] = 0.0
-      else                                    :
-          tmp_w[ output['altitude'] > options[filter_name]['height_thr'] ] = 0.0
-
-      if options['name_ref'] in radar.fields   :
-         if not options[filter_name]['force']   :
-         
-            output['wref']=output['wref'] + tmp_w * options[filter_name]['w']
-            output['qcref'][ tmp_w > 0.5 ] = options[filter_name]['code']
-            output['maxw_ref']=output['maxw_ref'] + options[filter_name]['w']
-         else                                   :
-            if options[filter_name]['fill_value']  == 'undef'       :
-               output['cref'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_ref']
-            elif options[filter_name]['fill_value']  == 'min_ref'   :
-               output['cref'][ tmp_w > options[filter_name]['force_value'] ]=options['norainrefval']
-            else                                                    :
-               output['cref'][ tmp_w > options[filter_name]['force_value'] ]=options['filter_name']['fill_value']
-
-            output['qcref'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
-
-      if options['name_v'] in radar.fields   :
-         if not options[filter_name]['force']   :
-
-            output['wv']=output['wv'] + tmp_w * options[filter_name]['w']
-            output['qcv'][ tmp_w > 0.5 ] = options[filter_name]['code']
-            output['maxw_v']=output['maxw_v'] + options[filter_name]['w']
-         else                                   :
-            if options[filter_name]['fill_value']  == 'undef'   :
-               output['cv'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_v']
-            else                                                :
-               output['cv'][ tmp_w > options[filter_name]['force_value'] ]=options[filter_name]['fill_value']
-
-            output['qcv'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
-
+      tmp_index=np.abs(output['v'])
+      tmp_index[ (output['altitude'] - output['topo']) > options[filter_name]['height_thr'] ]=10.0
+    
+      output = output_update( output , tmp_index , options , filter_name )
+ 
    return radar , output 
 
 
@@ -1570,6 +1512,19 @@ def get_rma_strat ( filename , radar )  :
        radar.instrument_parameters['nyquist_velocity']['units']='meters per second'
        radar.instrument_parameters['nyquist_velocity']['_FillValue']= local_fill_value
        radar.instrument_parameters['nyquist_velocity']['meta_group']='instrument_parameters'
+ 
+       radar.instrument_parameters['radar_beam_width_v']=dict()
+       radar.instrument_parameters['radar_beam_width_v']['long_name']='half_power_radar_beam_width_v_channel'
+       radar.instrument_parameters['radar_beam_width_v']['units']='degrees'
+       radar.instrument_parameters['radar_beam_width_v']['_FillValue']= local_fill_value
+       radar.instrument_parameters['radar_beam_width_v']['meta_group']='instrument_parameters'
+
+       radar.instrument_parameters['radar_beam_width_h']=dict()
+       radar.instrument_parameters['radar_beam_width_h']['long_name']='half_power_radar_beam_width_h_channel'
+       radar.instrument_parameters['radar_beam_width_h']['units']='degrees'
+       radar.instrument_parameters['radar_beam_width_h']['_FillValue']= local_fill_value
+       radar.instrument_parameters['radar_beam_width_h']['meta_group']='instrument_parameters'
+
     if radar.range == None :
        radar.range = dict()
     if radar.ray_angle_res == None :
@@ -1577,6 +1532,7 @@ def get_rma_strat ( filename , radar )  :
        radar.ray_angle_res['long_name']='angular_resolution_between_rays'
        radar.ray_angle_res['units']='degrees'
        radar.ray_angle_res['_FillValue']= local_fill_value
+    
        
     #Get the corresponding radar strategy depending on the filename.
     radar.altitude_agl['data'] = 0.0   
@@ -1587,10 +1543,14 @@ def get_rma_strat ( filename , radar )  :
        nyquist_velocity     = 13.35
        ray_angle_res        = 1.0
        meters_between_gates = 300
+       radar_beam_width_h   = 1.0
+       radar_beam_width_v   = 1.0
 
 
     #Apply the missing parameters to the radar structure.
     radar.instrument_parameters['nyquist_velocity']['data'] = ma.array(np.ones( np.shape(radar.azimuth['data']) )*nyquist_velocity , mask = np.zeros( np.shape(radar.azimuth['data']) , dtype=bool ) , fill_value = local_fill_value )
+    radar.instrument_parameters['radar_beam_width_h']['data'] = ma.array( radar_beam_width_h , mask =False , fill_value = local_fill_value )
+    radar.instrument_parameters['radar_beam_width_v']['data'] = ma.array( radar_beam_width_v , mask =False , fill_value = local_fill_value )
     radar.ray_angle_res['data'] = ma.array( np.ones( np.shape( levels ) )*ray_angle_res , mask = np.zeros( np.shape( levels ) , dtype=bool ) , fill_value = local_fill_value )
     radar.range['meters_between_gates']= meters_between_gates
     radar.range['meters_to_center_of_first_gate']= meters_between_gates / 2.0
@@ -1830,9 +1790,9 @@ def dopplerspatialcoherence_filter( v , undef , my_conf ) :
 
       coherence_index[ speckle_v < my_conf['speckle_threshold'] ] = 10.0
 
-   v[ coherence_index > my_conf['threshold_coherence_index'] ] = undef
+   #v[ coherence_index > my_conf['threshold_coherence_index'] ] = undef
 
-   return v , coherence_index
+   return coherence_index
 
 def interference_filter ( ref , undef , min_ref , r , my_conf )  :
 
@@ -1864,6 +1824,8 @@ def interference_filter ( ref , undef , min_ref , r , my_conf )  :
    else                      :
       tmp_ref = np.copy( ref )
 
+   tmp_index=np.zeros( np.shape( ref ) ) 
+
    tmp_z = np.power( 10.0, tmp_ref / 10.0  )
 
    tmp_z[tmp_ref == undef ] = undef
@@ -1878,12 +1840,6 @@ def interference_filter ( ref , undef , min_ref , r , my_conf )  :
    corr_threshold=my_conf['corr_threshold']
    ref_threshold=my_conf['ref_threshold']
    percent_ref_threshold=my_conf['percent_ref_threshold']
-   if my_conf['fill_value'] == 'undef' :
-      fill_value=undef
-   elif my_conf['fill_value'] == 'min_ref' :
-      fill_value=minref
-   else                               :
-      fill_value=my_conf['fill_value']
 
    Power_Regression = my_conf['Power_Regression']
 
@@ -1966,7 +1922,8 @@ def interference_filter ( ref , undef , min_ref , r , my_conf )  :
               #If the reflectivity is far from the fitted interference, and is smaller than the fitted interference
               #then set that pixel as an undef pixel.
               tmp_mask = np.logical_and( tmp_z[i,:,k] - zrayo <= 5.0 , undef_mask )
-              ref[i, tmp_mask ,k] = fill_value
+              ref[i, tmp_mask ,k] = undef
+              tmp_index[i, tmp_mask ,k] = 1.0 
 
               #if (k == 0) and (i == 348) :
               #   plt.plot( r[undef_mask] , tmp_z[i,:,k][undef_mask] )
@@ -1989,60 +1946,74 @@ def interference_filter ( ref , undef , min_ref , r , my_conf )  :
                if ( i > 1 ) & ( i < na-2 ) :
  
                   #If we have reflectivity in only one ray but not in the neighbors this suggest an interference pattern.
-                  tmp_mask = np.logical_and( ref[i-1,:,k] <= min_ref , ref[i+1,:,k] <= min_ref )
-                  ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = fill_value
+                  tmp_mask = np.logical_and( ref[i-1,:,k] == undef , ref[i+1,:,k] == undef )
+                  ref[i,:,k][ tmp_mask ] = undef
+                  tmp_index[i,:,k][ tmp_mask ] = 1.0
 
-                  tmp_mask = np.logical_and( ref[i-2,:,k] <= min_ref , ref[i+2,:,k] <= min_ref )
-                  ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = fill_value
+                  tmp_mask = np.logical_and( ref[i-2,:,k] == undef , ref[i+2,:,k] == undef )
+                  ref[i,:,k][ tmp_mask ] = undef
+                  tmp_index[i,:,k][ tmp_mask ] = 1.0
  
                elif  i==na-1   :
-                  tmp_mask = np.logical_and( ref[i-1,:,k] <= min_ref , ref[0,:,k] <= min_ref )
-                  ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = fill_value
+                  tmp_mask = np.logical_and( ref[i-1,:,k] == undef, ref[0,:,k] == undef )
+                  ref[i,:,k][ tmp_mask ] = undef
+                  tmp_index[i,:,k][ tmp_mask ] = 1.0
 
-                  tmp_mask = np.logical_and( ref[i-2,:,k] <= min_ref , ref[1,:,k] <= min_ref )
-                  ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = fill_value
+                  tmp_mask = np.logical_and( ref[i-2,:,k] == undef , ref[1,:,k] == undef )
+                  ref[i,:,k][ tmp_mask ] = undef
+                  tmp_index[i,:,k][ tmp_mask ] = 1.0
 
                elif  i==na-3   :
-                  tmp_mask = np.logical_and( ref[i-1,:,k] <= min_ref , ref[i,:,k] <= min_ref )
-                  ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = fill_value
+                  tmp_mask = np.logical_and( ref[i-1,:,k] == undef , ref[i,:,k] == undef )
+                  ref[i,:,k][ tmp_mask ] = undef
+                  tmp_index[i,:,k][ tmp_mask ] = 1.0
 
-                  tmp_mask = np.logical_and( ref[i-2,:,k] <= min_ref , ref[0,:,k] <= min_ref )
-                  ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = fill_value
+                  tmp_mask = np.logical_and( ref[i-2,:,k] == undef , ref[0,:,k] == undef )
+                  ref[i,:,k][ tmp_mask ] = undef
+                  tmp_index[i,:,k][ tmp_mask ] = 1.0
 
                elif  i==0      :
 
-                  tmp_mask = np.logical_and( ref[na-1,:,k] <= min_ref , ref[i+1,:,k] <= min_ref )
-                  ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = fill_value
+                  tmp_mask = np.logical_and( ref[na-1,:,k] == undef , ref[i+1,:,k] == undef )
+                  ref[i,:,k][ tmp_mask ] = undef
+                  tmp_index[i,:,k][ tmp_mask ] = 1.0
 
-                  tmp_mask = np.logical_and( ref[na-2,:,k] <= min_ref , ref[i+2,:,k] <= min_ref )
-                  ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = fill_value
+                  tmp_mask = np.logical_and( ref[na-2,:,k] == undef , ref[i+2,:,k] == undef )
+                  ref[i,:,k][ tmp_mask ] = undef
+                  tmp_index[i,:,k][ tmp_mask ] = 1.0
 
                elif  i==1      :
 
-                  tmp_mask = np.logical_and( ref[i-1,:,k] <= min_ref , ref[i+1,:,k] <= min_ref )
-                  ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = fill_value
+                  tmp_mask = np.logical_and( ref[i-1,:,k] == undef , ref[i+1,:,k] == undef )
+                  ref[i,:,k][ tmp_mask ] = undef
+                  tmp_index[i,:,k][ tmp_mask ] = 1.0
 
-                  tmp_mask = np.logical_and( ref[na-1,:,k] <= min_ref , ref[i+2,:,k] <= min_ref )
-                  ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = fill_value
+                  tmp_mask = np.logical_and( ref[na-1,:,k] == undef , ref[i+2,:,k] == undef )
+                  ref[i,:,k][ tmp_mask ] = undef
+                  tmp_index[i,:,k][ tmp_mask ] = 1.0
+
 
             if ElevationFilter         :   #DETECT ISOLATED PIXELS IN ELEVATION
 
                if ( k > 0 ) & ( k < ne-1 ) :
 
-                  tmp_mask = np.logical_and( ref[i,:,k-1] <= min_ref , ref[i,:,k+1] <= min_ref )
-                  ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = fill_value
+                  tmp_mask = np.logical_and( ref[i,:,k-1] == undef , ref[i,:,k+1] == undef )
+                  ref[i,:,k][ tmp_mask ] = undef
+                  tmp_index[i,:,k][ tmp_mask ] = 1.0
 
                if ( k == 0 )                :
 
-                  tmp_mask = np.logical_and( ref[i,:,k+2] <= min_ref , ref[i,:,k+1] <= min_ref )
-                  ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = fill_value
+                  tmp_mask = np.logical_and( ref[i,:,k+2] == undef , ref[i,:,k+1] == undef )
+                  ref[i,:,k][ tmp_mask ] = undef
+                  tmp_index[i,:,k][ tmp_mask ] = 1.0
 
                if ( k == ne-1 )            :
 
-                  tmp_mask = np.logical_and( ref[i,:,k-2] <= min_ref , ref[i,:,k-1] <= min_ref )
-                  ref[i,:,k][ np.logical_and( tmp_mask , ref[i,:,k] > min_ref ) ] = fill_value
+                  tmp_mask = np.logical_and( ref[i,:,k-2] == undef , ref[i,:,k-1] == undef )
+                  ref[i,:,k][ tmp_mask ] = undef
+                  tmp_index[i,:,k][ tmp_mask ] = 1.0
 
-   return ref
+   return tmp_index 
 
 
 def smooth_fft( x )   :
@@ -2270,6 +2241,10 @@ def generate_topo_file( rlon , rlat , rrange , razimuth , raster_path , topo_fil
     write_topo( my_topo , topo_file )
 
     return my_topo
+
+
+
+
 
 
 

@@ -1012,9 +1012,9 @@ fieldo=0.0d0
 DO ix = 1 , nx
   DO iy = 1 , ny
     DO iz = 1 , nz
-       IF( field(ix,iy,iz) < xx(1) )THEN
+       IF( field(ix,iy,iz) <= xx(1) )THEN
          fieldo(ix,iy,iz) = yy(1) 
-       ELSEIF( field(ix,iy,iz) > xx(nxx) )THEN
+       ELSEIF( field(ix,iy,iz) >= xx(nxx) )THEN
          fieldo(ix,iy,iz) = yy(nxx)
        ELSE
          DO iix = 1 , nxx-1

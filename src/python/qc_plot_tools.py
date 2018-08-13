@@ -1,6 +1,13 @@
+#print __doc__
+# Author: Rapid Refresh Argentina Team
+# License: BSD 3 clause
 
+#This model contains routines for ploting diagnostics related to the different
+#filters applied in the QC routine.
 
-def plot_dealiasing( qc_output , options , elev=0 , figname='out.png',vmin=-30,vmax=30,cmap='pyart_NWSVel',show=False)  :
+#Function names are formed as follows: plot_[filter_name] 
+
+def plot_Dealiasing( qc_output , options )  :
 
     import numpy as np
     import matplotlib.pyplot as plt
@@ -8,36 +15,39 @@ def plot_dealiasing( qc_output , options , elev=0 , figname='out.png',vmin=-30,v
 
     filter_name='Dealiasing'
 
-    plt.figure(figsize=(8, 8))
-    plt.subplot(2,2,1)
+    for ilev in options['plot']['Elevs']  :
 
-    tmp_v=np.ma.masked_array( qc_output['v'] , qc_output['v'] == qc_output['undef_v'] )
-    tmp_cv=np.ma.masked_array( qc_output['cv'] , qc_output['cv'] == qc_output['undef_v'] )
+       plt.figure(figsize=(8, 8))
+       plt.subplot(2,2,1)
 
-    plt.pcolor(qc_output['x'][:,:,elev]/1e3,qc_output['y'][:,:,elev]/1e3,tmp_cv[:,:,elev],vmin=vmin,vmax=vmax,cmap=cmap)
-    plt.title('Corrected Doppler Velocity')
-    plt.colorbar()
+       tmp_v=np.ma.masked_array( qc_output['v'] , qc_output['v'] == qc_output['undef_v'] )
+       tmp_cv=np.ma.masked_array( qc_output['cv'] , qc_output['cv'] == qc_output['undef_v'] )
 
-    plt.subplot(2,2,2)
-    plt.pcolor(qc_output['x'][:,:,elev]/1e3,qc_output['y'][:,:,elev]/1e3,tmp_v[:,:,elev],vmin=vmin,vmax=vmax,cmap=cmap)
-    plt.title('Original Doppler Velocity')
-    plt.colorbar()
+       plt.pcolor(qc_output['x'][:,:,ielev]/1e3,qc_output['y'][:,:,ielev]/1e3,tmp_cv[:,:,ielev],vmin=ptions['plot']['VrMin'],vmax=options['plot']['VrMax'],cmap=options['plot']['CmapWind'])
+       plt.title('Corrected Doppler Velocity')
+       plt.colorbar()
 
-#    plt.subplot(2,2,3)
-#    plt.pcolor(qc_output['x'][:,:,elev]/1e3,qc_output['y'][:,:,elev]/1e3, ( qc_output['qcv'][:,:,elev]==options[filter_name]['texture_code'] ).astype(float) )
-#    plt.title('Pixels eliminated by texture texture filter')
-#    plt.colorbar()
+       plt.subplot(2,2,2)
+       plt.pcolor(qc_output['x'][:,:,ielev]/1e3,qc_output['y'][:,:,ielev]/1e3,tmp_v[:,:,ielev],vmin=ptions['plot']['VrMin'],vmax=options['plot']['VrMax'],cmap=options['plot']['CmapWind'])
+       plt.title('Original Doppler Velocity')
+       plt.colorbar()
 
-    plt.subplot(2,2,4)
-    plt.pcolor(qc_output['x'][:,:,elev]/1e3,qc_output['y'][:,:,elev]/1e3, ( qc_output['qcv'][:,:,elev]==options[filter_name]['code'] ).astype(float) )
-    plt.title('Pixels where aliasing was corrected')
-    plt.colorbar()
+       #plt.subplot(2,2,3)
+       #plt.pcolor(qc_output['x'][:,:,ielev]/1e3,qc_output['y'][:,:,ielev]/1e3, ( qc_output['qcv'][:,:,ielev]==options[filter_name]['texture_code'] ).astype(float) )
+       #plt.title('Pixels eliminated by texture texture filter')
+       #plt.colorbar()
 
-    if show  :
+       plt.subplot(2,2,4)
+       plt.pcolor(qc_output['x'][:,:,ielev]/1e3,qc_output['y'][:,:,ielev]/1e3, ( qc_output['qcv'][:,:,ielev]==options[filter_name]['code'] ).astype(float) )
+       plt.title('Pixels where aliasing was corrected')
+       plt.colorbar()
 
-        plt.show()
+       if show  :
 
-    plt.savefig(figname, dpi=None, facecolor='w', edgecolor='w',
+           plt.show()
+
+       figname=options['plot']['FigNamePrefix'] + filter_name + options['plot']['FigNameSufix']
+       plt.savefig(figname, dpi=None, facecolor='w', edgecolor='w',
                    orientation='portrait', papertype=None, format=None,
                    transparent=False, bbox_inches=None, pad_inches=0.1,
                    frameon=None)
@@ -47,7 +57,7 @@ def plot_dealiasing( qc_output , options , elev=0 , figname='out.png',vmin=-30,v
 
 
 
-def plot_rhofilter( qc_output , options , elev=0 , figname='out.png',vmin=-10,vmax=70,cmap='pyart_NWSRef',show=False)  :
+def plot_RhoFilter( qc_output , options , elev=0 , figname='out.png',vmin=-10,vmax=70,cmap='pyart_NWSRef',show=False)  :
 
     import numpy as np
     import matplotlib.pyplot as plt
@@ -90,7 +100,7 @@ def plot_rhofilter( qc_output , options , elev=0 , figname='out.png',vmin=-10,vm
 
 
 
-def plot_echotopfilter( qc_output , options , elev=0 , figname='out.png',vmin=-10,vmax=70,cmap='pyart_NWSRef',show=False)  :
+def plot_EchoTopFilter( qc_output , options , elev=0 , figname='out.png',vmin=-10,vmax=70,cmap='pyart_NWSRef',show=False)  :
 
     import numpy as np
     import matplotlib.pyplot as plt
@@ -132,7 +142,7 @@ def plot_echotopfilter( qc_output , options , elev=0 , figname='out.png',vmin=-1
     return
 
 
-def plot_echodepthfilter( qc_output , options , elev=0 , figname='out.png',vmin=-10,vmax=70,cmap='pyart_NWSRef',show=False)  :
+def plot_EchoDepthFilter( qc_output , options , elev=0 , figname='out.png',vmin=-10,vmax=70,cmap='pyart_NWSRef',show=False)  :
 
     import numpy as np
     import matplotlib.pyplot as plt
@@ -173,7 +183,7 @@ def plot_echodepthfilter( qc_output , options , elev=0 , figname='out.png',vmin=
 
     return
 
-def plot_refspecklefilter( qc_output , options , elev=0 , figname='out.png',vmin=-10,vmax=70,cmap='pyart_NWSRef',show=False)  :
+def plot_RefSpeckleFilter( qc_output , options , elev=0 , figname='out.png',vmin=-10,vmax=70,cmap='pyart_NWSRef',show=False)  :
 
     import numpy as np
     import matplotlib.pyplot as plt
@@ -215,7 +225,7 @@ def plot_refspecklefilter( qc_output , options , elev=0 , figname='out.png',vmin
     return
 
 
-def plot_dopplerspecklefilter( qc_output , options , elev=0 , figname='out.png',vmin=-30,vmax=30,cmap='pyart_NWSVel',show=False)  :
+def plot_DopplerSpeckleFilter( qc_output , options , elev=0 , figname='out.png',vmin=-30,vmax=30,cmap='pyart_NWSVel',show=False)  :
 
     import numpy as np
     import matplotlib.pyplot as plt
@@ -262,7 +272,7 @@ def plot_dopplerspecklefilter( qc_output , options , elev=0 , figname='out.png',
 
 
 
-def plot_dopplertexturefilter( qc_output , options , elev=0 , figname='out.png',vmin=-30,vmax=30,cmap='pyart_NWSVel',show=False)  :
+def plot_DopplerTextureFilter( qc_output , options , elev=0 , figname='out.png',vmin=-30,vmax=30,cmap='pyart_NWSVel',show=False)  :
 
     import numpy as np
     import matplotlib.pyplot as plt
@@ -308,7 +318,7 @@ def plot_dopplertexturefilter( qc_output , options , elev=0 , figname='out.png',
     return
 
 
-def plot_dopplerlocalstdfilter( qc_output , options , elev=0 , figname='out.png',vmin=-30,vmax=30,cmap='pyart_NWSVel',show=False)  :
+def plot_DopplerLocalStdFilter( qc_output , options , elev=0 , figname='out.png',vmin=-30,vmax=30,cmap='pyart_NWSVel',show=False)  :
 
     import numpy as np
     import matplotlib.pyplot as plt
@@ -354,7 +364,7 @@ def plot_dopplerlocalstdfilter( qc_output , options , elev=0 , figname='out.png'
 
     return
 
-def plot_dopplerspatialcoherencefilter( qc_output , options , elev=0 , figname='out.png',vmin=-30,vmax=30,cmap='pyart_NWSVel',show=False)  :
+def plot_DopplerSpatialCoherenceFilter( qc_output , options , elev=0 , figname='out.png',vmin=-30,vmax=30,cmap='pyart_NWSVel',show=False)  :
 
     import numpy as np
     import matplotlib.pyplot as plt
@@ -401,7 +411,7 @@ def plot_dopplerspatialcoherencefilter( qc_output , options , elev=0 , figname='
 
 
 
-def plot_dopplernoisefilter( qc_output , options , elev=0 , figname='out.png',vmin=-30,vmax=30,cmap='pyart_NWSVel',show=False)  :
+def plot_DopplerNoiseFilter( qc_output , options , elev=0 , figname='out.png',vmin=-30,vmax=30,cmap='pyart_NWSVel',show=False)  :
 
     import numpy as np
     import matplotlib.pyplot as plt
@@ -449,7 +459,7 @@ def plot_dopplernoisefilter( qc_output , options , elev=0 , figname='out.png',vm
 
 
 
-def plot_reflectivitytexturefilter( qc_output , options , elev=0 , figname='out.png',vmin=-10,vmax=70,cmap='pyart_NWSRef',show=False)  :
+def plot_ReflectivityTextureFilter( qc_output , options , elev=0 , figname='out.png',vmin=-10,vmax=70,cmap='pyart_NWSRef',show=False)  :
 
     import numpy as np
     import matplotlib.pyplot as plt
@@ -490,7 +500,7 @@ def plot_reflectivitytexturefilter( qc_output , options , elev=0 , figname='out.
 
     return
 
-def plot_attenuationfilter( qc_output , options , elev=0 , figname='out.png',vmin=-10,vmax=70,cmap='pyart_NWSRef',show=False)  :
+def plot_AttenuationFilter( qc_output , options , elev=0 , figname='out.png',vmin=-10,vmax=70,cmap='pyart_NWSRef',show=False)  :
 
     import numpy as np
     import matplotlib.pyplot as plt
@@ -531,7 +541,7 @@ def plot_attenuationfilter( qc_output , options , elev=0 , figname='out.png',vmi
 
     return
 
-def plot_blockingfilter( qc_output , options , elev=0 , figname='out.png',vmin=-10,vmax=70,cmap='pyart_NWSRef',show=False)  :
+def plot_BlockingFilter( qc_output , options , elev=0 , figname='out.png',vmin=-10,vmax=70,cmap='pyart_NWSRef',show=False)  :
 
     import numpy as np
     import matplotlib.pyplot as plt
@@ -573,7 +583,7 @@ def plot_blockingfilter( qc_output , options , elev=0 , figname='out.png',vmin=-
     return
 
 
-def plot_lowelevfilter( qc_output , options , elev=0 , figname='out.png',vmin=-10,vmax=70,cmap='pyart_NWSRef',show=False)  :
+def plot_LowElevFilter( qc_output , options , elev=0 , figname='out.png',vmin=-10,vmax=70,cmap='pyart_NWSRef',show=False)  :
 
     import numpy as np
     import matplotlib.pyplot as plt
@@ -615,7 +625,7 @@ def plot_lowelevfilter( qc_output , options , elev=0 , figname='out.png',vmin=-1
     return
 
 
-def plot_lowdopplerfilter( qc_output , options , elev=0 , figname='out.png',vmin=-10,vmax=70,cmap='pyart_NWSRef',show=False)  :
+def plot_LowDopplerFilter( qc_output , options , elev=0 , figname='out.png',vmin=-10,vmax=70,cmap='pyart_NWSRef',show=False)  :
 
     import numpy as np
     import matplotlib.pyplot as plt
@@ -657,7 +667,7 @@ def plot_lowdopplerfilter( qc_output , options , elev=0 , figname='out.png',vmin
     return
 
 
-def plot_interferencefilter( qc_output , options , elev=0 , figname='out.png',vmin=-10,vmax=70,cmap='pyart_NWSRef',show=False)  :
+def plot_InterferenceFilter( qc_output , options , elev=0 , figname='out.png',vmin=-10,vmax=70,cmap='pyart_NWSRef',show=False)  :
 
     import numpy as np
     import matplotlib.pyplot as plt
