@@ -906,81 +906,55 @@ ENDDO       !End loop over azimuth
 RETURN
 END SUBROUTINE SOBEL_FILTER
 
-SUBROUTINE SIMPLE_EDGE_FILTER( field , nx , ny , nz , undef , nboxx , nboxy , nboxz , edge_tr , edge_intensity , edge_mask )
+SUBROUTINE DOPPLER_EDGE_FILTER( vdiff , v , nx , ny , nz , undef , nboxx , nboxy , nboxz , edge_tr , edge_mask )
 !This subroutine detects edges in one field computing differences between nearby grid points.
 !When these differences are over a certain threshold (nh_thresh) an edge is detected.
 !The output is a logical mask (edge_mask) which is true where the routine detected an edge and false 
 !otherwise.
 
 IMPLICIT NONE
-INTEGER       , INTENT(IN)       :: nx,ny,nz                  !Matrices size
-INTEGER       , INTENT(IN)       :: nboxx,nboxy,nboxz         !expansion factors edges will be expanded nx,ny,nz grid points.
-REAL(r_size)  , INTENT(IN)       :: field(nx,ny,nz)           !Original field
+INTEGER       , INTENT(IN)       :: nx,ny,nz                       !Matrices size
+INTEGER       , INTENT(IN)       :: nboxx,nboxy,nboxz              !expansion factors edges will be expanded nx,ny,nz grid points.
+REAL(r_size)  , INTENT(IN)       :: vdiff(nx,ny,nz) , v(nx,ny,nz)  !Dealiased-aliased difference , corrected v
 REAL(r_size)  , INTENT(IN)       :: edge_tr , undef
 
-REAL(r_size)  , INTENT(OUT)      :: edge_intensity(nx,ny,nz)
-LOGICAL       , INTENT(OUT)      :: edge_mask(nx,ny,nz)
+INTEGER       , INTENT(OUT)      :: edge_mask(nx,ny,nz)
 
-REAL(r_size)                     :: sx , sy
 INTEGER                          :: ix,iy,iz , maxx,maxy,maxz , minx,miny,minz , boxx,boxy,boxz , iix,iiy,iiz
 
-edge_mask=.False.
-
-edge_intensity=0.0d0
+edge_mask=0
 
 boxx=max( nboxx , 0 )
 boxy=max( nboxy , 0 )
 boxz=max( nboxz , 0 )
 
-!$OMP PARALLEL DO SCHEDULE(DYNAMIC) PRIVATE(maxx,maxy,maxz,minx,miny,minz,ix,iy,iz)
+!$OMP PARALLEL DO SCHEDULE(DYNAMIC) PRIVATE(maxx,maxy,maxz,minx,miny,minz,ix,iy,iz,iix,iiy,iiz)
 
 DO ix=1,nx
   DO iy=1,ny
     DO iz=1,nz
 
-        IF ( field(ix,iy,iz) .ne. undef ) THEN
+        IF ( v(ix,iy,iz) .ne. undef .and. vdiff(ix,iy,iz) /= 0.0d0 ) THEN
                
            !Look for neighbors.
-           maxx=min( ix+1 ,  nx )
-           maxy=min( iy+1 ,  ny )
-           !maxz=min( iz+1 ,  nz )
-           minx=max( ix-1 ,  1  )
-           miny=max( iy-1 ,  1  )
-           !minz=max( iz-1 ,  1  )
+           maxx=min( ix+nboxx ,  nx )
+           maxy=min( iy+nboxy ,  ny )
+           maxz=min( iz+nboxz ,  nz )
+           minx=max( ix-nboxx ,  1  )
+           miny=max( iy-nboxy ,  1  )
+           minz=max( iz-nboxz ,  1  )
 
            DO iix=minx,maxx
              DO iiy=miny,maxy
-               !DO iiz=minz,maxz
-                
-                 IF( field(iix,iiy,iz) .ne. undef )THEN
- 
-                   IF( abs( field(iix,iiy,iz) - field(ix,iy,iz) ) > edge_intensity(ix,iy,iz) )THEN
-                        
-                     edge_intensity(ix,iy,iz) = abs( field(iix,iiy,iz) - field(ix,iy,iz) )     
+               DO iiz=minz,maxz
+                 IF( vdiff(iix,iiy,iiz) == 0.0d0 .and. abs( v(ix,iy,iz) - v(iix,iiy,iiz) ) > edge_tr )THEN
 
-                   ENDIF
+                     edge_mask(iix,iiy,iiz) = 1
  
                  ENDIF 
-
-               !ENDDO 
+               ENDDO
              ENDDO      
            ENDDO
-
-           IF( edge_intensity(ix,iy,iz) > edge_tr ) THEN
-
-             !Expand the grid points identified as edges using nx,ny,nz
-
-             maxx=min( ix+boxx ,  nx )
-             maxy=min( iy+boxy ,  ny )
-             maxz=min( iz+boxz ,  nz )
-             minx=max( ix-boxx ,  1  )
-             miny=max( iy-boxy ,  1  )
-             minz=max( iz-boxz ,  1  )
-
-             edge_mask(minx:maxx,miny:maxy,minz:maxz)=.True.
-
-
-           ENDIF
 
         ENDIF
 
@@ -992,7 +966,7 @@ ENDDO
 
 RETURN
 
-END SUBROUTINE SIMPLE_EDGE_FILTER 
+END SUBROUTINE DOPPLER_EDGE_FILTER
 
 SUBROUTINE MULTIPLE_1D_INTERPOLATION( field , nx, ny , nz , undef , xx , yy , nxx , fieldo )
 !Interpolate the values given in the 3-dimensional array to the 1d function defined by xx and yy.
@@ -1028,7 +1002,7 @@ DO ix = 1 , nx
 ENDDO
 !$OMP END PARALLEL DO
 
-
+RETURN
 
 END SUBROUTINE MULTIPLE_1D_INTERPOLATION
 
@@ -1118,7 +1092,7 @@ DO ia = 1 , na
              ismissing=.False.
          endif
          if( ismissing )then
-            missing_mask=.True.
+            missing_mask(ia,ir,ie)=.True.
             nmissing=nmissing+1
          endif
     ENDDO

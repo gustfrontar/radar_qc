@@ -95,6 +95,16 @@ def main_qc( filename , options ) :
 
    print("The elapsed time in {:s} is {:2f}".format("the entire QC",end-start) )
 
+
+   print('')
+   print('-------------------------------------------')
+   print('Updating radar object')
+   print('-------------------------------------------')
+   print('')
+
+
+   update_radar_object( radar , output , options )
+
    return radar , output
 
 
@@ -578,22 +588,6 @@ def run_filters( radar , output , options )   :
           print("The elapsed time in {:s} is {:2f}".format(ifilter,end-start) )
           print('')
 
-#       if globals().get('plot_' + ifilter) is None  :
-#          #If I can not find the corresponding function raise an error.
-#          print("Error: No plotting function for {}".format(ifilter))
-#       else                                      :
-#          #Run the filter (call the function named after the filter name.
-#          print('')
-#          print('-------------------------------------------')
-#          print('Plotting diagnostics for ' + ifilter )
-#          print('-------------------------------------------')
-#          print('')
-#          exec("plot_" + ifilter + "( output , options )")
-#          print('')
-#          end=time.time()
-#          print("The elapsed time in ploting {:s} is {:2f}".format(ifilter,end-start) )
-#          print('')
-
    print('')
    print('-------------------------------------------')
    print('Finish running the filters')
@@ -645,10 +639,15 @@ def Dealiasing( radar , output , options )   :
       tmp_weigth = np.zeros( np.shape( tmp_index ) )
       plot_filter( output , tmp_index , tmp_weigth , options , filter_name )   
 
+      #Store the difference between original and dealiased velocity.
+      output['Dealiasing']=dict()
+      output['Dealiasing']['vdiff']=( output['cv'] - output['v'] )
+      output['Dealiasing']['vda']=np.copy( output['cv'] )
+
+
       if options[filter_name]['sequential']     :
          #Following filters will be computed using the corrected velocity.
          output['v'] = output['cv'] 
-
    
    return radar , output 
 
@@ -670,7 +669,7 @@ def ModelFilter( radar , output , options)   :
 # DEALIASING BORDER FILTER
 #===================================================
 
-def DealiasingBorderFilter( radar , output , options )    :
+def DealiasingEdgeFilter( radar , output , options )    :
 
    import numpy as np
    from common_qc_tools  import qc  #Fortran code routines.
@@ -679,20 +678,18 @@ def DealiasingBorderFilter( radar , output , options )    :
    nr=output['nr']
    ne=output['ne']
 
-   filter_name='DealiasingBorderFilter'  
+   filter_name='DealiasingEdgeFilter'  
 
-   if options['Dealiasing']['flag'] :
+   #Test if Dealiasing has been applied to this data.
+   if 'Dealiasing' in output :
+
+      nyquistv=np.max( radar.get_nyquist_vel(0,check_uniform=True) )
 
       #Use a simple edge detection routine to detect the borders between dealiased and non-dealiased regions.
-      #Flag this grid points and eliminate all the non-dealiased corrected pixels near by.
-      mask =  ( output['qcv'] == options['Dealiasing']['code'] ).astype(float)  
-    
-      [ edge_intensity , edge_mask ]=qc.simple_edge_filter( field=mask , nx=na,ny=nr,nz=ne,undef=output['undef_v'],
+      tmp_index =qc.doppler_edge_filter( vdiff=output['Dealiasing']['vdiff'] , v=output['Dealiasing']['vda'], nx=na,ny=nr,nz=ne,undef=output['undef_v'],
                                                                                nboxx=options[filter_name]['nx'],nboxy=options[filter_name]['ny'],
-                                                                               nboxz=options[filter_name]['nz'],edge_tr=0.5 )
+                                                                               nboxz=options[filter_name]['nz'],edge_tr=( nyquistv/3.0 ) )
 
-      #Find the pixels which are close to a dealiased region but which has not been corrected by the dealiasing.
-      tmp_index = np.logical_and( edge_mask , mask == 0 ).astype(float) 
 
       output = output_update( output , tmp_index , options , filter_name ) 
 
@@ -992,6 +989,7 @@ def BlockingFilter( radar , output , options )   :
 def DopplerNoiseFilter( radar , output , options )   :
 
    import numpy as np
+   from common_qc_tools  import qc  #Fortran code routines.
 
    na=output['na']
    nr=output['nr']
@@ -999,95 +997,44 @@ def DopplerNoiseFilter( radar , output , options )   :
 
    filter_name='DopplerNoiseFilter'
 
-   if options[filter_name]['flag'] & ( options['name_v'] in radar.fields ) :
+   if options['name_v'] in radar.fields  :
 
-     nx=options[filter_name]['nx']
-     ny=options[filter_name]['ny']
-     nz=options[filter_name]['nz']
 
-     nx2=options[filter_name]['nx2']
-     ny2=options[filter_name]['ny2']
-     nz2=options[filter_name]['nz2']
+     v=np.copy(output['v'])
+     tmp_v=np.copy(output['v'])
 
-     tr_1=options[filter_name]['threshold_1']
-     tr_2=options[filter_name]['threshold_2']
+     for ii in range(len(options[filter_name]['n_filter_pass']))  :
 
-     tmp_dv_1=np.copy(output['v'])
-     tmp_dv_2=np.copy(output['v'])
+      nx=options[filter_name]['nx'][ii]
+      ny=options[filter_name]['ny'][ii]
+      nz=options[filter_name]['nz'][ii]
+      tr=options[filter_name]['threshold'][ii]
+      nf=options[filter_name]['n_filter_pass'][ii]
 
-     for ip in range(0,options[filter_name]['n_filter_pass']) :
+      #First round with small local domains.
+      for ip in range(0,nf) :
 
-       output['smooth_v']=qc.box_functions_2d(datain=tmp_dv_2,na=na,nr=nr,ne=ne,undef=output['undef_v']
+         #Smooth v is the smoothed velocity without the outliers.
+         smooth_v=qc.box_functions_2d(datain=tmp_v,na=na,nr=nr,ne=ne,undef=output['undef_v']
                                                ,boxx=nx,boxy=ny,boxz=nz,operation='MEAN',threshold=0.0)
 
-       undef_mask = np.logical_or( output['smooth_v'] == output['undef_v'] , output['v'] == output['undef_v'] )
+         #Compute the distance between the original wind field and the smoothed wind field without the outliers.
+         distance = np.abs( smooth_v - v )
 
-       output['distance_1'] = np.abs( output['smooth_v'] - output['v'] )
+         #Remove those pixels that are far from the local mean.
+         tmp_v=np.copy( v )
+         tmp_v[ distance > tr ] = output['undef_v']
+         tmp_v[ distance == output['undef_v'] ] = output['undef_v']
 
-       output['distance_1'][undef_mask] = 0.0
+      #At the end of the loop (multiple filter passes)
+      #Remove all the pixels that are far from the local mean.
+      v[ distance > tr ] = output['undef_v']
+      tmp_v = np.copy( v ) 
 
+     #Get the pixels in which v is undef but the original v is not (those are the ones removed by the filter)
+     tmp_index = np.logical_and( output['v'] != output['undef_v'] , v == output['undef_v'] ).astype(int)   
 
-       #output['distance_1']=qc.compute_distance(tmp_dv_1,tmp_dv_2,nx=na,ny=nr,nz=ne,
-       #                                         undef=output['undef_v'],nx_box=nx,ny_box=ny,nz_box=nz)
-
-       #tmp_dv_2=np.copy(output['v']) 
-
-       tmp_dv_2[ output['distance_1'] > tr_1 ]=output['undef_v']
-
-       print( np.max( output['distance_1'] ), np.min( output['distance_1'] ) )
-
-     #Compute the corresponding weigth.
-     tmp_w = qc.multiple_1d_interpolation( field=output['distance_1'], nx=na , ny=nr , nz=ne
-                                           , undef=output['undef_v'] , xx=options[filter_name]['ifx_1']
-                                           , yy=options[filter_name]['ify_1'] , nxx=np.size(options[filter_name]['ifx_1']) )
-
-
-     if not options[filter_name]['force']   :
-       output['wv']=output['wv'] + tmp_w * options[filter_name]['w']
-       output['qcv'][ tmp_w > 0.5 ] = options[filter_name]['code']
-     else                                   :
-       output['cv'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_v']
-       output['qcv'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
-
-
-     #tmp_dv_1[ np.logical_or( output['distance_1'] > tr_1 , output['distance_1']==output['undef_v'] ) ]=output['undef_v']
-
-     #tmp_dv_2=np.copy(tmp_dv_1)
-
-     for ip in range(0,options[filter_name]['n_filter_pass']) :
-
-        output['smooth_v']=qc.box_functions_2d(datain=tmp_dv_2,na=na,nr=nr,ne=ne,undef=output['undef_v']
-                                              ,boxx=nx2,boxy=ny2,boxz=nz2,operation='MEAN',threshold=0.0)
-
-        undef_mask = np.logical_or( output['smooth_v'] == output['undef_v'] , output['v'] == output['undef_v'] )
-
-        output['distance_2'] = np.abs( output['smooth_v'] - output['v'] )
-
-        output['distance_2'][undef_mask] = 0.0
-
-        tmp_dv_2[ output['distance_2'] > tr_2 ]=output['undef_v']
-
-
-     #Compute the corresponding weigth.
-     tmp_w = qc.multiple_1d_interpolation( field=output['distance_2'] , nx=na , ny=nr , nz=ne
-                                           , undef=output['undef_v'] , xx=options[filter_name]['ifx_2']
-                                           , yy=options[filter_name]['ify_2'] , nxx=np.size(options[filter_name]['ifx_2']) )
-
-     if not options[filter_name]['force']   :
-       output['wv']=output['wv'] + tmp_w * options[filter_name]['w']
-       output['qcv'][ tmp_w > 0.5 ] = options[filter_name]['code']
-       output['maxw_ref']=output['maxw_ref'] + options[filter_name]['w']
-     else                                   :
-       if options[filter_name]['fill_value']  == 'undef'   :
-          output['cv'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_v']
-       else                                                :
-          output['cv'][ tmp_w > options[filter_name]['force_value'] ]=options[filter_name]['fill_value']
-
-       output['qcv'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
-
-     if  not options[filter_name]['save']  :
-          output.pop('distance_1')
-          output.pop('distance_2')
+     output = output_update( output , tmp_index , options , filter_name )
 
    return radar , output 
 
@@ -1194,33 +1141,23 @@ def PowerFilter( radar , output , options )   :
 def MissingRefFilter( radar , output , options )    :
 
    import numpy as np
+   from common_qc_tools  import qc  #Fortran code routines.
 
    filter_name='MissingRefFilter'
 
-   if options[filter_name]['flag'] & ( options['name_ref'] in radar.fields ) :
+   if options['name_ref'] in radar.fields  :
 
-      options['missing_mask'] = qc.detect_missing(  output['ref'],na=na,nr=nr,ne=ne,undef=output['undef_ref']
+      na=output['na']
+      nr=output['nr']
+      ne=output['ne']
+
+      tmp_index = qc.detect_missing(  output['ref'],na=na,nr=nr,ne=ne,undef=output['undef_ref']
                                                    ,min_ref=options['norainrefval'],threshold=options[filter_name]['threshold'] 
                                                    ,nmissing_max=options[filter_name]['nmissing_max'] )
 
-      tmp_w = options['missing_mask'].astype(int)
+      tmp_index = tmp_index.astype(int)
 
-      if not options[filter_name]['force']   :
-         output['wref']=output['wref'] + tmp_w * options[filter_name]['w']
-         output['qcref'][ tmp_w > 0.5 ] = options[filter_name]['code']
-         output['maxw_ref']=output['maxw_ref'] + options[filter_name]['w']
-      else                                   :
-         if options[filter_name]['fill_value']  == 'undef'       :
-             output['cref'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_ref']
-         elif options[filter_name]['fill_value']  == 'min_ref'   :
-            output['cref'][ tmp_w > options[filter_name]['force_value'] ]=options['norainrefval']
-         else                                                    :
-            output['cref'][ tmp_w > options[filter_name]['force_value'] ]=options['filter_name']['fill_value']
-
-         output['qcref'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
-
-      if  not options[filter_name]['save']  :
-           output.pop('missing_mask')
+      output = output_update( output , tmp_index , options , filter_name )
 
    return radar , output 
 
@@ -1231,52 +1168,32 @@ def MissingRefFilter( radar , output , options )    :
 def ReflectivityTextureFilter( radar , output , options )   :
 
    import numpy as np
-
-   na=output['na']
-   nr=output['nr']
-   ne=output['ne']
+   from common_qc_tools  import qc  #Fortran code routines.
 
    filter_name='ReflectivityTextureFilter'
 
-   if  options[filter_name]['flag'] & ( options['name_ref'] in radar.fields ) : 
+   if  options['name_ref'] in radar.fields  : 
+
+     na=output['na']
+     nr=output['nr']
+     ne=output['ne']
 
      nx=options[filter_name]['nx']
      ny=options[filter_name]['ny']
      nz=options[filter_name]['nz']
-     output['texture_ref']=qc.compute_texture(var=output['ref'],na=na,nr=nr,ne=ne,undef=output['undef_ref'],nx=nx,ny=ny,nz=nz)
+     tmp_index = qc.compute_texture(var=output['ref'],na=na,nr=nr,ne=ne,undef=output['undef_ref'],nx=nx,ny=ny,nz=nz)
 
 
      if options[filter_name]['use_smooth_ref'] :
-        output['smooth_ref']=qc.box_functions_2d(datain=output['ref'],na=na,nr=nr,ne=ne,undef=output['undef_ref'],
+        smooth_ref =qc.box_functions_2d(datain=output['ref'],na=na,nr=nr,ne=ne,undef=output['undef_ref'],
                                                  boxx=0,boxy=0,boxz=0,operation='MEAN',threshold=0.0)
 
         #High reflectivity cores will not be affected by texture filter.
-        output['texture_ref'][ output['smooth_ref'] >= options[filter_name]['smooth_ref_tr']  ]= 0.0
+        tmp_index[ smooth_ref >= options[filter_name]['smooth_ref_tr']  ]= 0.0
 
-     output['texture_ref'][output['ref']==output['undef_ref']] = 0.0
+     tmp_index[output['ref']==output['undef_ref']] = 0.0
 
-     #Compute the corresponding weigth.
-     tmp_w = qc.multiple_1d_interpolation( field=output['texture_ref'] , nx=na , ny=nr , nz=ne
-                                           , undef=output['undef_ref'] , xx=options[filter_name]['ifx']
-                                           , yy=options[filter_name]['ify'] , nxx=np.size(options[filter_name]['ifx']) )
-
-
-     if not options[filter_name]['force']   :
-        output['wref']=output['wref'] + tmp_w * options[filter_name]['w']
-        output['qcref'][ tmp_w > 0.5 ] = options[filter_name]['code']
-        output['maxw_ref']=output['maxw_ref'] + options[filter_name]['w']
-     else                                   :
-        if options[filter_name]['fill_value']  == 'undef'       :
-           output['cref'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_ref']
-        elif options[filter_name]['fill_value']  == 'min_ref'   :
-           output['cref'][ tmp_w > options[filter_name]['force_value'] ]=options['norainrefval']
-        else                                                    :
-           output['cref'][ tmp_w > options[filter_name]['force_value'] ]=options['filter_name']['fill_value']
-
-        output['qcref'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
-
-     if  not options[filter_name]['save']  :
-          output.pop('texture_v')
+     output = output_update( output , tmp_index , options , filter_name )
 
    return radar , output 
 
@@ -1287,40 +1204,24 @@ def ReflectivityTextureFilter( radar , output , options )   :
 def DopplerTextureFilter( radar , output , options )   :
 
    import numpy as np
-
-   na=output['na']
-   nr=output['nr']
-   ne=output['ne']
+   from common_qc_tools  import qc  #Fortran code routines.
 
    filter_name='DopplerTextureFilter'
 
-   if  options[filter_name]['flag'] & ( options['name_ref'] in radar.fields ) :
+   if  options['name_ref'] in radar.fields  :
+
+     na=output['na']
+     nr=output['nr']
+     ne=output['ne']
 
      nx=options[filter_name]['nx']
      ny=options[filter_name]['ny']
      nz=options[filter_name]['nz']
-     output['texture_v']=qc.compute_texture(var=output['v'],na=na,nr=nr,ne=ne,undef=output['undef_v'],nx=nx,ny=ny,nz=nz)
-
-     #Compute the corresponding weigth.
-     tmp_w = qc.multiple_1d_interpolation( field=output['texture_v'] , nx=na , ny=nr , nz=ne
-                                           , undef=output['undef_v'] , xx=options[filter_name]['ifx']
-                                           , yy=options[filter_name]['ify'] , nxx=np.size(options[filter_name]['ifx']) )
-
-     if not options[filter_name]['force']   :
-        output['wv']=output['wv'] + tmp_w * options[filter_name]['w']
-        output['qcv'][ tmp_w > 0.5 ] = options[filter_name]['code']
-        output['maxw_v']=output['maxw_v'] + options[filter_name]['w']
-     else                                   :
-       if options[filter_name]['fill_value']  == 'undef'   :
-          output['cv'][ tmp_w > options[filter_name]['force_value'] ]=output['undef_v']
-       else                                                :
-          output['cv'][ tmp_w > options[filter_name]['force_value'] ]=options[filter_name]['fill_value']
-                               
-       output['qcv'][ tmp_w > options[filter_name]['force_value'] ] = options[filter_name]['code']
 
 
-     if  not options[filter_name]['save']  :
-          output.pop('texture_v')
+     tmp_index = qc.compute_texture(var=output['v'],na=na,nr=nr,ne=ne,undef=output['undef_v'],nx=nx,ny=ny,nz=nz)
+
+     output = output_update( output , tmp_index , options , filter_name )
 
    return radar , output
 
