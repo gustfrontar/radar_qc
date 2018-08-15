@@ -24,13 +24,13 @@ datapath='/media/jruiz/534AA1022E493735/DATOS_RADAR/RRA_radar/RMA1'
 #Generate a list with all the files contained in the folders and sub-folders.
 file_list=[]
  
-for (dirpath, dirnames, filenames) in os.walk(datapath):
+#for (dirpath, dirnames, filenames) in os.walk(datapath):
 
 
-    for filename in filenames:
-        f = '/'.join([dirpath,filename])
-        file_list.append(f)
-
+#    for filename in filenames:
+#        f = '/'.join([dirpath,filename])
+#        file_list.append(f)
+file_list=['/media/jruiz/534AA1022E493735/DATOS_RADAR/RRA_radar/RMA1/20170923/cfrad.20170923_114117.0000_to_20170923_114310.0000_RMA1_0122_02.nc']
 
 #Proceed to perform qc for each file.
 for ifile in file_list  :

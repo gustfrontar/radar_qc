@@ -29,7 +29,6 @@ def main_qc( options ) :
    print('-------------------------------------------')
    print('')
 
-
    radar = pyart.io.read(options['filename'])
 
    if options['is_rma']  :
@@ -90,11 +89,6 @@ def main_qc( options ) :
 
    [ radar , output ] = run_filters( radar , output , options )
 
-   end=time.time()
-
-   print("The elapsed time in {:s} is {:2f}".format("the entire QC",end-start) )
-
-
    print('')
    print('-------------------------------------------')
    print('Updating radar object')
@@ -120,6 +114,10 @@ def main_qc( options ) :
    print('End of QC routine')
    print('-------------------------------------------')
    print('')
+
+   end=time.time()
+
+   print("The elapsed time in {:s} is {:2f}".format("the entire QC",end-start) )
 
 
    return radar , output
@@ -373,7 +371,7 @@ def output_update( output , qc_index , options , filter_name )  :
                                          , undef=output['undef_ref'] , xx=options[filter_name]['ifx']
                                          , yy=options[filter_name]['ify'] , nxx=np.size(options[filter_name]['ifx']) )
 
-   if 'ref' in options[filter_name]['var_update_list']   : 
+   if ( 'ref' in options[filter_name]['var_update_list'] ) and ( 'ref' in output )  : 
       #Update reflectivity
       if options[filter_name]['sequential']   :
          #Preserve the data used as input for the filter for ploting pourposes.
@@ -400,7 +398,7 @@ def output_update( output , qc_index , options , filter_name )  :
 
          output['qcref'][ weigth > options[filter_name]['force_value'] ] = options[filter_name]['code']
    
-   if 'v' in options[filter_name]['var_update_list']   :
+   if ( 'v' in options[filter_name]['var_update_list'] ) and ( 'v' in output )   :
       #Update radial velocity
       if options[filter_name]['sequential']   :
          #Preserve the data used as input for the filter for ploting pourposes.
@@ -448,9 +446,9 @@ def plot_filter( output , qc_index , weigth , options , filter_name )  :
    import numpy as np
    import matplotlib.pyplot as plt
 
-   if 'ref' in options[filter_name]['var_update_list']   :
+   if ( 'ref' in options[filter_name]['var_update_list'] ) and ( 'ref' in output )  :
 
-    tmp_ref=np.ma.masked_array( output['ref_input'] , output['ref_input'] == output['undef_ref'] )
+    tmp_ref=np.ma.masked_array( output['input_ref'] , output['input_ref'] == output['undef_ref'] )
     tmp_cref=np.ma.masked_array( output['cref'] , output['cref'] == output['undef_ref'] )
     tmp_qc_index=np.ma.masked_array( qc_index , qc_index == output['undef_ref'] )
 
@@ -482,7 +480,7 @@ def plot_filter( output , qc_index , weigth , options , filter_name )  :
 
            plt.show()
 
-       figname_prefix= os.path.splitext( options['filename'] )[0]       
+       figname_prefix= options['plot']['Path'] + os.path.basename( options['filename'] )       
        figname=figname_prefix + '_elev_' + str(ilev) + '_' + filter_name + '_ref_' + options['plot']['FigNameSufix']
        plt.savefig(figname, dpi=None, facecolor='w', edgecolor='w',
                    orientation='portrait', papertype=None, format=None,
@@ -491,7 +489,7 @@ def plot_filter( output , qc_index , weigth , options , filter_name )  :
         
        plt.close()
 
-   if 'v' in options[filter_name]['var_update_list']   :
+   if ( 'v' in options[filter_name]['var_update_list'] ) and ( 'v' in output )  :
 
     tmp_v=np.ma.masked_array( output['input_v'] , output['input_v'] == output['undef_v'] )
     tmp_cv=np.ma.masked_array( output['cv'] , output['cv'] == output['undef_v'] )
@@ -525,7 +523,7 @@ def plot_filter( output , qc_index , weigth , options , filter_name )  :
 
            plt.show()
 
-       figname_prefix= os.path.splitext( options['filename'] )[0]
+       figname_prefix= options['plot']['Path'] + os.path.basename( options['filename'] )
        figname= figname_prefix + '_elev_' + str(ilev) + '_' + filter_name + '_v_' + options['plot']['FigNameSufix']
        plt.savefig(figname, dpi=None, facecolor='w', edgecolor='w',
                    orientation='portrait', papertype=None, format=None,
