@@ -2,7 +2,7 @@
 # Author: Rapid Refresh Argentina Team
 # License: BSD 3 clause
 
-def main_qc( filename , options ) :
+def main_qc( options ) :
 
    import sys
    import time
@@ -12,9 +12,7 @@ def main_qc( filename , options ) :
    import numpy.ma as ma
    import pyart
    from common_qc_tools  import qc  #Fortran code routines.
-   import netCDF4
    import os
-   from netCDF4 import Dataset
 
 
    start=time.time()
@@ -24,11 +22,11 @@ def main_qc( filename , options ) :
    computed_etfilter=False   #Flag to indicate if echo top has been computed already.
 
    #Read the data
-   radar = pyart.io.read(filename)
+   radar = pyart.io.read(options['filename'])
 
    if options['is_rma']  :
 
-      radar = get_rma_strat( filename , radar ) 
+      radar = get_rma_strat( options['filename'] , radar ) 
 
    if radar.altitude_agl['data'] == 0.0    :
       #Radar is assumed to be at ground level. Add 20 meters to account for the height of the tower.
@@ -38,11 +36,9 @@ def main_qc( filename , options ) :
    #Get the nyquist velocity
    if not options['is_rma']  :
       nyquistv=radar.get_nyquist_vel(0,check_uniform=True)
-      
 
    output['maxw_ref']=0.0
    output['maxw_v']  =0.0
-
 
    #===================================================
    # SOME PRELIMINARY PROCEDURES.
@@ -105,6 +101,10 @@ def main_qc( filename , options ) :
 
    update_radar_object( radar , output , options )
 
+   if options['output_to_file']   :
+
+      pyart.io.cfradial.write_cfradial(options['filename_out'],radar,format=options['file_out_format'],time_reference=True, arm_time_variables=True)
+
    return radar , output
 
 
@@ -113,8 +113,8 @@ def main_qc( filename , options ) :
 #===================================================
 
 
-#===================================================
-# RESHAPE VARIABLES
+#==================================================a
+#' RESHAPE VARIABLES
 #===================================================
 
 def reshape_variables( radar , output , options )    :
@@ -241,6 +241,9 @@ def get_topography( radar , output , options )  :
       print('Topography file not found. We will generate a new file from raw raster data')
 
    if read_raster    :   #We read the original data and interpolate it to a polar grid centered at the radar.
+
+      os.makedirs(options['toporawdatapath'],exist_ok=True)
+      os.makedirs(options['toporadardatapath'],exist_ok=True)
 
       #Generate topo file ( inputs are , radar lat and lon, range and azimuth )
       my_topo=generate_topo_file( radar.longitude['data'][0] , radar.latitude['data'][0] , radar.range['data'] , output['az'] , 
@@ -424,6 +427,7 @@ def output_update( output , qc_index , options , filter_name )  :
 
 def plot_filter( output , qc_index , weigth , options , filter_name )  :
 
+   import os.path 
    import numpy as np
    import matplotlib.pyplot as plt
 
@@ -461,7 +465,8 @@ def plot_filter( output , qc_index , weigth , options , filter_name )  :
 
            plt.show()
 
-       figname=options['plot']['FigNamePrefix'] + '_elev_' + str(ilev) + '_' + filter_name + '_ref_' + options['plot']['FigNameSufix']
+       figname_prefix= os.path.splitext( options['filename'] )[0]       
+       figname=figname_prefix + '_elev_' + str(ilev) + '_' + filter_name + '_ref_' + options['plot']['FigNameSufix']
        plt.savefig(figname, dpi=None, facecolor='w', edgecolor='w',
                    orientation='portrait', papertype=None, format=None,
                    transparent=False, bbox_inches=None, pad_inches=0.1,
@@ -480,13 +485,13 @@ def plot_filter( output , qc_index , weigth , options , filter_name )  :
        plt.figure(figsize=(8, 8))
        plt.subplot(2,2,1)
 
-       plt.pcolor(output['x'][:,:,ilev]/1e3,output['y'][:,:,ilev]/1e3,tmp_cv[:,:,ilev],vmin=options['plot']['VrMin'],vmax=options['plot']['VrMax'],cmap=options['plot']['CmapWind'])
-       plt.title('Corrected Doppler Velocity')
+       plt.pcolor(output['x'][:,:,ilev]/1e3,output['y'][:,:,ilev]/1e3,tmp_v[:,:,ilev],vmin=options['plot']['VrMin'],vmax=options['plot']['VrMax'],cmap=options['plot']['CmapWind'])
+       plt.title('Original Doppler Velocity')
        plt.colorbar()
 
        plt.subplot(2,2,2)
-       plt.pcolor(output['x'][:,:,ilev]/1e3,output['y'][:,:,ilev]/1e3,tmp_v[:,:,ilev],vmin=options['plot']['VrMin'],vmax=options['plot']['VrMax'],cmap=options['plot']['CmapWind'])
-       plt.title('Original Doppler Velocity')
+       plt.pcolor(output['x'][:,:,ilev]/1e3,output['y'][:,:,ilev]/1e3,tmp_cv[:,:,ilev],vmin=options['plot']['VrMin'],vmax=options['plot']['VrMax'],cmap=options['plot']['CmapWind'])
+       plt.title('Corrected Doppler Velocity')
        plt.colorbar()
 
        plt.subplot(2,2,3)
@@ -503,7 +508,8 @@ def plot_filter( output , qc_index , weigth , options , filter_name )  :
 
            plt.show()
 
-       figname=options['plot']['FigNamePrefix'] + '_elev_' + str(ilev) + '_' + filter_name + '_v_' + options['plot']['FigNameSufix']
+       figname_prefix= os.path.splitext( options['filename'] )[0]
+       figname= figname_prefix + '_elev_' + str(ilev) + '_' + filter_name + '_v_' + options['plot']['FigNameSufix']
        plt.savefig(figname, dpi=None, facecolor='w', edgecolor='w',
                    orientation='portrait', papertype=None, format=None,
                    transparent=False, bbox_inches=None, pad_inches=0.1,
@@ -637,12 +643,14 @@ def Dealiasing( radar , output , options )   :
       #Plot the data (this filter do not call update_output so we need to plot it here).
       tmp_index  = output['cv'] - output['v']
       tmp_weigth = np.zeros( np.shape( tmp_index ) )
-      plot_filter( output , tmp_index , tmp_weigth , options , filter_name )   
+      if options['plot']['Enable'] :
+         plot_filter( output , tmp_index , tmp_weigth , options , filter_name )   
 
       #Store the difference between original and dealiased velocity.
       output['Dealiasing']=dict()
       output['Dealiasing']['vdiff']=( output['cv'] - output['v'] )
       output['Dealiasing']['vda']=np.copy( output['cv'] )
+      output['Dealiasing']['v']=np.copy( output['v'] )
 
 
       if options[filter_name]['sequential']     :
@@ -1124,9 +1132,23 @@ def PowerFilter( radar , output , options )   :
 
    filter_name = 'PowerFilter' 
 
-   if  options['name_v'] in radar.fields  :
+   if  options['name_ref'] in radar.fields  :
 
-      print('This filter has not been coded yet')
+      #TODO TODO TODO
+      #a = 0.01
+      #C = 0
+      #EXCLUDE_BELOW = -10  # 3.16
+
+      #rango = radar.range['data'] / 1000
+      #ref = np.copy(radar.fields[var]['data'])
+      #pot = ref - 20*np.log10(rango) - 2*a*rango - C
+      #pot = np.ma.masked_where(pot<-200, pot)
+      #ref_cor = np.copy(ref)
+      #umbral = np.floor(np.nanmin(pot[np.isfinite(pot)])) + umbral_desde_piso - 5
+      #print(umbral)
+      #ref_cor = np.ma.masked_where(pot<umbral, ref_cor)
+      #radar.add_field_like(var, 'TH_cor', ref_cor, True)
+
 
       output = output_update( output , tmp_index , options , filter_name )
 
@@ -1433,20 +1455,62 @@ def get_rma_strat ( filename , radar )  :
        radar.ray_angle_res['long_name']='angular_resolution_between_rays'
        radar.ray_angle_res['units']='degrees'
        radar.ray_angle_res['_FillValue']= local_fill_value
-    
        
     #Get the corresponding radar strategy depending on the filename.
     radar.altitude_agl['data'] = 0.0   
 
     radar.metadata['instrument_name'] = 'RMA' + filename[ filename.find('RMA') + 3 ]
 
+    if '0117_01' in filename  :  #9005-1 STRATEGY
+       nyquist_velocity     = 6.63
+    if '0117_02' in filename  :  #9005-2 STRATEGY
+       nyquist_velocity     = 33.04
+    if '0117_03' in filename  :  #9005-3 STRATEGY
+       nyquist_velocity     = 3.98
+
+    if '0117_01' in filename  :  #122-1 STRATEGY
+       nyquist_velocity     = 6.63
+    if '0117_02' in filename  :  #122-2 STRATEGY
+       nyquist_velocity     = 13.25
+
+    if '0121_01' in filename  :  #122-1 STRATEGY
+       nyquist_velocity     = 6.63
+    if '0121_02' in filename  :  #122-2 STRATEGY
+       nyquist_velocity     = 13.25
+
+    if '0122_01' in filename  :  #122-1 STRATEGY
+       nyquist_velocity     = 8.28
+    if '0122_02' in filename  :  #122-2 STRATEGY
+       nyquist_velocity     = 39.79
     if '0122_03' in filename  :  #122-3 STRATEGY
        nyquist_velocity     = 13.35
-       ray_angle_res        = 1.0
-       meters_between_gates = 300
-       radar_beam_width_h   = 1.0
-       radar_beam_width_v   = 1.0
 
+    if '0123_01' in filename  :  #123-1 STRATEGY
+       nyquist_velocity     = 8.28
+    if '0123_02' in filename  :  #123-2 STRATEGY
+       nyquist_velocity     = 39.79
+    if '0123_03' in filename  :  #123-3 STRATEGY
+       nyquist_velocity     = 13.25
+    if '0123_04' in filename  :  #123-4 STRATEGY
+       nyquist_velocity     = 8.28
+
+    if '0200_01' in filename  :  #200-1 STRATEGY
+       nyquist_velocity     = 4.42
+    if '0200_02' in filename  :  #200-2 STRATEGY
+       nyquist_velocity     = 13.25
+
+    if '0201_01' in filename  :  #201-1 STRATEGY
+       nyquist_velocity     = 4.42
+    if '0201_02' in filename  :  #201-2 STRATEGY
+       nyquist_velocity     = 13.25
+    if '0201_03' in filename  :  #201-3 STRATEGY
+       nyquist_velocity     = 8.28
+
+    #Some common parameters
+    ray_angle_res        = 1.0 
+    radar_beam_width_h   = 1.0
+    radar_beam_width_v   = 1.0
+    meters_between_gates  = radar.range['data'][1]-radar.range['data'][0]
 
     #Apply the missing parameters to the radar structure.
     radar.instrument_parameters['nyquist_velocity']['data'] = ma.array(np.ones( np.shape(radar.azimuth['data']) )*nyquist_velocity , mask = np.zeros( np.shape(radar.azimuth['data']) , dtype=bool ) , fill_value = local_fill_value )
@@ -1454,8 +1518,7 @@ def get_rma_strat ( filename , radar )  :
     radar.instrument_parameters['radar_beam_width_v']['data'] = ma.array( radar_beam_width_v , mask =False , fill_value = local_fill_value )
     radar.ray_angle_res['data'] = ma.array( np.ones( np.shape( levels ) )*ray_angle_res , mask = np.zeros( np.shape( levels ) , dtype=bool ) , fill_value = local_fill_value )
     radar.range['meters_between_gates']= meters_between_gates
-    radar.range['meters_to_center_of_first_gate']= meters_between_gates / 2.0
-
+    radar.range['meters_to_center_of_first_gate']= radar.range['data'][0]  #meters_between_gates / 2.0
 
     return radar
 
