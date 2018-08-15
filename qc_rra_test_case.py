@@ -18,7 +18,7 @@ import conf_gematronik
 #La idea es hacer un loop sobre un grupo de carpetas / subcarpetas y archivos.
 #En este caso asumo que hay 2 niveles de carpetas (por eso el /*/*/)
  
-datapath='/media/jruiz/534AA1022E493735/DATOS_RADAR/RRA_radar/ANG'
+datapath='/media/jruiz/534AA1022E493735/DATOS_RADAR/RRA_radar/RMA1'
  
 
 #Generate a list with all the files contained in the folders and sub-folders.
@@ -43,19 +43,24 @@ for ifile in file_list  :
 
    options['filename'] = ifile
    #Generate output file name
-   options['filename_out'] = filename[ 0:filename.find('.nc') ] + 'corr' + '.nc' 
+   options['filename_out'] = ifile[ 0:ifile.find('.nc') ] + '.corr' + '.nc' 
 
    options['plot']['Path'] = os.path.dirname(ifile) + '/plots/'
 
    os.makedirs( options['plot']['Path'],exist_ok=True)
 
-
+   print('Performing qc for the following file')
    print(options['filename'])
+   print('Output will be stored in the following file')
    print(options['filename_out'])
-   print(options['plot']['Path'])
+   if options['plot']['Enable']   :
+      print('Figures will be created in the following file')
+      print(options['plot']['Path'])
+   print('Is this an RMA radar?')
    print(options['is_rma'])
-#Performs QC operations based on options
-#[radar , qc_output] = rqc.main_qc( conf.options )
+
+   #Performs QC operations based on options
+   [radar , qc_output] = rqc.main_qc( options )
 
 
 

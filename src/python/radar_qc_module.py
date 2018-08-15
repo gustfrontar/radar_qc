@@ -22,6 +22,14 @@ def main_qc( options ) :
    computed_etfilter=False   #Flag to indicate if echo top has been computed already.
 
    #Read the data
+
+   print('')
+   print('-------------------------------------------')
+   print('Reading the data')
+   print('-------------------------------------------')
+   print('')
+
+
    radar = pyart.io.read(options['filename'])
 
    if options['is_rma']  :
@@ -29,13 +37,8 @@ def main_qc( options ) :
       radar = get_rma_strat( options['filename'] , radar ) 
 
    if radar.altitude_agl['data'] == 0.0    :
-      #Radar is assumed to be at ground level. Add 20 meters to account for the height of the tower.
+      #Radar is assumed to be at ground level. Add the height of the tower.
       radar.altitude['data']=radar.altitude['data']+options['radar_altitude_agl']
-
-
-   #Get the nyquist velocity
-   if not options['is_rma']  :
-      nyquistv=radar.get_nyquist_vel(0,check_uniform=True)
 
    output['maxw_ref']=0.0
    output['maxw_v']  =0.0
@@ -103,7 +106,21 @@ def main_qc( options ) :
 
    if options['output_to_file']   :
 
+      print('')
+      print('-------------------------------------------')
+      print('Writing the data')
+      print('-------------------------------------------')
+      print('')
+
       pyart.io.cfradial.write_cfradial(options['filename_out'],radar,format=options['file_out_format'],time_reference=True, arm_time_variables=True)
+
+
+   print('')
+   print('-------------------------------------------')
+   print('End of QC routine')
+   print('-------------------------------------------')
+   print('')
+
 
    return radar , output
 
