@@ -403,15 +403,14 @@ REAL(r_size),INTENT(IN)  :: undef
 REAL(r_size),INTENT(OUT) :: output_data_3d(na,nr,ne,NPAR_ECHO_TOP_3D)  !Echo top , echo base , echo depth , max_dbz , maz_dbz_z , vertical_z_gradient
 REAL(r_size),INTENT(OUT) :: output_data_2d(na,nr,NPAR_ECHO_TOP_2D)  !Max echo top, max_echo_base, max_echo_depth, col_max, height weighted col_max
 !REAL(r_size)             :: tmp_output_data_3d(na,nr,ne,NPAR_ECHO_TOP_3D)
-REAL(r_size)             :: tmp_radgrid_3d(na,nr,ne,NPAR_ECHO_TOP_3D)
-REAL(r_size)             :: tmp_radgrid_2d(na,nr,NPAR_ECHO_TOP_2D)
-!-----> The following variables will be saved within calls to speed up the computation.
-REAL(r_size), ALLOCATABLE,SAVE :: Z(:,:) , R(:,:) 
-INTEGER, ALLOCATABLE,SAVE      :: REGJ(:,:,:) , REGI(:,:,:) , INVI(:,:,:) , INVJ(:,:,:) 
-INTEGER, ALLOCATABLE,SAVE      :: NEARESTN(:,:) , INVNEARESTN(:,:)
-REAL(r_size),ALLOCATABLE,SAVE  :: W(:,:,:),INVW(:,:,:)
-INTEGER,SAVE                   :: REGNZ , REGNR
-LOGICAL,SAVE                   :: INITIALIZED=.FALSE.
+REAL(r_size)              :: tmp_radgrid_3d(na,nr,ne,NPAR_ECHO_TOP_3D)
+REAL(r_size)              :: tmp_radgrid_2d(na,nr,NPAR_ECHO_TOP_2D)
+REAL(r_size), ALLOCATABLE :: Z(:,:) , R(:,:) 
+INTEGER, ALLOCATABLE      :: REGJ(:,:,:) , REGI(:,:,:) , INVI(:,:,:) , INVJ(:,:,:) 
+INTEGER, ALLOCATABLE      :: NEARESTN(:,:) , INVNEARESTN(:,:)
+REAL(r_size),ALLOCATABLE  :: W(:,:,:),INVW(:,:,:)
+INTEGER                   :: REGNZ , REGNR
+LOGICAL                   :: INITIALIZED=.FALSE.
 !----->
 REAL(r_size), ALLOCATABLE      :: REGREF(:,:)
 CHARACTER(4)                   :: OPERATION='MEAN'
@@ -420,7 +419,7 @@ REAL(r_size),ALLOCATABLE       :: tmp_data_3d(:,:,:) ,  tmp_data_2d(:,:)
 
 
 !WRITE(6,*)'HELLO FROM COMPUTE_ECHO_TOP'
-IF( .NOT. INITIALIZED) THEN
+!IF( .NOT. INITIALIZED) THEN
 !Perform this part only in the first call.
 
 REGNZ=INT(MAX_Z_ECHO_TOP / DZ_ECHO_TOP)+1
@@ -455,7 +454,7 @@ REGNR=INT(MAX_R_ECHO_TOP / DX_ECHO_TOP)+1
   ENDDO
   !$OMP END PARALLEL DO
 
-ENDIF !End of first call only section.
+!ENDIF !End of first call only section.
 
 ALLOCATE( tmp_data_3d(REGNR,REGNZ,NPAR_ECHO_TOP_3D))
 ALLOCATE( tmp_data_2d(REGNR,NPAR_ECHO_TOP_2D))
@@ -518,7 +517,12 @@ END DO
 DEALLOCATE(  tmp_data_3d , tmp_data_2d )
 DEALLOCATE( REGREF )
 
-INITIALIZED=.TRUE.
+DEALLOCATE( Z, R )
+DEALLOCATE( REGI , REGJ, NEARESTN )
+DEALLOCATE( INVI , INVJ, INVNEARESTN )
+DEALLOCATE( W , INVW )
+
+!INITIALIZED=.TRUE.
 
 RETURN
 END SUBROUTINE ECHO_TOP

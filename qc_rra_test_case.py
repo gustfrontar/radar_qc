@@ -18,19 +18,20 @@ import conf_gematronik
 #La idea es hacer un loop sobre un grupo de carpetas / subcarpetas y archivos.
 #En este caso asumo que hay 2 niveles de carpetas (por eso el /*/*/)
  
-datapath='/media/jruiz/534AA1022E493735/DATOS_RADAR/RRA_radar/RMA1'
+datapath='/media/jruiz/PAWR/RADAR_DATA_RRA_RMA1/'
  
 
 #Generate a list with all the files contained in the folders and sub-folders.
 file_list=[]
  
-#for (dirpath, dirnames, filenames) in os.walk(datapath):
+for (dirpath, dirnames, filenames) in os.walk(datapath):
 
 
-#    for filename in filenames:
-#        f = '/'.join([dirpath,filename])
-#        file_list.append(f)
-file_list=['/media/jruiz/534AA1022E493735/DATOS_RADAR/RRA_radar/RMA1/20170923/cfrad.20170923_114117.0000_to_20170923_114310.0000_RMA1_0122_02.nc']
+    for filename in filenames:
+        f = '/'.join([dirpath,filename])
+        file_list.append(f)
+#file_list=['/media/jruiz/PAWR/RADAR_DATA_RRA_RMA1/RMA1/20170923/cfrad.20170923_114117.0000_to_20170923_114310.0000_RMA1_0122_02.nc']
+#file_list=['/media/jruiz/PAWR/RADAR_DATA_RRA_RMA1/RMA1/20170926/cfrad.20170926_211512.0000_to_20170926_212043.0000_RMA1_0122_01.nc']
 
 #Proceed to perform qc for each file.
 for ifile in file_list  :

@@ -1,5 +1,3 @@
-
-
 # Author: Rapid Refresh Argentina Team
 # License: BSD 3 clause
 
@@ -23,7 +21,7 @@ options = {}
 #======================================
 
 options['filename'] = ''          #The name of the input netcdf file
-options['output_to_file'] = True #Wether the output will be written to a netcdf file.
+options['output_to_file'] = True  #Wether the output will be written to a netcdf file.
 options['filename_out'] = ''      #The name of the netcdf file where output will be written.
 options['file_out_format']='NETCDF3_CLASSIC'
 
@@ -32,7 +30,7 @@ options['file_out_format']='NETCDF3_CLASSIC'
 #======================================
 
 options['plot']=dict()
-options['plot']['Enable']=True
+options['plot']['Enable']=False
 options['plot']['Path']='./'
 options['plot']['FigNameSufix']='.png'
 options['plot']['VrMin']=-30
@@ -69,10 +67,6 @@ options['is_rma'] = True                        #Wether this is an RMA file
 options['norainrefval']=-0.1
 options['undef']=-9.99e9
 
-#I/O options
-
-options['qced_to_file']=False        #Write QCed data to the input file.
-
 
 #Fuzzy logic parameter
 
@@ -107,7 +101,7 @@ options[filter_name]['var_update_list']=['v']              #Which variables will
 
 filter_name='RhoFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=True                          #Enable / disable filter
+options[filter_name]['flag']=True                           #Enable / disable filter
 options[filter_name]['nx']=2                                #NX
 options[filter_name]['ny']=2                                #NY
 options[filter_name]['nz']=0                                #NZ
@@ -121,7 +115,7 @@ options[filter_name]['force_value']=0.5                     #Threshold for force
 options[filter_name]['order'] = [20]
 options[filter_name]['var_update_list']=['ref']             #Which variables will be filtered.
 options[filter_name]['sequential']=True                     #Wheter this filter will affect the following filters.
-options[filter_name]['fill_value']='undef'                  #Possible values, undef, min_ref or fill value
+options[filter_name]['fill_value']='min_ref'                #Possible values, undef, min_ref or fill value
 
 #Model filter parameters  ===================================================================== 
 
@@ -135,7 +129,7 @@ options[filter_name]['ny']=2                                #NY (smooth paramete
 options[filter_name]['nz']=0                                #NZ (smooth parameter)
 options[filter_name]['ref_error']=5.0                       #Estimated obs error for reflectivity
 options[filter_name]['v_error']=2.0                         #Estimated obs error for doppler velocity
-options[filter_name]['save']=True                           #Save filter aux fields to output?
+options[filter_name]['save']=False                           #Save filter aux fields to output?
 options[filter_name]['uncertainty_metric']=0                # 0 - use range (max/min) , 1 - use spread
 options[filter_name]['ify']=np.array([1,1,0,0,1,1])         #Importance function y
 options[filter_name]['ifx']=np.array([-100,-2,-1,1,2,100])  #Importance function x
@@ -157,7 +151,7 @@ options[filter_name]['flag']=True                          #Enable / disable fil
 options[filter_name]['nx']=2                                #NX
 options[filter_name]['ny']=2                                #NY
 options[filter_name]['nz']=0                                #NZ
-options[filter_name]['save']=True                           #Save filter aux fields to output?
+options[filter_name]['save']=False                          #Save filter aux fields to output?
 options[filter_name]['ify']=np.array([1,1,0,0])             #Importance function y
 options[filter_name]['ifx']=np.array([0,2500,3000,20000])   #Importance function x
 options[filter_name]['w']=1.0                               #Relative parameter weigth. 
@@ -169,7 +163,7 @@ options[filter_name]['force_value']=0.5                     #Threshold for force
 options[filter_name]['order'] = [15]
 options[filter_name]['var_update_list']=['ref']             #Which variables will be filtered.
 options[filter_name]['sequential']=True                     #Wheter this filter will affect the following filters.
-options[filter_name]['fill_value']='undef'                  #Possible values, undef, min_ref or fill value
+options[filter_name]['fill_value']='min_ref'                #Possible values, undef, min_ref or fill value
 
 #Echo depth filter parameters ===================================================================
 
@@ -179,7 +173,7 @@ options[filter_name]['flag']=False                          #Enable / disable fi
 options[filter_name]['nx']=2                                #NX
 options[filter_name]['ny']=2                                #NY
 options[filter_name]['nz']=0                                #NZ
-options[filter_name]['save']=True                           #Save filter aux fields to output?
+options[filter_name]['save']=False                          #Save filter aux fields to output?
 options[filter_name]['ify']=np.array([1,1,0,0])             #Importance function y
 options[filter_name]['ifx']=np.array([0,2500,3000,20000])   #Importance function x
 options[filter_name]['w']=1.0                               #Relative parameter weigth. 
@@ -200,7 +194,7 @@ options[filter_name]['flag']=True                          #Enable / disable fil
 options[filter_name]['nx']=2                                #NX
 options[filter_name]['ny']=2                                #NY
 options[filter_name]['nz']=0                                #NZ
-options[filter_name]['save']=True                           #Save filter aux fields to output?
+options[filter_name]['save']=False                          #Save filter aux fields to output?
 options[filter_name]['ify']=np.array([1,1,0,0])             #Importance function y
 options[filter_name]['ifx']=np.array([0,0.2,0.4,1])         #Importance function x
 options[filter_name]['w']=1.0                               #Relative parameter weigth. 
@@ -211,7 +205,7 @@ options[filter_name]['force_value']=0.5                     #Threshold for force
 options[filter_name]['order'] = [30]
 options[filter_name]['var_update_list']=['ref']             #Which variables will be filtered.
 options[filter_name]['sequential']=True                     #Wheter this filter will affect the following filters.
-options[filter_name]['fill_value']='undef'                  #Possible values, undef, min_ref or fill value
+options[filter_name]['fill_value']='min_ref'                  #Possible values, undef, min_ref or fill value
 
 #Doppler speckle filter  parameters ==============================================================
 
@@ -221,7 +215,7 @@ options[filter_name]['flag']=True                          #Enable / disable fil
 options[filter_name]['nx']=2                                #NX
 options[filter_name]['ny']=2                                #NY
 options[filter_name]['nz']=0                                #NZ
-options[filter_name]['save']=True                           #Save filter aux fields to output?
+options[filter_name]['save']=False                          #Save filter aux fields to output?
 options[filter_name]['ify']=np.array([1,1,0,0])             #Importance function y
 options[filter_name]['ifx']=np.array([0,0.2,0.4,1])         #Importance function x
 options[filter_name]['w']=1.0                               #Relative parameter weigth. 
@@ -242,7 +236,7 @@ options[filter_name]['flag']=False                          #Enable / disable fi
 options[filter_name]['nx']=1                                #NX
 options[filter_name]['ny']=2                                #NY
 options[filter_name]['nz']=0                                #NZ
-options[filter_name]['save']=True                           #Save filter aux fields to output?
+options[filter_name]['save']=False                           #Save filter aux fields to output?
 options[filter_name]['ify']=np.array([0,0,1,1])             #Importance function y
 options[filter_name]['ifx']=np.array([0,2.5,10,200])        #Importance function x
 options[filter_name]['w']=1.0                               #Relative parameter weigth. 
@@ -264,7 +258,7 @@ options[filter_name]['ny']=5                                #NY for texture smoo
 options[filter_name]['nz']=0                                #NZ for texture smoothing
 options[filter_name]['use_smooth_ref']=True                 #Wether high reflectivity cores will be protected.
 options[filter_name]['smooth_ref_tr']=20.0                  #Reflectivity above this threshold wont be affected by this filter.
-options[filter_name]['save']=True                           #Save filter aux fields to output?
+options[filter_name]['save']=False                          #Save filter aux fields to output?
 options[filter_name]['ify']=np.array([0,0,1,1])             #Importance function y
 options[filter_name]['ifx']=np.array([0,15,20,200])         #Importance function x
 options[filter_name]['w']=1.0                               #Relative parameter weigth. 
@@ -283,7 +277,7 @@ options[filter_name]['flag']=True                           #Enable / Disable fi
 options[filter_name]['nx']=0                                #NX
 options[filter_name]['ny']=0                                #NY
 options[filter_name]['nz']=0                                #NZ
-options[filter_name]['save']=True                           #Save filter aux fields to output?
+options[filter_name]['save']=False                          #Save filter aux fields to output?
 options[filter_name]['ify']=np.array([0,0,1,1])             #Importance function y
 options[filter_name]['ifx']=np.array([0,1,10,100])          #Importance function x
 options[filter_name]['w']=1.0                               #Relative parameter weigth. 
@@ -313,7 +307,7 @@ filter_name='BlockingFilter'
 options[filter_name]=dict()
 options[filter_name]['flag']=True                           #Enable / Disable filter
 options[filter_name]['blocking_correction']=True            #Wether correction will be applied for partially blocked beams.
-options[filter_name]['save']=True                           #Save blocking factor into qc_output dictionary.
+options[filter_name]['save']=False                          #Save blocking factor into qc_output dictionary.
 options[filter_name]['code']=40                             #QC output code
 options[filter_name]['ify']=np.array([0,0,1,1])             #Importance function y
 options[filter_name]['ifx']=np.array([0,0.49,0.5,100])      #Importance function x
@@ -333,7 +327,7 @@ options[filter_name]['flag']=False                          #Enable / Disable fi
 options[filter_name]['nx']=0                                #NX
 options[filter_name]['ny']=0                                #NY
 options[filter_name]['nz']=0                                #NZ
-options[filter_name]['save']=True                           #Save filter aux fields to output?
+options[filter_name]['save']=False                          #Save filter aux fields to output?
 options[filter_name]['min_angle']=2.0                       #Minimun angle
 options[filter_name]['height_thr']=20000.0                  #Heights above this wont be affected.
 options[filter_name]['w']=1.0                               #Relative parameter weigth. 
@@ -354,7 +348,7 @@ options[filter_name]['flag']=True                          #Enable / Disable fil
 options[filter_name]['nx']=0                                #NX
 options[filter_name]['ny']=0                                #NY
 options[filter_name]['nz']=0                                #NZ
-options[filter_name]['save']=True                           #Save filter aux fields to output?
+options[filter_name]['save']=False                          #Save filter aux fields to output?
 options[filter_name]['ify']=np.array([1,1,0,0])             #Importance function y
 options[filter_name]['ifx']=np.array([0,0.5,0.51,200])      #Importance function x
 options[filter_name]['w']=1.0                               #Relative parameter weigth. 
@@ -372,7 +366,7 @@ options[filter_name]['fill_value']='undef'                  #Possible values, un
 filter_name='InterferenceFilter'
 options[filter_name]=dict()
 options[filter_name]['flag']=True                          #Enable / Disable filter
-options[filter_name]['save']=True                           #Save filter aux fields to output?
+options[filter_name]['save']=False                          #Save filter aux fields to output?
 options[filter_name]['nx']=0                                #NX
 options[filter_name]['ny']=4                                #NY
 options[filter_name]['nz']=0                                #NZ
@@ -406,7 +400,7 @@ options[filter_name]['flag']=False                          #Enable / Disable fi
 options[filter_name]['nx']=3                                #NX
 options[filter_name]['ny']=3                                #NY
 options[filter_name]['nz']=0                                #NZ
-options[filter_name]['save']=True                           #Save filter aux fields to output?
+options[filter_name]['save']=False                          #Save filter aux fields to output?
 options[filter_name]['ify']=np.array([0,1.0])               #Importance function y
 options[filter_name]['ifx']=np.array([0,1.0])               #Importance function x
 options[filter_name]['w']=1.0                               #Relative parameter weigth. 
@@ -427,7 +421,7 @@ options[filter_name]['ny']=1                                #NY
 options[filter_name]['nz']=0                                #NZ
 options[filter_name]['ify']=np.array([0,0,1,1])             #Importance function y
 options[filter_name]['ifx']=np.array([0,3,4,10])            #Importance function x
-options[filter_name]['save']=True                           #Save filter aux fields to output?
+options[filter_name]['save']=False                          #Save filter aux fields to output?
 options[filter_name]['w']=1.0                               #Relative parameter weigth. 
 options[filter_name]['code']=23
 options[filter_name]['force']=True                         #Wether we will reject data based on this filter alone.
@@ -459,7 +453,7 @@ options[filter_name]['consistency_metric']='constant'       #Possible values are
 options[filter_name]['constant_consistency_threshold']=3.5  #Consecutive values which are farther than this threshold will be flagged.
 options[filter_name]['ify']=np.array([0,0.9,20])            #Importance function y
 options[filter_name]['ifx']=np.array([0,1,1])               #Importance function x
-options[filter_name]['save']=True                           #Save filter aux fields to output?
+options[filter_name]['save']=False                          #Save filter aux fields to output?
 options[filter_name]['w']=1.0                               #Relative parameter weigth. 
 options[filter_name]['code']=34
 options[filter_name]['force']=True                          #Wether we will reject data based on this filter alone.
@@ -479,7 +473,7 @@ options[filter_name]['ny']=[1,10]                           #NY
 options[filter_name]['nz']=[0,0]                            #NZ
 options[filter_name]['threshold']=[2.0,15.0] 
 options[filter_name]['n_filter_pass']=[3,3]                 #Filter repetition
-options[filter_name]['save']=True                           #Save filter aux fields to output?
+options[filter_name]['save']=False                          #Save filter aux fields to output?
 options[filter_name]['ify']=np.array([0,1])                 #Importance function y
 options[filter_name]['ifx']=np.array([0,1])                 #Importance function x
 options[filter_name]['w']=1.0                               #Relative parameter weigth. 
@@ -498,7 +492,7 @@ options[filter_name]=dict()
 options[filter_name]['flag']=True                           #Enable / Disable filter
 options[filter_name]['threshold']=10                        #Threshold to detect sudden jumps in reflectivity between two consecutive pixels.
 options[filter_name]['nmissing_max']=15                     #Maximum number of missing values in a radial beam.
-options[filter_name]['save']=True                           #Save filter aux fields to output?
+options[filter_name]['save']=False                          #Save filter aux fields to output?
 options[filter_name]['w']=1.0                               #Relative parameter weigth. 
 options[filter_name]['ify']=np.array([0,1.0])               #Importance function y
 options[filter_name]['ifx']=np.array([0,1.0])               #Importance function x

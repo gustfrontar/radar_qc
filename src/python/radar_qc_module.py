@@ -665,7 +665,7 @@ def Dealiasing( radar , output , options )   :
       output['Dealiasing']=dict()
       output['Dealiasing']['vdiff']=( output['cv'] - output['v'] )
       output['Dealiasing']['vda']=np.copy( output['cv'] )
-      output['Dealiasing']['v']=np.copy( output['v'] )
+      #output['Dealiasing']['v']=np.copy( output['v'] )
 
 
       if options[filter_name]['sequential']     :

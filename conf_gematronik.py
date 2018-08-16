@@ -32,7 +32,7 @@ options['file_out_format']='NETCDF3_CLASSIC'
 #======================================
 
 options['plot']=dict()
-options['plot']['Enable']=True
+options['plot']['Enable']=False
 options['plot']['Path']='./'
 options['plot']['FigNameSufix']='.png'
 options['plot']['VrMin']=-30
@@ -68,10 +68,6 @@ options['is_rma'] = False                        #Wether this is an RMA file
 
 options['norainrefval']=-0.1
 options['undef']=-9.99e9
-
-#I/O options
-
-options['qced_to_file']=False        #Write QCed data to the input file.
 
 
 #Fuzzy logic parameter
@@ -121,7 +117,7 @@ options[filter_name]['force_value']=0.5                     #Threshold for force
 options[filter_name]['order'] = [20]
 options[filter_name]['var_update_list']=['ref']             #Which variables will be filtered.
 options[filter_name]['sequential']=True                     #Wheter this filter will affect the following filters.
-options[filter_name]['fill_value']='undef'                  #Possible values, undef, min_ref or fill value
+options[filter_name]['fill_value']='min_ref'                  #Possible values, undef, min_ref or fill value
 
 #Model filter parameters  ===================================================================== 
 
@@ -169,7 +165,7 @@ options[filter_name]['force_value']=0.5                     #Threshold for force
 options[filter_name]['order'] = [15]
 options[filter_name]['var_update_list']=['ref']             #Which variables will be filtered.
 options[filter_name]['sequential']=True                     #Wheter this filter will affect the following filters.
-options[filter_name]['fill_value']='undef'                  #Possible values, undef, min_ref or fill value
+options[filter_name]['fill_value']='min_ref'                  #Possible values, undef, min_ref or fill value
 
 #Echo depth filter parameters ===================================================================
 
