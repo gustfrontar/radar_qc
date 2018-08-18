@@ -43,6 +43,19 @@ def main_qc( options ) :
    output['maxw_v']  =0.0
 
    #===================================================
+   # CHECK IF WE HAVE ENOUGH VARIABLES TO PROCEED.
+   #===================================================
+
+   if ( not options['name_v'] in radar.fields) and ( not options['name_ref'] in radar.fields) :
+
+      print('')
+      print('-------------------------------------------')
+      print('ERROR: Not enough variables to proceed with QC for this file')
+      print('-------------------------------------------')
+      print('')
+      return radar , output
+
+   #===================================================
    # SOME PRELIMINARY PROCEDURES.
    #===================================================
 
@@ -169,9 +182,9 @@ def reshape_variables( radar , output , options )    :
 
         [ output['v'] , output['az'] , output['level'] , output['time'] , output['index'] , output['az_exact']  ]=order_variable( radar , options['name_v'] , output['undef_v']  )
  
-        na=output['ref'].shape[0]
-        nr=output['ref'].shape[1]
-        ne=output['ref'].shape[2]
+        na=output['v'].shape[0]
+        nr=output['v'].shape[1]
+        ne=output['v'].shape[2]
         output['na']=na
         output['nr']=nr
         output['ne']=ne
@@ -333,22 +346,15 @@ def  update_radar_object( radar , output , options )   :
    if options['name_ref'] in radar.fields :
 
       tmp=order_variable_inv( radar , output['cref'] , output['index'] , output['undef_ref'] )
-
-      radar.fields[ options['name_cref'] ] = dict()
-
-      radar.fields[ options['name_cref'] ] = radar.fields[ options['name_ref'] ]
-
+      radar.add_field_like( options['name_ref'] , options['name_cref'] , radar.fields[ options['name_ref'] ]['data'] , True)
       radar.fields[ options['name_cref'] ]['data']=np.ma.masked_array(tmp , tmp==output['undef_ref'] )
 
    if options['name_v'] in radar.fields :
 
       tmp=order_variable_inv( radar , output['cv'] , output['index'] , output['undef_v'] )
-
-      radar.fields[ options['name_cv'] ]= dict()
-
-      radar.fields[ options['name_cv'] ]= radar.fields[ options['name_v'] ]
-
+      radar.add_field_like( options['name_v'] , options['name_cv'] , radar.fields[ options['name_v'] ]['data'] , True)
       radar.fields[ options['name_cv'] ]['data']=np.ma.masked_array(tmp , tmp==output['undef_v'] )
+
 
    return radar , output 
 
@@ -367,8 +373,9 @@ def output_update( output , qc_index , options , filter_name )  :
    ne=output['ne']
 
    #Compute the corresponding weigth.
+
    weigth = qc.multiple_1d_interpolation( field=qc_index , nx=na , ny=nr , nz=ne
-                                         , undef=output['undef_ref'] , xx=options[filter_name]['ifx']
+                                         , undef=options['undef'] , xx=options[filter_name]['ifx']
                                          , yy=options[filter_name]['ify'] , nxx=np.size(options[filter_name]['ifx']) )
 
    if ( 'ref' in options[filter_name]['var_update_list'] ) and ( 'ref' in output )  : 
@@ -429,6 +436,7 @@ def output_update( output , qc_index , options , filter_name )  :
       output[filter_name]=dict()
       output[filter_name]['qc_index']=qc_index
       output[filter_name]['weight']=weigth
+      output[filter_name]['undef']=options['undef']
 
    #Plot filter diagnostics if this option is available.
    if  options['plot']['Enable']    :
@@ -450,7 +458,7 @@ def plot_filter( output , qc_index , weigth , options , filter_name )  :
 
     tmp_ref=np.ma.masked_array( output['input_ref'] , output['input_ref'] == output['undef_ref'] )
     tmp_cref=np.ma.masked_array( output['cref'] , output['cref'] == output['undef_ref'] )
-    tmp_qc_index=np.ma.masked_array( qc_index , qc_index == output['undef_ref'] )
+    tmp_qc_index=np.ma.masked_array( qc_index , qc_index == options['undef'] )
 
     for ilev in options['plot']['Elevs']  :
 
@@ -493,7 +501,7 @@ def plot_filter( output , qc_index , weigth , options , filter_name )  :
 
     tmp_v=np.ma.masked_array( output['input_v'] , output['input_v'] == output['undef_v'] )
     tmp_cv=np.ma.masked_array( output['cv'] , output['cv'] == output['undef_v'] )
-    tmp_qc_index=np.ma.masked_array( qc_index , qc_index == output['undef_v'] )
+    tmp_qc_index=np.ma.masked_array( qc_index , qc_index == options['undef'] )
 
     for ilev in options['plot']['Elevs']   :
 
@@ -635,8 +643,7 @@ def Dealiasing( radar , output , options )   :
    filter_name='Dealiasing'
    if options[filter_name]['flag']  and ( options['name_v'] in radar.fields ) :
       #Define a new instance of the radar strcture containing the wind (potentially affected by previous filters).
-      radar.fields[ options['name_cv'] ] = dict()
-      radar.fields[ options['name_cv'] ] = radar.fields[ options['name_v'] ]
+      radar.add_field_like( options['name_v'], options['name_cv'] , radar.fields[ options['name_v'] ]['data'] , True)
       tmp = order_variable_inv(  radar , output['v'] , output['index'] , output['undef_v'] )
       radar.fields[ options['name_cv'] ]['data']= np.ma.masked_array( tmp , tmp==output['undef_v'] )
 
@@ -654,6 +661,8 @@ def Dealiasing( radar , output , options )   :
     
       mask=np.logical_and( output['cv'] != output['v'] , output['cv'] != output['undef_v'] )
       output['qcv'][ mask ]=options[filter_name]['code']
+
+      radar.fields.pop(options['name_cv'], None)
 
       #Plot the data (this filter do not call update_output so we need to plot it here).
       tmp_index  = output['cv'] - output['v']
@@ -713,6 +722,7 @@ def DealiasingEdgeFilter( radar , output , options )    :
                                                                                nboxx=options[filter_name]['nx'],nboxy=options[filter_name]['ny'],
                                                                                nboxz=options[filter_name]['nz'],edge_tr=( nyquistv/3.0 ) )
 
+      tmp_index[ tmp_index == output['undef_v'] ] = options['undef']
 
       output = output_update( output , tmp_index , options , filter_name ) 
 
@@ -753,6 +763,8 @@ def EchoTopFilter( radar , output , options )   :
       tmp_index[ tmp_max_z < options[filter_name]['heigthtr'] ] = 1.0e6  #Do not consider this filter when the volume maximum heigth is below
                                                                   #the specified threshold (i.e. pixels close to the radar)
 
+      tmp_index[ tmp_index == output['undef_ref'] ] = options['undef']
+
       output = output_update( output , tmp_index , options , filter_name ) 
     
    return radar , output 
@@ -787,6 +799,7 @@ def EchoDepthFilter( radar , output , options )   :
 
      tmp_index=tmp_data_3d[:,:,:,2]
 
+     tmp_index[ tmp_index == output['undef_ref'] ] = options['undef']
 
      tmp_index[ tmp_max_z < options[filter_name]['heigthtr'] ] = 1.0e6  #Do not consider this filter when the volume maximum heigth is below
                                                                   #the specified threshold (i.e. pixels close to the radar)
@@ -836,6 +849,8 @@ def LowElevFilter( radar , output , options)  :
         tmp_index[:,:,ie]=np.logical_and( output['ref'][:,:,ie] > options['norainrefval'] , output['smooth_ref'][:,:,tmp_n_angles] <= options['norainrefval'] )
         tmp_index[:,:,ie][ output['altitude'][:,:,tmp_n_angles] > options[filter_name]['height_thr'] ] = 0.0
 
+     tmp_index[ tmp_index == output['undef_ref'] ] = options['undef']
+
      output = output_update( output , tmp_index , options , filter_name ) 
 
    return radar , output 
@@ -851,14 +866,14 @@ def RhoFilter( radar , output , options )  :
 
    filter_name = 'RhoFilter'
 
-   na=output['na']
-   nr=output['nr']
-   ne=output['ne']
-   nx=options[filter_name]['nx']
-   ny=options[filter_name]['ny']
-   nz=options[filter_name]['nz']
-
    if options['name_rho'] in radar.fields  :
+
+      na=output['na']
+      nr=output['nr']
+      ne=output['ne']
+      nx=options[filter_name]['nx']
+      ny=options[filter_name]['ny']
+      nz=options[filter_name]['nz']
 
       output['undef_rho']=radar.fields[ options['name_rho'] ]['_FillValue']
 
@@ -867,6 +882,8 @@ def RhoFilter( radar , output , options )  :
       #Compute the filter parameter
       tmp_index=qc.box_functions_2d(datain=rhohv,na=na,nr=nr,ne=ne,undef=output['undef_rho']
                                               ,boxx=nx,boxy=ny,boxz=nz,operation='MEAN',threshold=0.0)
+
+      tmp_index[ tmp_index == output['undef_rho'] ] = options['undef']
 
       output = output_update( output , tmp_index , options , filter_name ) 
       
@@ -886,20 +903,23 @@ def RefSpeckleFilter( radar , output , options )    :
 
    if options['name_ref'] in radar.fields :
 
-       #Compute the number pixels with reflectivities over spfiltertr sourrounding each pixels in the box defined by nx,ny,nz.
-       na=output['na']
-       nr=output['nr']
-       ne=output['ne']
+      #Compute the number pixels with reflectivities over spfiltertr sourrounding each pixels in the box defined by nx,ny,nz.
+      na=output['na']
+      nr=output['nr']
+      ne=output['ne']
 
-       nx=options[filter_name]['nx']
-       ny=options[filter_name]['ny']
-       nz=options[filter_name]['nz']
-       tr=options[filter_name]['reftr']
+      nx=options[filter_name]['nx']
+      ny=options[filter_name]['ny']
+      nz=options[filter_name]['nz']
+      tr=options[filter_name]['reftr']
 
-       tmp_index=qc.box_functions_2d(datain=output['ref'].data,na=na,nr=nr,ne=ne,undef=output['undef_ref']
+
+      tmp_index=qc.box_functions_2d(datain=output['ref'].data,na=na,nr=nr,ne=ne,undef=output['undef_ref']
                                                 ,boxx=nx,boxy=ny,boxz=nz,operation='COU2',threshold=tr) 
 
-       output = output_update( output , tmp_index , options , filter_name )
+      tmp_index[ tmp_index == output['undef_ref'] ] = options['undef']
+
+      output = output_update( output , tmp_index , options , filter_name )
 
    return radar , output 
 
@@ -916,22 +936,24 @@ def DopplerSpeckleFilter( radar , output , options )   :
 
    if  options['name_v'] in radar.fields :
 
-       na=output['na']
-       nr=output['nr']
-       ne=output['ne']
-       nx=options[filter_name]['nx']
-       ny=options[filter_name]['ny']
-       nz=options[filter_name]['nz']
-       tr=options[filter_name]['dvtr']
+      na=output['na']
+      nr=output['nr']
+      ne=output['ne']
+      nx=options[filter_name]['nx']
+      ny=options[filter_name]['ny']
+      nz=options[filter_name]['nz']
+      tr=options[filter_name]['dvtr']
 
-       tmp=np.abs(output['v'].data)
+      tmp=np.abs(output['v'].data)
 
-       tmp[ output['v'] == output['undef_v'] ] = output['undef_v']
+      tmp[ output['v'] == output['undef_v'] ] = output['undef_v']
 
-       tmp_index=qc.box_functions_2d(datain=tmp,na=na,nr=nr,ne=ne,undef=output['undef_v']
+      tmp_index=qc.box_functions_2d(datain=tmp,na=na,nr=nr,ne=ne,undef=output['undef_v']
                                                 ,boxx=nx,boxy=ny,boxz=nz,operation='COU2',threshold=tr)
 
-       output = output_update( output , tmp_index , options , filter_name )
+      tmp_index[ tmp_index == output['undef_v'] ] = options['undef']
+
+      output = output_update( output , tmp_index , options , filter_name )
 
    return radar , output 
 
@@ -958,6 +980,9 @@ def AttenuationFilter( radar , output , options )   :
                                                 ,beaml=beaml,cal_error=options[filter_name]['attcalerror']
                                                 ,is_power=options[filter_name]['is_power']
                                                 ,coefs=options[filter_name]['att_coefs'] )
+
+      tmp_index[ tmp_index == output['undef_ref'] ] = options['undef']
+
       output = output_update( output , tmp_index , options , filter_name )
 
    return radar , output 
@@ -978,7 +1003,7 @@ def BlockingFilter( radar , output , options )   :
    filter_name='BlockingFilter'  #This is not included in the fuzzy logic algorithm
 
    tmp_index=qc.compute_blocking( radarz=output['altitude'] , topo=output['topo'] , na=na , nr=nr , ne=ne      ,
-                                              undef=output['undef_ref'],
+                                              undef=options['undef'],
                                               radar_beam_width_v=radar.instrument_parameters['radar_beam_width_v']['data'] , 
                                               beam_length=radar.range['meters_between_gates']                              , 
                                               radarrange=radar.range['data'] , radarelev=output['elevations'] )  
@@ -1057,6 +1082,9 @@ def DopplerNoiseFilter( radar , output , options )   :
      #Get the pixels in which v is undef but the original v is not (those are the ones removed by the filter)
      tmp_index = np.logical_and( output['v'] != output['undef_v'] , v == output['undef_v'] ).astype(int)   
 
+     tmp_index[ tmp_index == output['undef_v'] ] = options['undef']
+
+
      output = output_update( output , tmp_index , options , filter_name )
 
    return radar , output 
@@ -1085,6 +1113,8 @@ def DopplerLocalStdFilter( radar , output , options )   :
       tmp_index=qc.box_functions_2d(datain=output['v'],na=na,nr=nr,ne=ne,undef=output['undef_v']
                                                ,boxx=nx,boxy=ny,boxz=nz,operation='SIGM',threshold=0.0)
 
+      tmp_index[ tmp_index == output['undef_v'] ] = options['undef']
+
       output = output_update( output , tmp_index , options , filter_name ) 
 
    return radar , output 
@@ -1108,6 +1138,8 @@ def InterferenceFilter( radar , output , options )   :
       tmp_index = interference_filter ( tmp_ref , output['undef_ref'] , options['norainrefval'] 
                                             , radar.range['data'] , options[filter_name] ) 
 
+      tmp_index[ tmp_index == output['undef_ref'] ] = options['undef']
+
       output = output_update( output , tmp_index , options , filter_name ) 
 
    return radar , output 
@@ -1128,6 +1160,8 @@ def DopplerSpatialCoherenceFilter( radar , output , options )   :
       tmp_v=np.copy( output['v'] )
 
       tmp_index = dopplerspatialcoherence_filter( tmp_v , output['undef_v'] , options[filter_name] )
+
+      tmp_index[ tmp_index == output['undef_v'] ] = options['undef']
 
       output = output_update( output , tmp_index , options , filter_name )
 
@@ -1164,6 +1198,7 @@ def PowerFilter( radar , output , options )   :
       #ref_cor = np.ma.masked_where(pot<umbral, ref_cor)
       #radar.add_field_like(var, 'TH_cor', ref_cor, True)
 
+      tmp_index[ tmp_index == output['undef_ref'] ] = options['undef']
 
       output = output_update( output , tmp_index , options , filter_name )
 
@@ -1193,6 +1228,8 @@ def MissingRefFilter( radar , output , options )    :
                                                    ,nmissing_max=options[filter_name]['nmissing_max'] )
 
       tmp_index = tmp_index.astype(int)
+
+      tmp_index[ tmp_index == output['undef_ref'] ] = options['undef']
 
       output = output_update( output , tmp_index , options , filter_name )
 
@@ -1230,6 +1267,8 @@ def ReflectivityTextureFilter( radar , output , options )   :
 
      tmp_index[output['ref']==output['undef_ref']] = 0.0
 
+     tmp_index[ tmp_index == output['undef_ref'] ] = options['undef']
+
      output = output_update( output , tmp_index , options , filter_name )
 
    return radar , output 
@@ -1258,6 +1297,8 @@ def DopplerTextureFilter( radar , output , options )   :
 
      tmp_index = qc.compute_texture(var=output['v'],na=na,nr=nr,ne=ne,undef=output['undef_v'],nx=nx,ny=ny,nz=nz)
 
+     tmp_index[ tmp_index == output['undef_v'] ] = options['undef']
+
      output = output_update( output , tmp_index , options , filter_name )
 
    return radar , output
@@ -1282,7 +1323,9 @@ def LowDopplerFilter( radar , output , options )   :
 
       tmp_index=np.abs(output['v'])
       tmp_index[ (output['altitude'] - output['topo']) > options[filter_name]['height_thr'] ]=10.0
-    
+
+      tmp_index[ tmp_index == output['undef_v'] ] = options['undef']
+ 
       output = output_update( output , tmp_index , options , filter_name )
  
    return radar , output 

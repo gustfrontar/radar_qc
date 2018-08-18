@@ -25,7 +25,7 @@ options = {}
 options['filename'] = ''          #The name of the input netcdf file
 options['output_to_file'] = True #Wether the output will be written to a netcdf file.
 options['filename_out'] = ''      #The name of the netcdf file where output will be written.
-options['file_out_format']='NETCDF3_CLASSIC'
+options['file_out_format']='NETCDF4_CLASSIC'
 
 #======================================
 # PLOTING PARAMETERS
