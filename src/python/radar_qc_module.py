@@ -356,6 +356,12 @@ def  update_radar_object( radar , output , options )   :
       radar.fields[ options['name_cv'] ]['data']=np.ma.masked_array(tmp , tmp==output['undef_v'] )
 
 
+   if not options['keep_original_fields']  :
+
+      radar.fields.pop( options['name_v']   , None )
+      radar.fields.pop( options['name_ref'] , None )
+      radar.fields.pop( options['name_rho'] , None )
+
    return radar , output 
 
 

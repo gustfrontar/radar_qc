@@ -7,18 +7,16 @@ import numpy as np
 import os 
 import glob
 import sys
-import matplotlib.pyplot as plt
 sys.path.append('./src/python' )
 sys.path.append('./src/fortran')
 
 import radar_qc_module as rqc
-import conf_rma
-import conf_gematronik 
+import conf_defaults as conf
 
 #La idea es hacer un loop sobre un grupo de carpetas / subcarpetas y archivos.
 #En este caso asumo que hay 2 niveles de carpetas (por eso el /*/*/)
  
-datapath='/media/jruiz/PAWR/RADAR_DATA_RRA_RMA1/PAR/20170930/'
+datapath='/media/jruiz/PAWR/RADAR_DATA_RRA_RMA1/RMA1/'
  
 
 #Generate a list with all the files contained in the folders and sub-folders.
@@ -36,13 +34,26 @@ for (dirpath, dirnames, filenames) in os.walk(datapath):
 #file_list=['/media/jruiz/PAWR/RADAR_DATA_RRA_RMA1/ANG/20170930/cfrad.20170930_133002.000_to_20170930_133420.001_ANG_SUR.nc']
 #file_list=['/media/jruiz/PAWR/RADAR_DATA_RRA_RMA1/PAR/20170930//cfrad.20170930_222434.000_to_20170930_222732.000_PAR_SUR.nc']
 
+
+options = conf.options #This is the default configuration.
+
 #Proceed to perform qc for each file.
 for ifile in file_list  :
    #Test if we have an RMA or GEMATRONIK RADAR
    if os.path.basename(ifile).find('RMA') > 0  :
-      options = conf_rma.options 
+
+      options['name_ref'] ='TH'              #Reflectivity
+      options['name_v']   ='VRAD'            #Dopper velocity
+      options['name_rho'] ='RHOHV'           #Rho HV
+      options['is_rma'] = True               #Wether this is an RMA file
+
    else                   :
-      options = conf_gematronik.options
+
+      options['name_ref'] ='dBZ'              #Reflectivity
+      options['name_v']   ='V'                #Dopper velocity
+      options['name_rho'] ='RhoHV'            #Rho HV
+      options['is_rma'] = False                         #Wether this is an RMA file
+
    options['filename'] = ifile
    #Generate output file name
    options['filename_out'] = ifile[ 0:ifile.find('.nc') ] + '.corr' + '.nc' 
