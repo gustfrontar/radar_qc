@@ -757,16 +757,22 @@ def EchoTopFilter( radar , output , options )   :
 
       for ii in range(0,output['ne'])     :       #Estimate the maximum radar data height assoicated with each gate.
          tmp_max_z[:,:,ii]=output['altitude'][:,:,output['ne']-1]
- 
-      [tmp_data_3d,tmp_data_2d]=qc.echo_top(reflectivity=output['ref'],heigth=output['altitude'][0,:,:]
+
+
+      if  options['fast_computation']          :
+         [tmp_index,tmp_data_2d]=qc.echo_top_fast(reflectivity=output['ref'],heigth=output['altitude'][0,:,:]
                                                 ,rrange=output['distance'],na=na,nr=nr,ne=ne
                                                 ,undef=output['undef_ref'],nx=nx,ny=ny,nz=nz)
 
-      tmp_index=tmp_data_3d[:,:,:,0]
+      else                                     : 
+         [tmp_data_3d,tmp_data_2d]=qc.echo_top(reflectivity=output['ref'],heigth=output['altitude'][0,:,:]
+                                                ,rrange=output['distance'],na=na,nr=nr,ne=ne
+                                                ,undef=output['undef_ref'],nx=nx,ny=ny,nz=nz)
+         tmp_index=tmp_data_3d[:,:,:,0]
         
       computed_etfilter = True  #In case we need any of the other variables computed in this routine.
 
-      tmp_index[ tmp_max_z < options[filter_name]['heigthtr'] ] = 1.0e6  #Do not consider this filter when the volume maximum heigth is below
+      tmp_index[ tmp_max_z < options[filter_name]['heigthtr'] ] = output['undef_ref']  #Do not consider this filter when the volume maximum heigth is below
                                                                   #the specified threshold (i.e. pixels close to the radar)
 
       tmp_index[ tmp_index == output['undef_ref'] ] = options['undef']

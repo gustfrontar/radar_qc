@@ -377,6 +377,254 @@ ENDDO
 RETURN
 END SUBROUTINE BOX_FUNCTIONS_2D
 
+SUBROUTINE ECHO_TOP_FAST(reflectivity,heigth,rrange,na,nr,ne,undef,nx,ny,nz,echo_top_3d,echo_top_2d)
+!Curretnly this routine:
+!Compute 3D echo top, echo base , echo depth , max dbz and max dbz z
+!Performs interpolation from original radar grid (r,elevation) to an uniform (r,z) grid, where
+!the parameters are computed.
+!Then the result is interpolated back to the original radar grid.
+IMPLICIT NONE
+
+!TODO SOME OF THESE PARAMETERS SHOULD BE INPUT ARGUMENTS.
+REAL(r_size) , PARAMETER :: MAX_Z_ECHO_TOP=20.0d4 , MAX_R_ECHO_TOP=240.0d03
+INTEGER      , PARAMETER :: MAX_ECHO_TOP_LEVS=5
+REAL(r_size) , PARAMETER :: DBZ_THRESHOLD_ECHO_TOP=5.0d0  !Echo top detection value.
+INTEGER     ,INTENT(IN)  :: na,nr,ne
+INTEGER     ,INTENT(IN)  :: nx,ny,nz
+REAL(r_size),INTENT(IN)  :: reflectivity(na,nr,ne) , heigth(nr,ne) , rrange(nr,ne)  
+REAL(r_size),INTENT(IN)  :: undef
+REAL(r_size),INTENT(OUT) :: echo_top_3d(na,nr,ne)  , echo_top_2d(na,nr)
+!Reflectivity and echo top in the vertical Z grid.
+REAL(r_size)             :: tmp_ref(nr,ne) , tmp_echo_top_3d(nr,ne) , tmp_z(nr,ne)
+REAL(r_size)             :: tmp_echo_top_2d(nr)
+REAL(r_size)             :: tmp_bufr_3d(na,nr,ne) , tmp_bufr_2d(na,nr)
+INTEGER                  :: index_up(nr,ne),index_up_inv(nr,ne)
+REAL(r_size)             :: w_up(nr,ne) , w_up_inv(nr,ne)
+
+REAL(r_size)             :: range_et(nr,ne) , z_et(nr,ne)
+
+INTEGER                  :: i, ii , iii , kk , jj , ia , ip 
+
+  !Define new grid in the R direction 
+  DO kk=1,ne
+     !We will interpolate reflectivity in all ranges to the location of the first elevation pixels.
+     range_et(:,kk) = rrange(:,1)  
+  ENDDO
+
+  !Compute the index and weights for fast interpolation between the original grid and the modified range grid.
+  !$OMP PARALLEL DO SCHEDULE(DYNAMIC) PRIVATE(kk,ii,iii)
+  DO kk = 1,ne
+     !Initialize variables with zeros.
+     index_up(:,kk) = 0
+     index_up_inv(:,kk) = 0
+     w_up(:,kk) = 0.0d0
+     w_up_inv(:,kk) = 0.0d0
+
+     DO ii = 1 , nr
+        DO iii = 2 , nr
+           !Compute indexes and weight for the forward interpolation from original grid to the vertical z coordinate grid.
+           IF ( (rrange(ii,kk) >= range_et(iii-1,kk)) .and. (rrange(ii,kk) <= range_et(iii,kk) ) )THEN
+              index_up(ii,kk)=iii
+              w_up(ii,kk) = ( rrange(ii,kk) - range_et(iii-1,kk) ) / ( range_et(iii,kk) - range_et(iii-1,kk) )
+
+           ENDIF  
+           !Compute indexes and weigths for the inverse interpolation from the vertical z coordinate grid to the original grid.
+           IF ( (range_et(ii,kk) .ge. rrange(iii-1,kk)) .and. (range_et(ii,kk) .le. rrange(iii,kk) ) )THEN
+              index_up_inv(ii,kk)=iii
+              w_up_inv(ii,kk) = ( range_et(ii,kk) - rrange(iii-1,kk) ) / ( rrange(iii,kk) - rrange(iii-1,kk) )
+
+           ENDIF
+
+        ENDDO
+
+        !This is for extrapolation of reflectivity and echo top        
+        IF( rrange(ii,kk) .gt. range_et(nr,kk) )THEN !We are beyond the range of the first level.
+          index_up(ii,kk) = nr
+          w_up(ii,kk) = 1.0d0
+        ELSEIF( rrange(ii,kk) .lt. range_et(1,kk) )THEN !We are closer to the radar than the first gate of the first level
+          index_up(ii,kk) = 2
+          w_up(ii,kk) = 0.0d0
+        ENDIF        
+
+        IF( range_et(ii,kk) .gt. rrange(nr,kk) )THEN !We are beyond the range of the first level.
+          index_up_inv(ii,kk) = nr
+          w_up_inv(ii,kk) = 1.0d0
+        ELSEIF( range_et(ii,kk) .lt. rrange(1,kk) )THEN !We are closer to the radar than the first gate of the first level
+          index_up_inv(ii,kk) = 2
+          w_up_inv(ii,kk) = 0.0d0
+        ENDIF        
+
+        !Height interpolation
+        IF( index_up(ii,kk) .gt. 1 ) THEN
+            tmp_z(ii,kk)=heigth(index_up(ii,kk),kk)*w_up(ii,kk) + heigth(index_up(ii,kk)-1,kk)*(1.0d0-w_up(ii,kk))
+        ENDIF
+
+     ENDDO
+  ENDDO
+  !$OMP END PARALLEL DO
+
+  !Forward interpolation from the original grid to a vertical z coordinate grid.
+  tmp_ref=undef
+
+  !$OMP PARALLEL DO SCHEDULE(DYNAMIC) PRIVATE(ii,jj,kk,tmp_ref,tmp_echo_top_3d,tmp_echo_top_2d)
+  DO jj=1,na
+    !Forward reflectivity interpolation
+    DO ii=1,nr
+      DO kk=1,ne
+        IF( index_up(ii,kk) .gt. 1 ) THEN
+          tmp_ref(ii,kk)=reflectivity(jj,index_up(ii,kk),kk)*w_up(ii,kk) + reflectivity(jj,index_up(ii,kk)-1,kk)*(1.0d0-w_up(ii,kk))
+        ENDIF
+      ENDDO
+    ENDDO
+    !Echo top computation
+    DO ii=1,nr
+      CALL ECHO_TOP_FAST_SUB(tmp_ref(ii,:),tmp_z(ii,:),ne,undef,tmp_echo_top_3d(ii,:), & 
+                             tmp_echo_top_2d(ii),MAX_ECHO_TOP_LEVS,DBZ_THRESHOLD_ECHO_TOP)
+    ENDDO
+
+    !Inverse interpolation of echo top (3d and 2d)
+    DO ii=1,nr
+      DO kk=1,ne
+        IF( index_up_inv(ii,kk) .gt. 1 ) THEN
+          echo_top_3d(jj,ii,kk)=tmp_echo_top_3d(index_up(ii,kk),kk)*w_up(ii,kk) +   &
+                                tmp_echo_top_3d(index_up(ii,kk)-1,kk)*(1.0d0-w_up(ii,kk))
+        ENDIF
+      ENDDO
+      echo_top_2d(jj,ii)=tmp_echo_top_2d(index_up(ii,1))*w_up(ii,1) + & 
+                         tmp_echo_top_2d(index_up(ii,1)-1)*(1.0d0-w_up(ii,1))
+    ENDDO
+
+  ENDDO
+  !$OMP END PARALLEL DO
+
+  CALL BOX_FUNCTIONS_2D(echo_top_3d,na,nr,ne,undef,nx,ny,nz,'MEAN',0.0d0,tmp_bufr_3d)
+  CALL BOX_FUNCTIONS_2D(echo_top_2d,na,nr,1 ,undef,nx,ny,0 ,'MEAN',0.0d0,tmp_bufr_2d)
+  
+  echo_top_3d = tmp_bufr_3d
+  echo_top_2d = tmp_bufr_2d
+
+RETURN
+END SUBROUTINE ECHO_TOP_FAST
+
+SUBROUTINE ECHO_TOP_FAST_SUB(reflectivity,z,nz,undef,echo_top_3d,echo_top_2d,max_levs,threshold)
+!Vertical columns calculations
+!Compute the possition of multiple echo tops in a single reflectivity column.
+!Compute echo depth of each echo layer
+!compute echo base
+!compute max dbz
+!This routine returns a vertical profile of echo base, echo top , echo depth , max dbz and max dbz a fore 
+!each cloud layer.
+!It also returns the vertical profile of the vertical gradient of the reflectivity field.
+
+IMPLICIT NONE
+INTEGER, INTENT(IN)     :: nz , max_levs
+REAL(r_size),INTENT(IN) :: reflectivity(nz) , z(nz)
+REAL(r_size),INTENT(OUT):: echo_top_3d(nz) !Vertical profile of echo top.
+REAL(r_size),INTENT(OUT):: echo_top_2d     !Max echo top.
+REAL(r_size),INTENT(IN) :: undef
+REAL(r_size),INTENT(IN) :: threshold    !Reflectivity threshold to detect echo top.
+INTEGER, PARAMETER      :: Nlevelstop=2
+REAL(r_size)            :: tmp(max_levs,2) !echo_top , echo_base for each cloud layer.
+REAL(r_size)            :: ref(nz) , ave_ref , sum_z
+INTEGER                 :: jj, iz , base_count , top_count , tmp_count , itop , imax
+LOGICAL                 :: base_detected , top_detected
+LOGICAL                 :: found_first_maximum
+REAL(r_size), PARAMETER :: first_maximum_threshold = 10.0d0 
+REAL(r_size), PARAMETER :: refmin =0.0d0  ! Reflectivity value that will be assumed for UNDEF values in gradient computation.
+
+echo_top_3d=undef
+echo_top_2d=undef
+tmp=UNDEF
+
+base_count=0
+top_count=0
+
+ref=reflectivity   !reflectivity is intent in.
+
+base_detected=.false.
+top_detected=.false.
+
+!Before computation extend data one or to levels below the first echo. This is done to prevent the first level to fall outside the computation
+!of these scores.
+DO iz=1,nz
+   IF( z(iz) > 3000 )EXIT
+
+   IF( ref(iz) /= UNDEF )THEN
+      IF( iz>= 2)THEN
+       ref(iz-1)=ref(iz)
+      ENDIF
+
+     EXIT
+   ENDIF
+ENDDO
+
+DO iz=1,nz
+   !Look for an echo base
+   IF( ref(iz) > threshold .AND.  .NOT. base_detected .AND. ref(iz) /= UNDEF )THEN
+       !An echo base has been detected.
+       IF( base_count < max_levs)THEN
+       base_detected=.true.
+       top_detected=.false.
+       base_count=base_count+1
+       tmp(base_count,2)=z(iz)   !Echo base
+       ENDIF
+   ENDIF
+   !Look for an echo top.
+   IF( iz > Nlevelstop )THEN
+     tmp_count=0
+     DO jj=iz-Nlevelstop+1,iz
+        IF( ref(jj) < threshold .OR. ref(jj) == UNDEF )tmp_count=tmp_count+1
+     ENDDO
+     IF( tmp_count == Nlevelstop .AND. .NOT. top_detected .AND. base_detected )THEN
+     !An echo top has been detected
+        top_detected=.true.
+        base_detected=.false.
+        IF( base_count <= max_levs )THEN
+           tmp(base_count,1)=z(iz-Nlevelstop)  !Echo top
+        ENDIF
+     ENDIF
+   ENDIF
+   !Echo top associated with top of the radar domain.
+   IF( iz == nz .AND. base_detected .AND. .NOT. top_detected )THEN
+   !Domain is over but echo top has not been found! :( 
+   !Force echo top
+       IF( base_count <= max_levs )THEN
+           tmp(base_count,1)=z(iz)  !Echo top
+       ENDIF
+   ENDIF
+
+
+ENDDO !End for loop over levels
+
+DO itop=1,max_levs
+   IF( tmp(itop,1) .NE. UNDEF  .AND.  tmp(itop,2) .NE. UNDEF )THEN  !Echo top and echo base
+       DO iz=1,nz-1
+          IF( z(iz) >= tmp(itop,2) .AND. z(iz) <= tmp(itop,1))THEN
+               echo_top_3d(iz)=tmp(itop,1)
+          ENDIF
+          IF( z(iz) > tmp(itop,1) )EXIT
+       ENDDO
+   ENDIF
+   !Find maximum echo top
+   IF ( tmp(itop,1) .NE. UNDEF )THEN
+      IF( echo_top_2d .EQ. UNDEF )THEN
+        echo_top_2d=tmp(itop,1)
+        ELSE
+         IF( tmp(itop,1) >= echo_top_2d )THEN
+           echo_top_2d = tmp(itop,1)
+         ENDIF
+      ENDIF
+   ENDIF
+
+
+ENDDO
+
+
+RETURN
+END SUBROUTINE ECHO_TOP_FAST_SUB
+
+
+
 SUBROUTINE  ECHO_TOP(reflectivity,heigth,rrange,na,nr,ne,undef,nx,ny,nz,output_data_3d,output_data_2d)
 !Curretnly this routine:
 !Compute 3D echo top, echo base , echo depth , max dbz and max dbz z
