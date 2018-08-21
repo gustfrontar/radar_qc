@@ -157,7 +157,7 @@ def reshape_variables( radar , output , options )    :
 
         output['undef_ref']=radar.fields[options['name_ref']]['_FillValue']
 
-        [ output['ref'] , output['az'] , output['level'] , output['time'] , output['index'] , output['az_exact'] ]=order_variable( radar , options['name_ref'] , output['undef_ref'] )
+        [ output['ref'] , output['az'] , output['level'] , output['time'] , output['az_exact'] ]=order_variable( radar , options['name_ref'] , output['undef_ref'] )
         na=output['ref'].shape[0]
         nr=output['ref'].shape[1]
         ne=output['ref'].shape[2]
@@ -180,7 +180,7 @@ def reshape_variables( radar , output , options )    :
 
         output['undef_v']=radar.fields[ options['name_v'] ]['_FillValue']
 
-        [ output['v'] , output['az'] , output['level'] , output['time'] , output['index'] , output['az_exact']  ]=order_variable( radar , options['name_v'] , output['undef_v']  )
+        [ output['v'] , output['az'] , output['level'] , output['time'] , output['az_exact']  ]=order_variable( radar , options['name_v'] , output['undef_v']  )
  
         na=output['v'].shape[0]
         nr=output['v'].shape[1]
@@ -217,9 +217,9 @@ def georeference_data( radar , output , options )    :
 
    #dm is a dummy variable
 
-   [ output['altitude'] , dm , dm , dm , dm , dm ] = order_variable( radar , 'altitude' , options['undef'] )
-   [ output['x']        , dm , dm , dm , dm , dm ] = order_variable( radar , 'x' , options['undef'] ) 
-   [ output['y']        , dm , dm , dm , dm , dm ] = order_variable( radar , 'y' , options['undef'] )
+   [ output['altitude'] , dm , dm , dm , dm ] = order_variable( radar , 'altitude' , options['undef'] )
+   [ output['x']        , dm , dm , dm , dm ] = order_variable( radar , 'x' , options['undef'] ) 
+   [ output['y']        , dm , dm , dm , dm ] = order_variable( radar , 'y' , options['undef'] )
 
 
    #Compute distance to radar for the first azimuth (we assume that distance to radar will be the same.
@@ -345,13 +345,13 @@ def  update_radar_object( radar , output , options )   :
 
    if options['name_ref'] in radar.fields :
 
-      tmp=order_variable_inv( radar , output['cref'] , output['index'] , output['undef_ref'] )
+      tmp=order_variable_inv( radar , output['cref'] , output['undef_ref'] )
       radar.add_field_like( options['name_ref'] , options['name_cref'] , radar.fields[ options['name_ref'] ]['data'] , True)
       radar.fields[ options['name_cref'] ]['data']=np.ma.masked_array(tmp , tmp==output['undef_ref'] )
 
    if options['name_v'] in radar.fields :
 
-      tmp=order_variable_inv( radar , output['cv'] , output['index'] , output['undef_v'] )
+      tmp=order_variable_inv( radar , output['cv'] , output['undef_v'] )
       radar.add_field_like( options['name_v'] , options['name_cv'] , radar.fields[ options['name_v'] ]['data'] , True)
       radar.fields[ options['name_cv'] ]['data']=np.ma.masked_array(tmp , tmp==output['undef_v'] )
 
@@ -650,7 +650,7 @@ def Dealiasing( radar , output , options )   :
    if options[filter_name]['flag']  and ( options['name_v'] in radar.fields ) :
       #Define a new instance of the radar strcture containing the wind (potentially affected by previous filters).
       radar.add_field_like( options['name_v'], options['name_cv'] , radar.fields[ options['name_v'] ]['data'] , True)
-      tmp = order_variable_inv(  radar , output['v'] , output['index'] , output['undef_v'] )
+      tmp = order_variable_inv(  radar , output['v'] , output['undef_v'] )
       radar.fields[ options['name_cv'] ]['data']= np.ma.masked_array( tmp , tmp==output['undef_v'] )
 
       #Uso una de las funciones de dealiasing de pyart con los parametros por defecto
@@ -663,7 +663,7 @@ def Dealiasing( radar , output , options )   :
       radar.fields[ options['name_cv'] ]['data'] = winddealias['data']
 
       #Re-order dealiased wind data.
-      [ output['cv'] , output['az'] , output['level'] , output['time'] , output['index'] , output['az_exact']  ]=order_variable( radar , options['name_cv'] , output['undef_v']  )
+      [ output['cv'] , output['az'] , output['level'] , output['time'] , output['az_exact']  ]=order_variable( radar , options['name_cv'] , output['undef_v']  )
     
       mask=np.logical_and( output['cv'] != output['v'] , output['cv'] != output['undef_v'] )
       output['qcv'][ mask ]=options[filter_name]['code']
@@ -889,7 +889,7 @@ def RhoFilter( radar , output , options )  :
 
       output['undef_rho']=radar.fields[ options['name_rho'] ]['_FillValue']
 
-      [ rhohv , dm , dm , dm , dm , dm  ]=order_variable( radar , options['name_rho'] , output['undef_rho']  )
+      [ rhohv , dm , dm , dm , dm  ]=order_variable( radar , options['name_rho'] , output['undef_rho']  )
 
       #Compute the filter parameter
       tmp_index=qc.box_functions_2d(datain=rhohv,na=na,nr=nr,ne=ne,undef=output['undef_rho']
@@ -1354,25 +1354,18 @@ def order_variable ( radar , var_name , undef )  :
    import numpy as np
    import numpy.ma as ma
    #import warnings 
-   import matplotlib.pyplot as plt
+   #import matplotlib.pyplot as plt
 
-   #order_var es la variable ordenada con los azimuths entre 0 y 360 (si hay rayos repetidos se promedian).
-   #order_azimuth es el azimuth "aproximado" utilizando 0 como azimuth inicial y avanzando en intervalos regulares e iguales a la resolucion
-   #del azimuth en grados.
-   #levels son los angulos de elevacion.
-   #azimuth_exact es un array que contiene para cada nivel el valor exacto del azimuth que corresponde a cada rayo. 
+   #From azimuth , range -> azimuth , range , elevation 
 
    ray_angle_res = np.unique( radar.ray_angle_res['data'] )
    if( np.size( ray_angle_res ) >= 2 )  :
       print('Warning: La resolucion en azimuth no es uniforme en los diferentes angulos de elevacion ')
       print('Warning: El codigo no esta preparado para considerar este caso y puede producir efectos indesaedos ')
    ray_angle_res=np.nanmean( ray_angle_res )
-   #print ('The resolution in azimuth is: %5.3f' % ( ray_angle_res ) )
 
-
-   levels=np.unique(radar.elevation['data'])
-   azimuth=radar.azimuth['data']
-   time=radar.time['data']
+   levels=np.sort( np.unique(radar.elevation['data']) )
+   nb=radar.azimuth['data'].shape[0]
 
    order_azimuth=np.arange(0.0,360.0,ray_angle_res) #Asuming a regular azimuth grid
 
@@ -1392,34 +1385,23 @@ def order_variable ( radar , var_name , undef )  :
    else  :
       var=np.copy(radar.fields[var_name]['data'].data)
 
-
-      #var[ var == undef ] = np.nan
-
    nr=var.shape[1]
 
    #Allocate arrays
    order_var    =np.zeros((naz,nr,nel))
    order_time   =np.zeros((naz,nel)) 
-   order_index  =np.zeros((naz,nel))   #This variable can be used to convert back to the azimuth - range array
    azimuth_exact=np.zeros((naz,nel))
    order_n      =np.zeros((naz,nr,nel))
-
-   #order_var[:]     = undef 
-   #order_time[:]    = undef 
-   #azimuth_exact[:] = undef
-   
-   #Assuming increasing elevation angle.
-   ilev = 0
    
    current_lev = radar.elevation['data'][0]
+   ilev = np.where( levels == current_lev  )[0]  
 
-   for iray in range( 0 , np.size( azimuth ) )  :   #Loop over all the rays
+   for iray in range( 0 , nb )  :   #Loop over all the rays
  
      #Check if we are in the same elevation.
      if  radar.elevation['data'][iray] != current_lev  :
-         ilev=ilev+1
+         ilev=ilev = np.where( levels == current_lev  )[0]
          current_lev = radar.elevation['data'][iray]  
-         
 
      #Compute the corresponding azimuth index.
      az_index = np.round( radar.azimuth['data'][iray] / ray_angle_res ).astype(int)
@@ -1434,90 +1416,51 @@ def order_variable ( radar , var_name , undef )  :
      order_var [ az_index , : , ilev ] = order_var [ az_index , : , ilev ] + tmp_var
      order_n   [ az_index , : , ilev ] = order_n   [ az_index , : , ilev ] + np.logical_not(undef_mask).astype(int)
 
-     order_time[ az_index , ilev ] = order_time[ az_index , ilev ] + time[iray]
-     azimuth_exact[ az_index , ilev ] = azimuth_exact[ az_index , ilev ] + azimuth[ az_index ]
-
-     if order_index[ az_index , ilev ] == 0 :  #We only store the index the first time one index contribute to this azimuth and elevation.
-        order_index[ az_index , ilev ] = iray
+     order_time[ az_index , ilev ] = order_time[ az_index , ilev ] + radar.time['data'][iray]
+     azimuth_exact[ az_index , ilev ] = azimuth_exact[ az_index , ilev ] + radar.azimuth['data'][ iray ]
 
    order_var[ order_n > 0 ] = order_var[ order_n > 0 ] / order_n[ order_n > 0 ]
    order_var[ order_n == 0] = undef
 
+   return order_var , order_azimuth , levels , order_time , azimuth_exact
 
-#   for ilev in range(0, nel) :
-#
-#      levmask= radar.elevation['data'] == levels[ilev] 
-#
-#      min_index = np.min( np.where( levmask ) )
-#
-#
-#      #Find the azimuths corresponding to the current elevation.
-#      azlev=azimuth[ levmask ]
-#      timelev=time[ levmask ]
-#      #Get variabile values corresponding to the current elevation
-#      varlev=var[ levmask , : ]
-#
-#      #For the first azimuth which is a special case because it contains zero.
-#      az_index=np.logical_or( azlev <= ray_angle_res/2.0 , azlev >= 360 - ray_angle_res/2.0 )
-#     
-#      if ( np.sum(az_index) > 0 ) : 
-#         with warnings.catch_warnings():
-#              #Run time warnings resulting from all nan array in nanmean are expected
-#              #and supressed in this block.
-#              warnings.simplefilter("ignore", category=RuntimeWarning)
-#
-#              order_var[0,:,ilev] = np.nanmean( varlev[az_index,:] , 0 )
-#              order_time[0,ilev] = np.nanmean( timelev[ az_index ] )
-#              azimuth_exact[0,ilev] = np.nanmean( azlev[ az_index ] )
-#         order_index[0,ilev]   = np.where( az_index )[0][0] + min_index
-#
-#      #Para los que vienen despues.
-#      for iaz in range(1,naz) :
-#         #Search for all the rays that are close to the current azimuth and level.
-#         az_index=np.logical_and( azlev <= order_azimuth[iaz] + ray_angle_res/2.0 , azlev >= order_azimuth[iaz] - ray_angle_res/2.0 )
-#         if( np.sum( az_index ) > 0 ) :
-#            with warnings.catch_warnings():
-#                 #Run time warnings resulting from all nan array in nanmean are expected
-#                 #and supressed in this block.
-#                 warnings.simplefilter("ignore", category=RuntimeWarning)
-#                 order_var[iaz,:,ilev] = np.nanmean( varlev[az_index,:] , 0 )
-#                 order_time[iaz,ilev] = np.nanmean( timelev[ az_index ] )
-#                 azimuth_exact[iaz,ilev] = np.nanmean( azlev[ az_index ] )
-#            order_index[iaz,ilev] = np.where(az_index)[0][0] + min_index #If multiple levels corresponds to a single azimuth / elevation chose the first one.
-#
-#   order_var[ np.isnan( order_var ) ]= undef
-#   order_index[ np.isnan( order_index ) ]=undef
+def order_variable_inv (  radar , var , undef )  :
 
-   return order_var , order_azimuth , levels , order_time , order_index , azimuth_exact
-
-#From ARE order to Pyart order 
-def order_variable_inv (  radar , var , order_index , undef )  :
-
-    import numpy as np
+   import numpy as np
    
-    #Esta funcion es la inversa de la funcion order variable. Es decir que toma un array ordenado como azimuth , range y elevation y lo vuelve
-    #a ordenar como azimuth-elevation y range. Es decir el orden original que se encuentra en los archivos con formato cfradial y que heredan los objetos radar de pyart.
+   #From azimuth , range , elevation -> azimuth , range
 
-    #var es la variable ordenada como var(azimuth,range,elevation)
-    #order_index (azimuth,elevation) contiene la posicion original de los haces que fueron asignados a cada azimuth y elevacion por la funcion order_variable.
-    #nr numero de puntos en la direccion del rango.
-    #nb numero de beams. 
+   na=var.shape[0]
+   nr=var.shape[1]
+   ne=var.shape[2]
 
-    na=var.shape[0]
-    nr=var.shape[1]
-    ne=var.shape[2]
+   nb=radar.azimuth['data'].shape[0]
 
-    nb=radar.azimuth['data'].shape[0]
+   levels=np.sort( np.unique(radar.elevation['data']) )
 
-    output_var=np.ones((nb,nr)) * undef 
-    
-    for ia in range(0,na)  :
+   ray_angle_res = np.unique( radar.ray_angle_res['data'] )
+   if( np.size( ray_angle_res ) >= 2 )  :
+      print('Warning: La resolucion en azimuth no es uniforme en los diferentes angulos de elevacion ')
+      print('Warning: El codigo no esta preparado para considerar este caso y puede producir efectos indesaedos ')
+   ray_angle_res=np.nanmean( ray_angle_res )
 
-       for ie in range(0,ne)  :
+   current_lev = radar.elevation['data'][0]
+   ilev = np.where( levels == current_lev  )[0]
 
-          if ( not order_index[ia,ie] == undef )  :
-     
-              output_var[int(order_index[ia,ie]),:]=var[ia,:,ie] 
+   for iray in range( 0 , nb )  :   #Loop over all the rays
+
+     #Check if we are in the same elevation.
+     if  radar.elevation['data'][iray] != current_lev  :
+         ilev=ilev = np.where( levels == current_lev  )[0]
+         current_lev = radar.elevation['data'][iray]
+
+     #Compute the corresponding azimuth index.
+     az_index = np.round( radar.azimuth['data'][iray] / ray_angle_res ).astype(int)
+     #Consider the case when azimuth is larger than naz*ray_angle_res-(ray_angle_res/2)
+     if az_index >= naz   :
+        az_index = 0
+
+     output_var[ iray , : ] = var[ az_index , : , ilev ]
 
     return output_var
 
