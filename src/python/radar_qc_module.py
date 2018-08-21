@@ -759,7 +759,7 @@ def EchoTopFilter( radar , output , options )   :
          tmp_max_z[:,:,ii]=output['altitude'][:,:,output['ne']-1]
 
 
-      if  options['fast_computation']          :
+      if  options[filter_name]['fast_computation']          :
          [tmp_index,tmp_data_2d]=qc.echo_top_fast(reflectivity=output['ref'],heigth=output['altitude'][0,:,:]
                                                 ,rrange=output['distance'],na=na,nr=nr,ne=ne
                                                 ,undef=output['undef_ref'],nx=nx,ny=ny,nz=nz)
@@ -1353,7 +1353,8 @@ def order_variable ( radar , var_name , undef )  :
 
    import numpy as np
    import numpy.ma as ma
-   import warnings 
+   #import warnings 
+   import matplotlib.pyplot as plt
 
    #order_var es la variable ordenada con los azimuths entre 0 y 360 (si hay rayos repetidos se promedian).
    #order_azimuth es el azimuth "aproximado" utilizando 0 como azimuth inicial y avanzando en intervalos regulares e iguales a la resolucion
@@ -1373,83 +1374,119 @@ def order_variable ( radar , var_name , undef )  :
    azimuth=radar.azimuth['data']
    time=radar.time['data']
 
-   order_azimuth=np.arange(0.0,360.0-ray_angle_res,ray_angle_res) #Asuming quasi regular azimuth location
+   order_azimuth=np.arange(0.0,360.0,ray_angle_res) #Asuming a regular azimuth grid
+
    naz=np.size(order_azimuth)
    nel=np.size(levels)
 
    if ( var_name == 'altitude' ) :
-      var=radar.gate_altitude['data']
+      var=np.copy(radar.gate_altitude['data'])
    elif( var_name == 'longitude' ) :
-      var=radar.gate_longitude['data'] 
+      var=np.copy(radar.gate_longitude['data'])
    elif( var_name == 'latitude'  ) :
-      var=radar.gate_latitude['data'] 
+      var=np.copy(radar.gate_latitude['data'])
    elif( var_name == 'x' )         :
-      var=radar.gate_x['data']
+      var=np.copy(radar.gate_x['data'])
    elif( var_name == 'y' )         : 
-      var=radar.gate_y['data']
+      var=np.copy(radar.gate_y['data'])
    else  :
-      var=radar.fields[var_name]['data'].data
+      var=np.copy(radar.fields[var_name]['data'].data)
 
 
-      var[ var == undef ] = np.nan
+      #var[ var == undef ] = np.nan
 
    nr=var.shape[1]
 
    #Allocate arrays
-   order_var    = undef + np.zeros((naz,nr,nel))
+   order_var    =np.zeros((naz,nr,nel))
    order_time   =np.zeros((naz,nel)) 
-   order_index  =undef + np.zeros((naz,nel))   #This variable can be used to convert back to the azimuth - range array
-   azimuth_exact=undef + np.zeros((naz,nel))
+   order_index  =np.zeros((naz,nel))   #This variable can be used to convert back to the azimuth - range array
+   azimuth_exact=np.zeros((naz,nel))
+   order_n      =np.zeros((naz,nr,nel))
 
-   order_var[:]     = undef 
-   order_time[:]    = undef 
-   azimuth_exact[:] = undef
-
+   #order_var[:]     = undef 
+   #order_time[:]    = undef 
+   #azimuth_exact[:] = undef
    
+   #Assuming increasing elevation angle.
+   ilev = 0
+   
+   current_lev = radar.elevation['data'][0]
 
-   for ilev in range(0, nel) :
+   for iray in range( 0 , np.size( azimuth ) )  :   #Loop over all the rays
+ 
+     #Check if we are in the same elevation.
+     if  radar.elevation['data'][iray] != current_lev  :
+         ilev=ilev+1
+         current_lev = radar.elevation['data'][iray]  
+         
 
-      levmask= radar.elevation['data'] == levels[ilev] 
+     #Compute the corresponding azimuth index.
+     az_index = np.round( radar.azimuth['data'][iray] / ray_angle_res ).astype(int)
+     #Consider the case when azimuth is larger than naz*ray_angle_res-(ray_angle_res/2)
+     if az_index >= naz   :  
+        az_index = 0
 
-      min_index = np.min( np.where( levmask ) )
+     tmp_var = var[iray,:]
+     undef_mask = tmp_var == undef 
+     tmp_var[ undef_mask ] = 0.0
+    
+     order_var [ az_index , : , ilev ] = order_var [ az_index , : , ilev ] + tmp_var
+     order_n   [ az_index , : , ilev ] = order_n   [ az_index , : , ilev ] + np.logical_not(undef_mask).astype(int)
+
+     order_time[ az_index , ilev ] = order_time[ az_index , ilev ] + time[iray]
+     azimuth_exact[ az_index , ilev ] = azimuth_exact[ az_index , ilev ] + azimuth[ az_index ]
+
+     if order_index[ az_index , ilev ] == 0 :  #We only store the index the first time one index contribute to this azimuth and elevation.
+        order_index[ az_index , ilev ] = iray
+
+   order_var[ order_n > 0 ] = order_var[ order_n > 0 ] / order_n[ order_n > 0 ]
+   order_var[ order_n == 0] = undef
 
 
-      #Find the azimuths corresponding to the current elevation.
-      azlev=azimuth[ levmask ]
-      timelev=time[ levmask ]
-      #Get variabile values corresponding to the current elevation
-      varlev=var[ levmask , : ]
-
-      #For the first azimuth which is a special case because it contains zero.
-      az_index=np.logical_or( azlev <= ray_angle_res/2.0 , azlev >= 360 - ray_angle_res/2.0 )
-     
-      if ( np.sum(az_index) > 0 ) : 
-         with warnings.catch_warnings():
-              #Run time warnings resulting from all nan array in nanmean are expected
-              #and supressed in this block.
-              warnings.simplefilter("ignore", category=RuntimeWarning)
-
-              order_var[0,:,ilev] = np.nanmean( varlev[az_index,:] , 0 )
-              order_time[0,ilev] = np.nanmean( timelev[ az_index ] )
-              azimuth_exact[0,ilev] = np.nanmean( azlev[ az_index ] )
-         order_index[0,ilev]   = np.where( az_index )[0][0] + min_index
-
-      #Para los que vienen despues.
-      for iaz in range(1,naz) :
-         #Search for all the rays that are close to the current azimuth and level.
-         az_index=np.logical_and( azlev <= order_azimuth[iaz] + ray_angle_res/2.0 , azlev >= order_azimuth[iaz] - ray_angle_res/2.0 )
-         if( np.sum( az_index ) > 0 ) :
-            with warnings.catch_warnings():
-                 #Run time warnings resulting from all nan array in nanmean are expected
-                 #and supressed in this block.
-                 warnings.simplefilter("ignore", category=RuntimeWarning)
-                 order_var[iaz,:,ilev] = np.nanmean( varlev[az_index,:] , 0 )
-                 order_time[iaz,ilev] = np.nanmean( timelev[ az_index ] )
-                 azimuth_exact[iaz,ilev] = np.nanmean( azlev[ az_index ] )
-            order_index[iaz,ilev] = np.where(az_index)[0][0] + min_index #If multiple levels corresponds to a single azimuth / elevation chose the first one.
-
-   order_var[ np.isnan( order_var ) ]= undef
-   order_index[ np.isnan( order_index ) ]=undef
+#   for ilev in range(0, nel) :
+#
+#      levmask= radar.elevation['data'] == levels[ilev] 
+#
+#      min_index = np.min( np.where( levmask ) )
+#
+#
+#      #Find the azimuths corresponding to the current elevation.
+#      azlev=azimuth[ levmask ]
+#      timelev=time[ levmask ]
+#      #Get variabile values corresponding to the current elevation
+#      varlev=var[ levmask , : ]
+#
+#      #For the first azimuth which is a special case because it contains zero.
+#      az_index=np.logical_or( azlev <= ray_angle_res/2.0 , azlev >= 360 - ray_angle_res/2.0 )
+#     
+#      if ( np.sum(az_index) > 0 ) : 
+#         with warnings.catch_warnings():
+#              #Run time warnings resulting from all nan array in nanmean are expected
+#              #and supressed in this block.
+#              warnings.simplefilter("ignore", category=RuntimeWarning)
+#
+#              order_var[0,:,ilev] = np.nanmean( varlev[az_index,:] , 0 )
+#              order_time[0,ilev] = np.nanmean( timelev[ az_index ] )
+#              azimuth_exact[0,ilev] = np.nanmean( azlev[ az_index ] )
+#         order_index[0,ilev]   = np.where( az_index )[0][0] + min_index
+#
+#      #Para los que vienen despues.
+#      for iaz in range(1,naz) :
+#         #Search for all the rays that are close to the current azimuth and level.
+#         az_index=np.logical_and( azlev <= order_azimuth[iaz] + ray_angle_res/2.0 , azlev >= order_azimuth[iaz] - ray_angle_res/2.0 )
+#         if( np.sum( az_index ) > 0 ) :
+#            with warnings.catch_warnings():
+#                 #Run time warnings resulting from all nan array in nanmean are expected
+#                 #and supressed in this block.
+#                 warnings.simplefilter("ignore", category=RuntimeWarning)
+#                 order_var[iaz,:,ilev] = np.nanmean( varlev[az_index,:] , 0 )
+#                 order_time[iaz,ilev] = np.nanmean( timelev[ az_index ] )
+#                 azimuth_exact[iaz,ilev] = np.nanmean( azlev[ az_index ] )
+#            order_index[iaz,ilev] = np.where(az_index)[0][0] + min_index #If multiple levels corresponds to a single azimuth / elevation chose the first one.
+#
+#   order_var[ np.isnan( order_var ) ]= undef
+#   order_index[ np.isnan( order_index ) ]=undef
 
    return order_var , order_azimuth , levels , order_time , order_index , azimuth_exact
 

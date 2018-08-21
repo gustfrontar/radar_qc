@@ -152,6 +152,7 @@ options[filter_name]['flag']=True                          #Enable / disable fil
 options[filter_name]['nx']=2                                #NX
 options[filter_name]['ny']=2                                #NY
 options[filter_name]['nz']=0                                #NZ
+options[filter_name]['fast_computation']=True               #Enable fast version of echo top computation.
 options[filter_name]['save']=False                          #Save filter aux fields to output?
 options[filter_name]['ify']=np.array([1,1,0,0])             #Importance function y
 options[filter_name]['ifx']=np.array([0,2500,3000,20000])   #Importance function x
