@@ -1369,8 +1369,8 @@ def order_variable ( radar , var_name , undef )  :
 
    order_azimuth=np.arange(0.0,360.0,ray_angle_res) #Asuming a regular azimuth grid
 
-   naz=np.size(order_azimuth)
-   nel=np.size(levels)
+   na=np.size(order_azimuth)
+   ne=np.size(levels)
 
    if ( var_name == 'altitude' ) :
       var=np.copy(radar.gate_altitude['data'])
@@ -1388,10 +1388,10 @@ def order_variable ( radar , var_name , undef )  :
    nr=var.shape[1]
 
    #Allocate arrays
-   order_var    =np.zeros((naz,nr,nel))
-   order_time   =np.zeros((naz,nel)) 
-   azimuth_exact=np.zeros((naz,nel))
-   order_n      =np.zeros((naz,nr,nel))
+   order_var    =np.zeros((na,nr,ne))
+   order_time   =np.zeros((na,ne)) 
+   azimuth_exact=np.zeros((na,ne))
+   order_n      =np.zeros((na,nr,ne))
    
    current_lev = radar.elevation['data'][0]
    ilev = np.where( levels == current_lev  )[0]  
@@ -1405,8 +1405,8 @@ def order_variable ( radar , var_name , undef )  :
 
      #Compute the corresponding azimuth index.
      az_index = np.round( radar.azimuth['data'][iray] / ray_angle_res ).astype(int)
-     #Consider the case when azimuth is larger than naz*ray_angle_res-(ray_angle_res/2)
-     if az_index >= naz   :  
+     #Consider the case when azimuth is larger than na*ray_angle_res-(ray_angle_res/2)
+     if az_index >= na   :  
         az_index = 0
 
      tmp_var = var[iray,:]
@@ -1447,22 +1447,25 @@ def order_variable_inv (  radar , var , undef )  :
    current_lev = radar.elevation['data'][0]
    ilev = np.where( levels == current_lev  )[0]
 
+   output_var = np.zeros((nb,nr))
+   output_var[:] = undef
+
    for iray in range( 0 , nb )  :   #Loop over all the rays
 
-     #Check if we are in the same elevation.
-     if  radar.elevation['data'][iray] != current_lev  :
-         ilev=ilev = np.where( levels == current_lev  )[0]
-         current_lev = radar.elevation['data'][iray]
+      #Check if we are in the same elevation.
+      if  radar.elevation['data'][iray] != current_lev  :
+          ilev=ilev = np.where( levels == current_lev  )[0]
+          current_lev = radar.elevation['data'][iray]
 
-     #Compute the corresponding azimuth index.
-     az_index = np.round( radar.azimuth['data'][iray] / ray_angle_res ).astype(int)
-     #Consider the case when azimuth is larger than naz*ray_angle_res-(ray_angle_res/2)
-     if az_index >= naz   :
-        az_index = 0
+      #Compute the corresponding azimuth index.
+      az_index = np.round( radar.azimuth['data'][iray] / ray_angle_res ).astype(int)
+      #Consider the case when azimuth is larger than na*ray_angle_res-(ray_angle_res/2)
+      if az_index >= na   :
+         az_index = 0
 
-     output_var[ iray , : ] = var[ az_index , : , ilev ]
+      output_var[ iray , : ] = var[ az_index , : , ilev ]
 
-    return output_var
+   return output_var
 
 
 def get_rma_strat ( filename , radar )  :
