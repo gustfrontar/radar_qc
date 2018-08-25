@@ -1,8 +1,11 @@
 
 
+def read_multiple_files(  filelist , instrument_list = None )
 
-def read_multiple_files(  filelist )
-
+   import numpy as np
+   #filelist is a list of filenames corresponding to radar files in different formats.
+   #instrument_list (if present) a list of instrument names. Only names in instrument_list will be incorporated to the 
+   #radar object list.
 
    #Generate a list of radar objects
    
@@ -12,76 +15,75 @@ def read_multiple_files(  filelist )
    
    final_radar_list = []
 
-   for filename in filelist     :
+   used_file = np.zeros( len( filelist ) ).astype(bool)
+
+   for ifile , filename in enumerate( filelist )    :
 
       file_format = get_file_format( filename )
  
-      tmp_radar = read_file( filename , file_format )  
+      file_time   = get_time_from_filename( filename )
 
-      if len( tmp_radar ) != 0  :
- 
-         #Rename fields.
-         tmp_radar = rename_fields ( tmp_radar )
-         #Complete some radar parameters.
-         tmp_radar = get_strat     ( tmp_radar )
+      file_instrument = get_instrument_type_from_filename( filename )
 
-         radar_list.append = tmp_radar
-         radar_used.append = False 
-         radar_remove.append = False
+      if ( ( file_instrument in instrument_list ) or ( instrument_list == None ) ) and ( not used_file[ifile] ) :
+         #Read the radar 
+         my_radar = read_file( filename , file_format )  
 
+         if len( tmp_radar ) != 0  :
+            #Add the current radar to the list. 
+            #radar_list.append = my_radar
+            radar_used[ifile] = True
+            my_radar.files = [ filename ]
+
+            #Check if we can associate other radars in the list to the current radar.
   
-   #Group radar elements. 
-   for j, current_radar in enumerate( radar_list )   :
+            for tmp_ifile , tmp_filename  in enumerate( file_list )   :
   
-      if not radar_used[j]                           :
+               if ( not radar_used[tmp_ifile] ) and ( tmp_ifile != ifile )       :
+                  if ( file_format     ==  get_file_format( tmp_filename ) ) or 
+                     ( file_time       ==  get_time_from_filename( tmp_filename ) ) or
+                     ( file_instrument ==  get_instrument_type_from_filename( tmp_filename ) )
 
-         current_radar.files=[ filelist[j] ]  
+                     #Read the data
+                     tmp_radar = read_file( filename , file_format )
+                     if len( tmp_radar ) != 0  :
+                        
+                        #Check if we can merge current_radar and my_radar objects.
+                        if np.shape( my_radar.azimuth['data'] )[0] == np.shape( tmp_radar.azimuth['data'] )[0]   :
+                           if np.sum( my_radar.azimuth['data'] - tmp_radar.azimuth['data'] ) == 0                :
+                            #my_radar corresponds to the same instrumet and initial time as current_radar
+                            #merge tmp_radar into my_radar
+                            my_radar.files.append( tmp_filename )
+                            used_file[ tmp_ifile ] = True
+                            for my_key in my_radar.fields   :
+                               if not my_key in my_radar.fields   :
+                                  my_radar.fields[my_key] = tmp_radar.fields.pop(my_key)
+                        else                                                                                     :
+                           print('Warning: Inconsistent shapes found for ' + file_instrument + ' ' + file_time )
+                           print('This volume will be processed separately')  
 
-         for i, my_radar in enumerate( radar_list )  :
+         #So far my_radar contains all the variables corresponding to this instrument and initial time.
+         radar_list.append( my_radar )       
 
-            if not radar_used[i]                     :
-
-               if ( j != i ) and ( current_radar.metadata['instrument_name'] == my_radar.metadata['instrument_name'] ) and ( current_radar.metadata['start_datetime'] == my_radar.metadata['start_datetime'] )   :
-
-                  #Check if we can merge current_radar and my_radar objects.
-                  if np.shape( current_radar.azimuth['data'] )[0] == np.shape( my_radar.azimuth['data'] )[0]   :
-                     if np.sum( current_radar.azimuth['data'] - my_radar.azimuth['data'] ) == 0                :
-                        #my_radar corresponds to the same instrumet and initial time as current_radar
-                        #add current_radar to my_radar.
-                        current_radar.files.append( filelist[i] )
-                        for my_key in my_radar.fields   :
-                           if not my_key in current_radar.fields   :
-                              current_radar.fields[my_key] = my_radar.fields.pop(my_key)
-                        #This radar object is used.
-                        radar_used[i]   = True
-                        my_radar[i]     = dict()
-                        radar_remove[i] = True 
-
-   for i , current_radar in enumerate( radar_list )  :
-
-      if not ( radar_remove[i] )  :
+         print('RADAR : ' + my_radar.metadata['instrument_name'] + ' ' + my_radar.metadata['start_datetime'] )
+         for ifile in my_radar.files   :
+            print('   FILE: ' + ifile )
          
-         final_radar_list.append( current_radar )
-
-         print('RADAR : ' + current_radar.metadata['instrument_name'] + ' ' + current_radar.metadata['start_datetime'] )
-         for ii in current_radar.files   :
-            print('   FILE: ' + ii )
-         
-   return final_radar_list
+   return radar_list
 
 def get_file_format( filename )            :
 
-      if '.h5' in filename   :
+      if ('.h5' in filename ) or ( '.H5' in filename )   :
          file_format = 'h5'
-      if '.vol' in filename  :
+      if ( '.vol' in filename ) or ( 'VOL' in filename ) :
          file_format = 'vol' 
-      if '.nc'  in filename  :
+      if ( '.nc'  in filename ) or ( 'NC' in filename )  :
          file_format = 'nc' 
 
    return file_format
 
 def read_file( filename , format_file )    :
-
+   import pyart
    from pyart.aux_io.sinarame_h5 import read_sinarame_h5
    from pyart.aux_io.rainbow_wrl import read_rainbow_wrl
 
@@ -91,15 +93,17 @@ def read_file( filename , format_file )    :
          radar = read_sinarame_h5(filename, file_field_names=True)
       if format_file == 'vol'  :
          radar = read_rainbow_wrl(filename, file_field_names=True)
+      if format_file == 'nc'   :
+         radar = pyart.io.read(filename)
 
       print( 'Reading file:' + filename )
       for my_key in radar.fields         
          print( 'Found the following variable: ' + my_key )
 
-      except ValueError:
+   except ValueError   :
          print('Warning: Could not read file ' + filename )
          radar = dict()
-      except KeyError:
+   except KeyError     :
          print('Warning: Could not read file ' + filename )
          radar = dict()
 
@@ -132,6 +136,9 @@ def get_strat ( filename , radar )  :
 
     local_fill_value = -9999.0
     levels=np.unique(radar.elevation['data'])
+
+    #Set the instrument name 
+    radar.metadata['instrument_name'] = get_instrument_name_from_filename( filename )
 
     #Add missing structures to the radar object.
     if radar.altitude_agl == None :
@@ -177,7 +184,6 @@ def get_strat ( filename , radar )  :
 
     if 'RMA' in filename  :
 
-       radar.metadata['instrument_name'] = ( os.path.basename( filename ) ).split('_')[0]
 
        if '0117_01' in filename  :  #9005-1 STRATEGY
           nyquist_velocity     = 6.63
@@ -311,50 +317,90 @@ def get_strat ( filename , radar )  :
     return radar
 
 
-def get_file_list( datapath , deltat , time_offset )
+def get_file_list( datapath , init_time , end_time , time_search_type = None , file_types_list = None )
 
    #datapath : base path of radar data
-   #deltat   : time window in seconds
+   #init time: [yyyymmddhhMMss] beginning of the time window
+   #end time : [yyyymmddhhMMss] end of the time window
+   #time_search_type : [filename] or [timestamp]
+   #file_types_list  : a list with file extensions that will be included in the file_list
 
    import os
    import datetime as dt 
    import numpy as np
 
-   #deltat = 600 
-   #time_offset = 0
+   if time_search_type == None :
+      time_search_type = 'timestamp'
 
-   t0 = dt.datetime.utcfromtimestamp(0)
-
-   current_time = dt.datetime.utcnow()
-
-   d1 = deltat*( np.round( ( current_time - t0 ).total_seconds() / deltat ) )
-
-   sec_max = ( dt.timedelta( seconds = d1 ) ).total_seconds() - time_offset
-   sec_min = sec_max - deltat - time_offset 
-
-   #date1= t0 + dt.timedelta(seconds=sec_min)
-   #date2= t0 + dt.timedelta(seconds=sec_max)
+   date_min = datetime.strptime( init_time , '%Y%m%d%H%M%S')
+   date_max = datetime.strptime( end_time  , '%Y%m%d%H%M%S')
 
    file_list=[]
 
-   for (dirpath, dirnames, filenames) in os.walk( datapath ):
+      for (dirpath, dirnames, filenames) in os.walk( datapath ):
 
-      for filename in filenames            :
-         f = '/'.join([dirpath,filename])
-         ctime = os.stat(f).st_ctime 
-         if ctime>=sec_min and ctime <=sec_max  : 
-            file_list.append(f)
+         for filename in filenames            :
+            f = '/'.join([dirpath,filename])
+
+            if time_search_type == 'filename'   :
+               date_c = get_time_from_filename( filename )
+            if time_search_type == 'timestamp'  :
+               date_c = dt.fromtimestamp( os.stat(f).st_ctime )
+
+            if date_c >= date_min and date_c <= date_max  :
+               file_list.append(f)
    
    #Keep only some file names and some paths.
 
    final_file_list[]
 
-   for my_file in file_list  :
+   if file_type_list != None :
 
-      if ( '.h5' in os.path.basename( my_file ) )  or ( '.nc' in os.path.basename( my_file ) ) or ( '.vol' in os.path.basename( my_file ) )    :
-      
-         final_file_list.append( my_file ) 
+      for my_file in file_list  :
 
-   return file_list
+         filename = os.path.basename( my_file )
 
+         if any(ft in filename for ft in file_type_list ):
+ 
+            final_file_list.append( my_file )
+
+   else                      :
+
+      final_flie_list  = file_list 
+
+
+return file_list
+
+
+
+def get_time_from_file_name( filename )    :
+
+   import datetime as dt
+   import os 
+
+   filename = os.path.basename( filename )
+   file_time = None
+
+   if ( 'PAR' in filename ) or ( 'PER' in filename ) or ( 'ANG' in filename )  :
+      file_time  = datetime.strptime(filename[:14], '%Y%m%d%H%M%S')
+
+   if ( 'RMA' in filename )  :
+      file_time  = datetime.strptime(filename.split('_')[-1][:15], '%Y%m%dT%H%M%S')  
+
+return file_time
+
+
+def get_instrument_name_from_file_name( filename ) :
+   import os
+
+   filename = os.path.basename( filename )
+   instrument_name = None
+   if 'RMA' in filename    :
+      instrument_name = ( os.path.basename( filename ) ).split('_')[0]
+   if 'ANG' in filename    :
+      instrument_name = 'ANG'
+   if 'PAR' in filename    :
+      instrument_name = 'PAR'
+   if 'PER' in filename    :
+      instrument_name = 'PER'
 
