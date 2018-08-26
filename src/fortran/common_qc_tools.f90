@@ -480,18 +480,40 @@ INTEGER                  :: i, ii , iii , kk , jj , ia , ip
     DO ii=1,nr
       CALL ECHO_TOP_FAST_SUB(tmp_ref(ii,:),tmp_z(ii,:),ne,undef,tmp_echo_top_3d(ii,:), & 
                              tmp_echo_top_2d(ii),MAX_ECHO_TOP_LEVS,DBZ_THRESHOLD_ECHO_TOP)
+      !DO kk=1,ne
+      !   IF( tmp_echo_top_3d(ii,kk) <= 0.0 .and. tmp_echo_top_3d(ii,kk) /= undef )THEN
+      !     WRITE(*,*) tmp_echo_top_3d(ii,kk) 
+      !   ENDIF
+      !ENDDO
     ENDDO
 
     !Inverse interpolation of echo top (3d and 2d)
     DO ii=1,nr
       DO kk=1,ne
-        IF( index_up_inv(ii,kk) .gt. 1 ) THEN
+        IF( tmp_echo_top_3d(index_up(ii,kk),kk) /= undef .and.    &
+            tmp_echo_top_3d(index_up(ii,kk)-1,kk) /= undef ) THEN
           echo_top_3d(jj,ii,kk)=tmp_echo_top_3d(index_up(ii,kk),kk)*w_up(ii,kk) +   &
                                 tmp_echo_top_3d(index_up(ii,kk)-1,kk)*(1.0d0-w_up(ii,kk))
+        ELSEIF( tmp_echo_top_3d( index_up(ii,kk) , kk ) /= undef )THEN
+          echo_top_3d(jj,ii,kk)= tmp_echo_top_3d( index_up(ii,kk) , kk )
+        ELSEIF( tmp_echo_top_3d( index_up(ii,kk) - 1 , kk ) /= undef )THEN  
+          echo_top_3d(jj,ii,kk)= tmp_echo_top_3d( index_up(ii,kk) - 1 , kk )     
+        ELSE
+          echo_top_3d(jj,ii,kk) = undef    
         ENDIF
       ENDDO
-      echo_top_2d(jj,ii)=tmp_echo_top_2d(index_up(ii,1))*w_up(ii,1) + & 
-                         tmp_echo_top_2d(index_up(ii,1)-1)*(1.0d0-w_up(ii,1))
+        IF( tmp_echo_top_2d(index_up(ii,1))   /= undef .and.   &                             
+            tmp_echo_top_2d(index_up(ii,1)-1) /= undef ) THEN
+          echo_top_2d(jj,ii)=tmp_echo_top_2d(index_up(ii,1))*w_up(ii,1) + & 
+                      tmp_echo_top_2d(index_up(ii,1)-1)*(1.0d0-w_up(ii,1))
+        ELSEIF( tmp_echo_top_2d( index_up(ii,1) ) /= undef )THEN
+          echo_top_2d(jj,ii)= tmp_echo_top_2d( index_up(ii,1)  )
+        ELSEIF( tmp_echo_top_2d( index_up(ii,1) - 1 ) /= undef )THEN
+          echo_top_2d(jj,ii)= tmp_echo_top_2d( index_up(ii,1) - 1 )
+        ELSE
+          echo_top_2d(jj,ii) = undef
+        ENDIF
+
     ENDDO
 
   ENDDO
