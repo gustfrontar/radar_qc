@@ -1500,8 +1500,8 @@ def order_variable_inv (  radar , var , undef )  :
 
       #Check if we are in the same elevation.
       if  radar.elevation['data'][iray] != current_lev  :
-          ilev=ilev = np.where( levels == current_lev  )[0]
           current_lev = radar.elevation['data'][iray]
+          ilev=np.where( levels == current_lev  )[0]
 
       #Compute the corresponding azimuth index.
       az_index = np.round( radar.azimuth['data'][iray] / ray_angle_res ).astype(int)
@@ -1512,8 +1512,6 @@ def order_variable_inv (  radar , var , undef )  :
       output_var[ iray , : ] = var[ az_index , : , ilev ]
 
    return output_var
-
-
 
 def dopplerspatialcoherence_filter( v , undef , my_conf ) : 
 
