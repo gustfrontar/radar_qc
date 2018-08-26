@@ -1,23 +1,24 @@
+#print __doc__
+# Author: Rapid Refresh Argentina Team
+# License: BSD 3 clause
 
 
-def read_multiple_files(  filelist , instrument_list = None )
+def read_multiple_files(  file_list , instrument_list = None )          :
 
    import numpy as np
-   #filelist is a list of filenames corresponding to radar files in different formats.
+   import datetime as dt
+   #file_list is a list of filenames corresponding to radar files in different formats.
    #instrument_list (if present) a list of instrument names. Only names in instrument_list will be incorporated to the 
    #radar object list.
 
    #Generate a list of radar objects
+   dtype = 'float64'  #On output radar object fields will have this precission.
    
-   radar_list   = [] 
-   radar_used   = []
-   radar_remove = []
-   
-   final_radar_list = []
+   radar_list   = []                                       #Final list of radar objects.
 
-   used_file = np.zeros( len( filelist ) ).astype(bool)
+   used_file = np.zeros( len( file_list ) ).astype(bool)    #Keep record of which files has been used
 
-   for ifile , filename in enumerate( filelist )    :
+   for ifile , filename in enumerate( file_list )    :
 
       file_format = get_file_format( filename )
  
@@ -29,56 +30,56 @@ def read_multiple_files(  filelist , instrument_list = None )
          #Read the radar 
          my_radar = read_file( filename , file_format )  
 
-         if len( tmp_radar ) != 0  :
+         if my_radar != None  :
             #Add the current radar to the list. 
             #radar_list.append = my_radar
-            radar_used[ifile] = True
             my_radar.files = [ filename ]
+            used_file[ ifile ] = True
 
             #Check if we can associate other radars in the list to the current radar.
   
             for tmp_ifile , tmp_filename  in enumerate( file_list )   :
   
-               if ( not radar_used[tmp_ifile] ) and ( tmp_ifile != ifile )       :
-                  if ( file_format     ==  get_file_format( tmp_filename ) ) or 
-                     ( file_time       ==  get_time_from_filename( tmp_filename ) ) or
-                     ( file_instrument ==  get_instrument_type_from_filename( tmp_filename ) )
+               if ( not used_file[tmp_ifile] )    :
+                  if ( ( file_format     ==  get_file_format( tmp_filename ) ) and 
+                       ( file_time       ==  get_time_from_filename( tmp_filename ) ) and
+                       ( file_instrument ==  get_instrument_type_from_filename( tmp_filename ) ) )  :
 
                      #Read the data
                      tmp_radar = read_file( filename , file_format )
-                     if len( tmp_radar ) != 0  :
+                     if tmp_radar !=  None  :
                         
-                        #Check if we can merge current_radar and my_radar objects.
-                        if np.shape( my_radar.azimuth['data'] )[0] == np.shape( tmp_radar.azimuth['data'] )[0]   :
-                           if np.sum( my_radar.azimuth['data'] - tmp_radar.azimuth['data'] ) == 0                :
-                            #my_radar corresponds to the same instrumet and initial time as current_radar
-                            #merge tmp_radar into my_radar
-                            my_radar.files.append( tmp_filename )
-                            used_file[ tmp_ifile ] = True
-                            for my_key in my_radar.fields   :
-                               if not my_key in my_radar.fields   :
-                                  my_radar.fields[my_key] = tmp_radar.fields.pop(my_key)
-                        else                                                                                     :
+                        #Check if we can merge tmp_radar and my_radar objects.
+                        [ my_radar , merged ] = merge_radar_object( my_radar , tmp_radar )
+                        if merged   :
+                           my_radar.files.append( tmp_filename )
+                           used_file[ tmp_ifile ] = True
+                           
+                        else        :       
                            print('Warning: Inconsistent shapes found for ' + file_instrument + ' ' + file_time )
                            print('This volume will be processed separately')  
 
-         #So far my_radar contains all the variables corresponding to this instrument and initial time.
-         radar_list.append( my_radar )       
+            #So far my_radar contains all the variables corresponding to this instrument and initial time.
+            my_radar = get_strat( filename , my_radar )  #Additional metadata that will be required by QC
+            my_radar = rename_fields( my_radar )         #Rename fields different instruments share the same name convention.
+            my_radar = change_precission( my_radar , dtype )
+          
+            radar_list.append( my_radar )       
 
-         print('RADAR : ' + my_radar.metadata['instrument_name'] + ' ' + my_radar.metadata['start_datetime'] )
-         for ifile in my_radar.files   :
-            print('   FILE: ' + ifile )
+            print('RADAR : ' + my_radar.metadata['instrument_name'] + ' ' + file_time.strftime('%Y-%m-%d-%H-%M-%S') )
+            for ifile in my_radar.files   :
+                print('   FILE: ' + ifile )
          
    return radar_list
 
 def get_file_format( filename )            :
 
-      if ('.h5' in filename ) or ( '.H5' in filename )   :
-         file_format = 'h5'
-      if ( '.vol' in filename ) or ( 'VOL' in filename ) :
-         file_format = 'vol' 
-      if ( '.nc'  in filename ) or ( 'NC' in filename )  :
-         file_format = 'nc' 
+   if ('.h5' in filename ) or ( '.H5' in filename )   :
+      file_format = 'h5'
+   if ( '.vol' in filename ) or ( 'VOL' in filename ) :
+      file_format = 'vol' 
+   if ( '.nc'  in filename ) or ( 'NC' in filename )  :
+      file_format = 'nc' 
 
    return file_format
 
@@ -86,6 +87,8 @@ def read_file( filename , format_file )    :
    import pyart
    from pyart.aux_io.sinarame_h5 import read_sinarame_h5
    from pyart.aux_io.rainbow_wrl import read_rainbow_wrl
+
+   radar = None
 
 
    try   :
@@ -96,35 +99,36 @@ def read_file( filename , format_file )    :
       if format_file == 'nc'   :
          radar = pyart.io.read(filename)
 
+      print( ' ' )
+      print( '=============================================================================')
       print( 'Reading file:' + filename )
-      for my_key in radar.fields         
+      print( '=============================================================================')
+      print( ' ' )
+      for my_key in radar.fields   :    
          print( 'Found the following variable: ' + my_key )
-
-   except ValueError   :
-         print('Warning: Could not read file ' + filename )
-         radar = dict()
-   except KeyError     :
-         print('Warning: Could not read file ' + filename )
-         radar = dict()
+      print( ' ' )
+   except  :
+      print('Warning: Could not read file ' + filename )
+      radar = None
 
    return radar
 
 def rename_fields ( radar )  :
 
-     # Reflectividad RMA
-     if 'TH' in radar.fields
-        radar.fields['ZH'] = radar.fields.pop('TH')
+  # Reflectividad RMA
+  if 'TH' in radar.fields    :
+     radar.fields['ZH'] = radar.fields.pop('TH')
 
-     if 'V' in radar.fields
-        radar.fields['VRAD'] = radar.fields.pop('V')
+  if 'V' in radar.fields     :
+     radar.fields['VRAD'] = radar.fields.pop('V')
 
-     if 'ZH' in radar.fields
-        radar.fields['ZH'] = radar.fields.pop('dBZ')
+  if 'dBZ' in radar.fields    :
+     radar.fields['ZH'] = radar.fields.pop('dBZ')
 
-     if 'W' in radar.fields
-        radar.fields['WRAD'] = radar.fields.pop('W')
+  if 'W' in radar.fields     :
+     radar.fields['WRAD'] = radar.fields.pop('W')
 
-   return radar   
+  return radar   
 
 def get_strat ( filename , radar )  :
 
@@ -138,7 +142,7 @@ def get_strat ( filename , radar )  :
     levels=np.unique(radar.elevation['data'])
 
     #Set the instrument name 
-    radar.metadata['instrument_name'] = get_instrument_name_from_filename( filename )
+    radar.metadata['instrument_name'] = get_instrument_type_from_filename( filename )
 
     #Add missing structures to the radar object.
     if radar.altitude_agl == None :
@@ -317,7 +321,7 @@ def get_strat ( filename , radar )  :
     return radar
 
 
-def get_file_list( datapath , init_time , end_time , time_search_type = None , file_types_list = None )
+def get_file_list( datapath , init_time , end_time , time_search_type = None , file_type_list = None )     :
 
    #datapath : base path of radar data
    #init time: [yyyymmddhhMMss] beginning of the time window
@@ -332,27 +336,27 @@ def get_file_list( datapath , init_time , end_time , time_search_type = None , f
    if time_search_type == None :
       time_search_type = 'timestamp'
 
-   date_min = datetime.strptime( init_time , '%Y%m%d%H%M%S')
-   date_max = datetime.strptime( end_time  , '%Y%m%d%H%M%S')
+   date_min = dt.datetime.strptime( init_time , '%Y%m%d%H%M%S')
+   date_max = dt.datetime.strptime( end_time  , '%Y%m%d%H%M%S')
 
    file_list=[]
 
-      for (dirpath, dirnames, filenames) in os.walk( datapath ):
+   for (dirpath, dirnames, filenames) in os.walk( datapath ):
 
-         for filename in filenames            :
-            f = '/'.join([dirpath,filename])
+      for filename in filenames            :
+         f = '/'.join([dirpath,filename])
 
-            if time_search_type == 'filename'   :
-               date_c = get_time_from_filename( filename )
-            if time_search_type == 'timestamp'  :
-               date_c = dt.fromtimestamp( os.stat(f).st_ctime )
+         if time_search_type == 'filename'   :
+            date_c = get_time_from_filename( filename )
+         if time_search_type == 'timestamp'  :
+            date_c = dt.fromtimestamp( os.stat(f).st_ctime )
 
-            if date_c >= date_min and date_c <= date_max  :
-               file_list.append(f)
+         if date_c >= date_min and date_c <= date_max  :
+            file_list.append(f)
    
    #Keep only some file names and some paths.
 
-   final_file_list[]
+   final_file_list = []
 
    if file_type_list != None :
 
@@ -369,11 +373,11 @@ def get_file_list( datapath , init_time , end_time , time_search_type = None , f
       final_flie_list  = file_list 
 
 
-return file_list
+   return file_list
 
 
 
-def get_time_from_file_name( filename )    :
+def get_time_from_filename( filename )    :
 
    import datetime as dt
    import os 
@@ -382,15 +386,15 @@ def get_time_from_file_name( filename )    :
    file_time = None
 
    if ( 'PAR' in filename ) or ( 'PER' in filename ) or ( 'ANG' in filename )  :
-      file_time  = datetime.strptime(filename[:14], '%Y%m%d%H%M%S')
+      file_time  = dt.datetime.strptime(filename[:14], '%Y%m%d%H%M%S')
 
    if ( 'RMA' in filename )  :
-      file_time  = datetime.strptime(filename.split('_')[-1][:15], '%Y%m%dT%H%M%S')  
+      file_time  = dt.datetime.strptime(filename.split('_')[-1][:15], '%Y%m%dT%H%M%S')  
 
-return file_time
+   return file_time
 
 
-def get_instrument_name_from_file_name( filename ) :
+def get_instrument_type_from_filename( filename ) :
    import os
 
    filename = os.path.basename( filename )
@@ -403,4 +407,134 @@ def get_instrument_name_from_file_name( filename ) :
       instrument_name = 'PAR'
    if 'PER' in filename    :
       instrument_name = 'PER'
+
+   return instrument_name    
+
+
+
+def merge_radar_object( radar_1 , radar_2 )    :
+
+   import numpy as np
+
+   na_1 = np.shape( radar_1.azimuth['data'] )[0]
+   na_2 = np.shape( radar_2.azimuth['data'] )[0]
+
+   nr_1 = np.shape( radar_1.range['data'] )[0]
+   nr_2 = np.shape( radar_2.range['data'] )[0]
+
+
+   azimuth_1 = radar_1.azimuth['data'] 
+   azimuth_2 = radar_2.azimuth['data']
+
+   range_1   = radar_1.range['data']
+   range_2   = radar_2.range['data']
+
+   elev_1    = radar_1.elevation['data']
+   elev_2    = radar_2.elevation['data']
+
+   merged = False  #Wether the two radars has been successfully merged.
+
+   if na_1 == na_2  :
+      diff_a = np.sum( azimuth_1 - azimuth_2 )
+   else             :
+      diff_a = 0.0
+   if nr_1 == nr_2  :
+      diff_r = np.sum( range_1   - range_2   )
+   else             :
+      diff_r = 0.0
+
+   #Check the ideal case
+   if ( na_1 == na_2 ) and ( nr_1 == nr_2 ) and ( diff_a == 0.0 ) and ( diff_r == 0.0 )  :
+      #Dimensions of radar_1 and radar_2 are the same.
+      for my_key in radar_2.fields   :
+         if not my_key in radar_1.fields   :
+            radar_1.fields[my_key] = radar_2.fields.pop(my_key)
+            merged = True
+   else                                                                                  :
+      print('Warning: Inconsistent shapes found for ' + file_instrument + ' ' + file_time )
+      #Test if radial shapes conform.
+      if  nr_1 != nr_2  :
+         #These objects have different ranges. We will try to solve this issue.
+         if nr_1 < nr_2 :
+            small_range = range_1
+            big_range   = range_2
+            small_radar = radar_1
+            big_radar   = radar_2
+            small_na    = na_1
+            big_na      = na_2
+            small_nr    = nr_1
+            big_nr      = nr_2
+         else           :
+            small_range = range_2
+            big_range   = range_1
+            big_radar   = radar_1
+            small_radar = radar_2
+            small_na    = na_2
+            big_na      = na_1
+            small_nr    = nr_2
+            big_nr      = nr_1
+
+         if np.shape( np.intersect1d( small_range , big_range ) )[0] == np.shape( small_range )[0]  :
+            #We take the filds corresponding to the small_radar and we extend them so they have the same
+            #number of ranges as the large_radar.
+            for my_key in small_radar.fields    :
+                if not my_key in big_radar.fields   :
+                    tmp_field = small_radar.fields[ my_key ] 
+                    undef = tmp_field['_FillValue']
+                    tmp_data = np.ones( ( small_na , big_nr ) ) * undef 
+                    tmp_data[ : , 0:small_nr ] = tmp_field['data'].data
+                    small_radar.fields[ my_key ]['data'] = np.ma.masked_array( tmp_data , tmp_data == undef )
+                    small_nr = big_nr
+         else                                                                                        :
+             merged = False
+             return radar_1 , merged 
+
+      #At this point nr is the same for both radars. Before combining the radars we need to check if 
+      #azimuths can be combined. 
+      if ( na_1 == na_2 ) and ( diff_a == 0.0 )   :
+         for my_key in radar_2.fields    :
+            if not my_key in radar_1.fields   :
+               radar_1.fields[my_key] = radar_2.fields.pop(my_key)
+               merged = True
+
+      if ( na_1 != na_2 )   :
+         #Azimuths differ. We will take azimuths_1 as a reference and try to make them compatible.
+         if ( np.shape( np.intersect1d( azimuth_1 , azimuth_2 ) )[0] / na_1 ) >= 0.95    :
+            #Both objects are similar we will try to merge them.
+            for my_key in radar_2.fields    :
+               if not my_key in radar_1.fields   :
+                   undef = radar_1.fields[ my_key ][ '_FillValue' ] 
+                   tmp_data = np.ones( ( na_1 , nr_1 ) ) * undef 
+                   i2=0
+                   for i1 in range( 0 , na_1 )   :
+                       if( azimuth_1[i1] == azimuth_2[i2] ) and ( elevation_1[i1] == elevation_2[i2] ) :
+                           #We have a match.
+                           tmp_data[i1] = radar_2.fields[ my_key ]['data'][i2]
+                           i2 = i2 + 1
+                       if( azimuth_1[i1] < azimuth_2[i2] ) and ( elevation_1[i1] <= elevation_2[i2] )  :
+                           i2 = i2 + 1
+                       if( elevation_1[i1] < elevation_2[i2]  )                                        :
+                           i2 = i2 + 1
+                   radar_1.fields[my_key] = radar_2.fields.pop(my_key)
+                   radar_1.fields[my_key] = np.ma.masked_array( tmp_data , tmp_data == undef )
+            merged = True
+
+
+   return radar_1  , merged
+
+def change_precission( radar , dtype )   :
+   #Some radar objects might have float 32 precission 
+   #while QC routines are expecting float 64 fields.
+
+   import numpy as np
+
+   for my_key in radar.fields  :
+
+       radar.fields[my_key]['data'] = ( radar.fields[my_key]['data'] ).astype( dtype )
+
+
+
+   return radar
+
+
 

@@ -17,7 +17,9 @@ import conf_defaults as conf
 #En este caso asumo que hay 2 niveles de carpetas (por eso el /*/*/)
  
 datapath='/media/jruiz/PAWR/RADAR_DATA_RRA_RMA1/RMA1/'
- 
+
+toporawdatapath="/home/jruiz/share/radar_qc/data/terrain_data/raw/"
+toporadardatapath="/home/jruiz/share/radar_qc/data/terrain_data/radar/"
 
 #Generate a list with all the files contained in the folders and sub-folders.
 file_list=[]
@@ -68,6 +70,9 @@ for ifile in file_list  :
       print(options['plot']['Path'])
    print('Is this an RMA radar?')
    print(options['is_rma'])
+
+   options['toporawdatapath']=toporawdatapath
+   options['toporadardatapath']=toporadardatapath
    #Performs QC operations based on options
    [radar , qc_output] = rqc.main_qc( options )
 

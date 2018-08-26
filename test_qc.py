@@ -16,24 +16,27 @@ import conf_defaults_test as conf
 #La idea es hacer un loop sobre un grupo de carpetas / subcarpetas y archivos.
 #En este caso asumo que hay 2 niveles de carpetas (por eso el /*/*/)
  
-datapath='/media/jruiz/PAWR/RADAR_DATA_RRA_RMA1/RMA1/'
+#datapath='/media/jruiz/PAWR/RADAR_DATA_RRA_RMA1/RMA1/'
  
 
-#Generate a list with all the files contained in the folders and sub-folders.
-file_list=[]
- 
-for (dirpath, dirnames, filenames) in os.walk(datapath):
+##Generate a list with all the files contained in the folders and sub-folders.
+#file_list=[]
+     
+#for (dirpath, dirnames, filenames) in os.walk(datapath):
 
 
-    for filename in filenames:
-        if ( os.path.basename(filename).find('.nc') > 0 ) and ( os.path.basename(filename).find('.corr.') < 0 ) :
-           f = '/'.join([dirpath,filename])
-           file_list.append(f)
-#file_list=['/media/jruiz/PAWR/RADAR_DATA_RRA_RMA1/RMA1/20170923/cfrad.20170923_114117.0000_to_20170923_114310.0000_RMA1_0122_02.nc']
-#file_list=['/media/jruiz/PAWR/RADAR_DATA_RRA_RMA1/RMA1/20170926/cfrad.20170926_211512.0000_to_20170926_212043.0000_RMA1_0122_01.nc']
-#file_list=['/media/jruiz/PAWR/RADAR_DATA_RRA_RMA1/ANG/20170930/cfrad.20170930_133002.000_to_20170930_133420.001_ANG_SUR.nc']
-#file_list=['/media/jruiz/PAWR/RADAR_DATA_RRA_RMA1/PAR/20170930//cfrad.20170930_222434.000_to_20170930_222732.000_PAR_SUR.nc']
+#    for filename in filenames:
+#        if ( os.path.basename(filename).find('.nc') > 0 ) and ( os.path.basename(filename).find('.corr.') < 0 ) :
+#           f = '/'.join([dirpath,filename])
+#           file_list.append(f)
+
+
 file_list=['./cfrad.20091117_174348.000_to_20091117_174737.000_PAR_SUR.nc3']
+
+toporawdatapath="/home/jruiz/share/radar_qc/data/terrain_data/raw/"
+toporadardatapath="/home/jruiz/share/radar_qc/data/terrain_data/radar/"
+
+
 
 options = conf.options #This is the default configuration.
 
@@ -68,9 +71,11 @@ for ifile in file_list  :
       print(options['plot']['Path'])
    print('Is this an RMA radar?')
    print(options['is_rma'])
+
+   options['toporawdatapath']=toporawdatapath
+   options['toporadardatapath']=toporadardatapath
+
    #Performs QC operations based on options
    [radar , qc_output] = rqc.main_qc( options )
-
-
 
 

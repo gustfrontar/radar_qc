@@ -2,7 +2,7 @@
 # Author: Rapid Refresh Argentina Team
 # License: BSD 3 clause
 
-def main_qc( options ) :
+def main_qc( options , radar = None ) :
 
    import sys
    import time
@@ -23,17 +23,16 @@ def main_qc( options ) :
 
    #Read the data
 
-   print('')
-   print('-------------------------------------------')
-   print('Reading the data')
-   print('-------------------------------------------')
-   print('')
+   if radar == None  :
 
-   radar = pyart.io.read(options['filename'])
+      print('')
+      print('-------------------------------------------')
+      print('Reading the data')
+      print('-------------------------------------------')
+      print('')
 
-   if options['is_rma']  :
+      radar = pyart.io.read(options['filename'])
 
-      radar = get_rma_strat( options['filename'] , radar ) 
 
    if radar.altitude_agl['data'] == 0.0    :
       #Radar is assumed to be at ground level. Add the height of the tower.
@@ -54,6 +53,18 @@ def main_qc( options ) :
       print('-------------------------------------------')
       print('')
       return radar , output
+
+   #===================================================
+   # CHECK IF WE HAVE INFINITE OR NAN VALUES IN DATA 
+   #===================================================
+
+   print('')
+   print('-------------------------------------------')
+   print('Checking if input data is valid')
+   print('-------------------------------------------')
+   print('')
+
+   radar = check_valid_data( radar , options )
 
    #===================================================
    # SOME PRELIMINARY PROCEDURES.
@@ -140,6 +151,31 @@ def main_qc( options ) :
 # FUNCIONES GENERALES ------------------------------
 #===================================================
 
+#===================================================
+# Check if input data is valid.
+#===================================================
+
+def check_valid_data( radar , options )   :
+
+    import numpy as np
+    import time
+
+    start=time.time()
+
+    for my_key in radar.fields    :
+       if my_key == options['name_ref']   :
+          radar.fields[ my_key ]['data'].data[ np.isinf( radar.fields[ my_key ]['data'].data )  ] = options['norainrefval']
+          radar.fields[ my_key ]['data'].data[ np.isnan( radar.fields[ my_key ]['data'].data )  ] = options['norainrefval']
+          radar.fields[ my_key ]['data'].data[ radar.fields[ my_key ]['data'].data < options['norainrefval']  ] = options['norainrefval']
+          
+       else                               :
+          radar.fields[ my_key ]['data'].data[ np.isinf( radar.fields[ my_key ]['data'].data )  ] = radar.fields[ my_key ]['_FillValue']
+          radar.fields[ my_key ]['data'].data[ np.isnan( radar.fields[ my_key ]['data'].data )  ] = radar.fields[ my_key ]['_FillValue']
+
+    end=time.time()
+    print("The elapsed time in {:s} is {:2f}".format("Input data check",end-start) )
+
+    return radar
 
 #==================================================a
 #' RESHAPE VARIABLES
@@ -165,6 +201,7 @@ def reshape_variables( radar , output , options )    :
         output['nr']=nr
         output['ne']=ne
 
+        output['cref'] = np.ones( (na,nr,ne))
         output['cref'] = np.copy(output['ref'])           #Initialize the corrected reflectivity array.
         output['ref_input'] = np.copy(output['ref'])      #Initialize the input reflectivity array (for ploting only)
  
@@ -175,6 +212,7 @@ def reshape_variables( radar , output , options )    :
         output['wref']  = np.zeros(output['cref'].shape)  #Set the weigths to 0.
 
         output['elevations']=np.unique(radar.elevation['data'])
+
 
    if options['name_v'] in radar.fields  : 
 
@@ -188,7 +226,8 @@ def reshape_variables( radar , output , options )    :
         output['na']=na
         output['nr']=nr
         output['ne']=ne
- 
+
+        output['cv'] = np.ones((na,nr,ne))
         output['cv'] = np.copy(output['v'])              #Initialize the corrected velocity array
         output['input_v'] = np.copy(output['v'])         #Initialize the input velocity array (for ploting only)
 
@@ -217,9 +256,9 @@ def georeference_data( radar , output , options )    :
 
    #dm is a dummy variable
 
-   [ output['altitude'] , dm , dm , dm , dm ] = order_variable( radar , 'altitude' , options['undef'] )
-   [ output['x']        , dm , dm , dm , dm ] = order_variable( radar , 'x' , options['undef'] ) 
-   [ output['y']        , dm , dm , dm , dm ] = order_variable( radar , 'y' , options['undef'] )
+   [ output['altitude'] , dm , dm , dm , dm ] = order_variable( radar , 'altitude' ,  options['undef'] )
+   [ output['x']        , dm , dm , dm , dm ] = order_variable( radar , 'x' ,  options['undef'] ) 
+   [ output['y']        , dm , dm , dm , dm ] = order_variable( radar , 'y' ,  options['undef'] )
 
 
    #Compute distance to radar for the first azimuth (we assume that distance to radar will be the same.
@@ -383,6 +422,9 @@ def output_update( output , qc_index , options , filter_name )  :
    weigth = qc.multiple_1d_interpolation( field=qc_index , nx=na , ny=nr , nz=ne
                                          , undef=options['undef'] , xx=options[filter_name]['ifx']
                                          , yy=options[filter_name]['ify'] , nxx=np.size(options[filter_name]['ifx']) )
+
+   weigth[ weigth == options['undef'] ] = 0.0
+
 
    if ( 'ref' in options[filter_name]['var_update_list'] ) and ( 'ref' in output )  : 
       #Update reflectivity
@@ -760,6 +802,7 @@ def EchoTopFilter( radar , output , options )   :
 
 
       if  options[filter_name]['fast_computation']          :
+
          [tmp_index,tmp_data_2d]=qc.echo_top_fast(reflectivity=output['ref'],heigth=output['altitude'][0,:,:]
                                                 ,rrange=output['distance'],na=na,nr=nr,ne=ne
                                                 ,undef=output['undef_ref'],nx=nx,ny=ny,nz=nz)
@@ -1371,37 +1414,40 @@ def order_variable ( radar , var_name , undef )  :
 
    na=np.size(order_azimuth)
    ne=np.size(levels)
+   nr=np.size(radar.range['data'].data) 
+
+
+   var = np.ones( (nb,nr) )
 
    if ( var_name == 'altitude' ) :
-      var=np.copy(radar.gate_altitude['data'])
+       var[:]=radar.gate_altitude['data']  
    elif( var_name == 'longitude' ) :
-      var=np.copy(radar.gate_longitude['data'])
+       var[:]=radar.gate_longitude['data']
    elif( var_name == 'latitude'  ) :
-      var=np.copy(radar.gate_latitude['data'])
+       var[:]=radar.gate_latitude['data']
    elif( var_name == 'x' )         :
-      var=np.copy(radar.gate_x['data'])
+       var[:]=radar.gate_x['data']
    elif( var_name == 'y' )         : 
-      var=np.copy(radar.gate_y['data'])
+       var[:]=radar.gate_y['data']
    else  :
-      var=np.copy(radar.fields[var_name]['data'].data)
+       var[:]=radar.fields[var_name]['data'].data
 
-   nr=var.shape[1]
 
    #Allocate arrays
    order_var    =np.zeros((na,nr,ne))
    order_time   =np.zeros((na,ne)) 
    azimuth_exact=np.zeros((na,ne))
-   order_n      =np.zeros((na,nr,ne))
+   order_n      =np.zeros((na,nr,ne),dtype='int')
    
    current_lev = radar.elevation['data'][0]
-   ilev = np.where( levels == current_lev  )[0]  
+   ilev = np.where( levels == current_lev )[0]
 
    for iray in range( 0 , nb )  :   #Loop over all the rays
  
      #Check if we are in the same elevation.
      if  radar.elevation['data'][iray] != current_lev  :
-         ilev=ilev = np.where( levels == current_lev  )[0]
-         current_lev = radar.elevation['data'][iray]  
+         current_lev = radar.elevation['data'][iray]
+         ilev=np.where( levels == current_lev  )[0]
 
      #Compute the corresponding azimuth index.
      az_index = np.round( radar.azimuth['data'][iray] / ray_angle_res ).astype(int)
@@ -1447,7 +1493,7 @@ def order_variable_inv (  radar , var , undef )  :
    current_lev = radar.elevation['data'][0]
    ilev = np.where( levels == current_lev  )[0]
 
-   output_var = np.zeros((nb,nr))
+   output_var = np.zeros((nb,nr) )
    output_var[:] = undef
 
    for iray in range( 0 , nb )  :   #Loop over all the rays
@@ -1467,113 +1513,6 @@ def order_variable_inv (  radar , var , undef )  :
 
    return output_var
 
-
-def get_rma_strat ( filename , radar )  :
-
-    import numpy as np
-    import numpy.ma as ma
-
-    local_fill_value = -9999.0
-    levels=np.unique(radar.elevation['data'])
-
-    #Add missing structures to the radar object.
-    if radar.altitude_agl == None :
-       radar.altitude_agl = dict()
-    if radar.metadata == None :
-       radar.metadata = dict()
-    if radar.instrument_parameters == None :
-       radar.instrument_parameters = dict()
-       radar.instrument_parameters['nyquist_velocity']=dict()
-       radar.instrument_parameters['nyquist_velocity']['long_name']='unambiguous_doppler_velocity'
-       radar.instrument_parameters['nyquist_velocity']['units']='meters per second'
-       radar.instrument_parameters['nyquist_velocity']['_FillValue']= local_fill_value
-       radar.instrument_parameters['nyquist_velocity']['meta_group']='instrument_parameters'
- 
-       radar.instrument_parameters['radar_beam_width_v']=dict()
-       radar.instrument_parameters['radar_beam_width_v']['long_name']='half_power_radar_beam_width_v_channel'
-       radar.instrument_parameters['radar_beam_width_v']['units']='degrees'
-       radar.instrument_parameters['radar_beam_width_v']['_FillValue']= local_fill_value
-       radar.instrument_parameters['radar_beam_width_v']['meta_group']='instrument_parameters'
-
-       radar.instrument_parameters['radar_beam_width_h']=dict()
-       radar.instrument_parameters['radar_beam_width_h']['long_name']='half_power_radar_beam_width_h_channel'
-       radar.instrument_parameters['radar_beam_width_h']['units']='degrees'
-       radar.instrument_parameters['radar_beam_width_h']['_FillValue']= local_fill_value
-       radar.instrument_parameters['radar_beam_width_h']['meta_group']='instrument_parameters'
-
-    if radar.range == None :
-       radar.range = dict()
-    if radar.ray_angle_res == None :
-       radar.ray_angle_res = dict()
-       radar.ray_angle_res['long_name']='angular_resolution_between_rays'
-       radar.ray_angle_res['units']='degrees'
-       radar.ray_angle_res['_FillValue']= local_fill_value
-       
-    #Get the corresponding radar strategy depending on the filename.
-    radar.altitude_agl['data'] = 0.0   
-
-    radar.metadata['instrument_name'] = 'RMA' + filename[ filename.find('RMA') + 3 ]
-
-    if '0117_01' in filename  :  #9005-1 STRATEGY
-       nyquist_velocity     = 6.63
-    if '0117_02' in filename  :  #9005-2 STRATEGY
-       nyquist_velocity     = 33.04
-    if '0117_03' in filename  :  #9005-3 STRATEGY
-       nyquist_velocity     = 3.98
-
-    if '0117_01' in filename  :  #122-1 STRATEGY
-       nyquist_velocity     = 6.63
-    if '0117_02' in filename  :  #122-2 STRATEGY
-       nyquist_velocity     = 13.25
-
-    if '0121_01' in filename  :  #122-1 STRATEGY
-       nyquist_velocity     = 6.63
-    if '0121_02' in filename  :  #122-2 STRATEGY
-       nyquist_velocity     = 13.25
-
-    if '0122_01' in filename  :  #122-1 STRATEGY
-       nyquist_velocity     = 8.28
-    if '0122_02' in filename  :  #122-2 STRATEGY
-       nyquist_velocity     = 39.79
-    if '0122_03' in filename  :  #122-3 STRATEGY
-       nyquist_velocity     = 13.35
-
-    if '0123_01' in filename  :  #123-1 STRATEGY
-       nyquist_velocity     = 8.28
-    if '0123_02' in filename  :  #123-2 STRATEGY
-       nyquist_velocity     = 39.79
-    if '0123_03' in filename  :  #123-3 STRATEGY
-       nyquist_velocity     = 13.25
-    if '0123_04' in filename  :  #123-4 STRATEGY
-       nyquist_velocity     = 8.28
-
-    if '0200_01' in filename  :  #200-1 STRATEGY
-       nyquist_velocity     = 4.42
-    if '0200_02' in filename  :  #200-2 STRATEGY
-       nyquist_velocity     = 13.25
-
-    if '0201_01' in filename  :  #201-1 STRATEGY
-       nyquist_velocity     = 4.42
-    if '0201_02' in filename  :  #201-2 STRATEGY
-       nyquist_velocity     = 13.25
-    if '0201_03' in filename  :  #201-3 STRATEGY
-       nyquist_velocity     = 8.28
-
-    #Some common parameters
-    ray_angle_res        = 1.0 
-    radar_beam_width_h   = 1.0
-    radar_beam_width_v   = 1.0
-    meters_between_gates  = radar.range['data'][1]-radar.range['data'][0]
-
-    #Apply the missing parameters to the radar structure.
-    radar.instrument_parameters['nyquist_velocity']['data'] = ma.array(np.ones( np.shape(radar.azimuth['data']) )*nyquist_velocity , mask = np.zeros( np.shape(radar.azimuth['data']) , dtype=bool ) , fill_value = local_fill_value )
-    radar.instrument_parameters['radar_beam_width_h']['data'] = ma.array( radar_beam_width_h , mask =False , fill_value = local_fill_value )
-    radar.instrument_parameters['radar_beam_width_v']['data'] = ma.array( radar_beam_width_v , mask =False , fill_value = local_fill_value )
-    radar.ray_angle_res['data'] = ma.array( np.ones( np.shape( levels ) )*ray_angle_res , mask = np.zeros( np.shape( levels ) , dtype=bool ) , fill_value = local_fill_value )
-    radar.range['meters_between_gates']= meters_between_gates
-    radar.range['meters_to_center_of_first_gate']= radar.range['data'][0]  #meters_between_gates / 2.0
-
-    return radar
 
 
 def dopplerspatialcoherence_filter( v , undef , my_conf ) : 
@@ -1824,6 +1763,8 @@ def interference_filter ( ref , undef , min_ref , r , my_conf )  :
    #r : radar range (vector)
    #my_conf : configuration for this filter.
 
+   ref[ ref == min_ref ] = undef
+
    offset= my_conf['offset']
 
    na=ref.shape[0]
@@ -1846,7 +1787,7 @@ def interference_filter ( ref , undef , min_ref , r , my_conf )  :
    tmp_z = np.power( 10.0, tmp_ref / 10.0  )
 
    tmp_z[tmp_ref == undef ] = undef
-  
+
    
    #offset=my_conf['offset']
    att=my_conf['att']
@@ -1898,16 +1839,23 @@ def interference_filter ( ref , undef , min_ref , r , my_conf )  :
            else:
 
               powerrayo = np.zeros( nr ) + 20.0 * np.log10( r ) + 2.0 * att * r
+              inlier_mask = np.zeros( np.sum( undef_mask.astype(int) ) ).astype(bool) 
 
            #print( np.shape( powerrayo ),np.shape( local_ref )
 
-           if ( np.sum( inlier_mask.astype(int) ) >= 10 ) & ( np.std(local_ref[undef_mask][inlier_mask]) > 0 ) :
-           
-              corrcoef=np.corrcoef( powerrayo[undef_mask][inlier_mask],local_ref[undef_mask][inlier_mask] )[0,1]
+           if ( np.sum( inlier_mask.astype(int) ) >= 10 )  :
+               if ( np.std(local_ref[undef_mask][inlier_mask]) > 0 ) :
+                  #if k == 0  :
+                  #   print( i,k,np.sum( undef_mask.astype(int) ) , np.shape( inlier_mask ) )
+                  #   local_ref[ local_ref < 0 ] = undef
+                  #   print( local_ref[ undef_mask ] )
+                  corrcoef=np.corrcoef( powerrayo[undef_mask][inlier_mask],local_ref[undef_mask][inlier_mask] )[0,1]
+               else                                                 :
+                  corrcoef = np.array(-1.0)
 
            else                                      :
 
-              corrcoef=-1.0
+              corrcoef=np.array(-1.0)
 
            #if (k == 0) and (i == 348) :
            #  plt.plot(  powerrayo[undef_mask] , local_ref[undef_mask] ,'or')
@@ -1953,6 +1901,7 @@ def interference_filter ( ref , undef , min_ref , r , my_conf )  :
 
    #Additional filter for the remaining echoes
    #consider cyclic boundary conditions in azimuth.
+
    for ifilter in range( npass_filter )  :
 
       for k in range(ne) :
@@ -2097,7 +2046,8 @@ def write_topo( my_topo , my_file )           :
     np.reshape( my_topo['max'].astype('f4') , (nr*na) ).tofile(f)
     np.reshape( my_topo['min'].astype('f4') , (nr*na) ).tofile(f)
     np.reshape( my_topo['number'].astype('f4') , (nr*na) ).tofile(f)
-    np.reshape( (my_topo['range'].data).astype('f4') , (nr*na) ).tofile(f)
+    np.reshape( my_topo['range'].astype('f4') , (nr*na) ).tofile(f)
+    #np.reshape( (my_topo['range'].data).astype('f4') , (nr*na) ).tofile(f)
     np.reshape( my_topo['azimuth'].astype('f4') , (nr*na) ).tofile(f)
     np.reshape( my_topo['latitude'].astype('f4') , (nr*na) ).tofile(f)
     np.reshape( my_topo['longitude'].astype('f4') , (nr*na) ).tofile(f)

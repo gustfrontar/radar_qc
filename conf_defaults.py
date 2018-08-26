@@ -21,10 +21,13 @@ options = {}
 #======================================
 
 options['filename'] = ''          #The name of the input netcdf file
-options['output_to_file'] = True #Wether the output will be written to a netcdf file.
+options['output_to_file'] = False #Wether the output will be written to a netcdf file.
 options['filename_out'] = ''      #The name of the netcdf file where output will be written.
 options['file_out_format']='NETCDF4'
 options['keep_original_fields']=False
+#Topography database paths
+options['toporawdatapath']=""
+options['toporadardatapath']=""
 
 #======================================
 # PLOTING PARAMETERS
@@ -36,10 +39,10 @@ options['plot']['Path']='./'
 options['plot']['FigNameSufix']='.png'
 options['plot']['VrMin']=-30
 options['plot']['VrMax']=30
-options['plot']['DbzMin']=0
+options['plot']['DbzMin']=-30
 options['plot']['DbzMax']=70
 options['plot']['Elevs']=[0]             #List with elevations that will be ploted.
-options['plot']['Show']=False
+options['plot']['Show']=True
 options['plot']['CmapWind']='pyart_NWSVel'
 options['plot']['CmapDbz']='pyart_NWSRef'
 
@@ -152,7 +155,7 @@ options[filter_name]['flag']=True                          #Enable / disable fil
 options[filter_name]['nx']=2                                #NX
 options[filter_name]['ny']=2                                #NY
 options[filter_name]['nz']=0                                #NZ
-options[filter_name]['fast_computation']=True               #Enable fast version of echo top computation.
+options[filter_name]['fast_computation']=False               #Enable fast version of echo top computation.
 options[filter_name]['save']=False                          #Save filter aux fields to output?
 options[filter_name]['ify']=np.array([1,1,0,0])             #Importance function y
 options[filter_name]['ifx']=np.array([0,2500,3000,20000])   #Importance function x
@@ -192,7 +195,7 @@ options[filter_name]['fill_value']='undef'                  #Possible values, un
 
 filter_name='RefSpeckleFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=True                          #Enable / disable filter
+options[filter_name]['flag']=False                          #Enable / disable filter
 options[filter_name]['nx']=2                                #NX
 options[filter_name]['ny']=2                                #NY
 options[filter_name]['nz']=0                                #NZ
@@ -275,7 +278,7 @@ options[filter_name]['fill_value']='undef'                  #Possible values, un
 #Attenuation parameters           ==============================================================
 filter_name='AttenuationFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=True                           #Enable / Disable filter
+options[filter_name]['flag']=False                           #Enable / Disable filter
 options[filter_name]['nx']=0                                #NX
 options[filter_name]['ny']=0                                #NY
 options[filter_name]['nz']=0                                #NZ
@@ -307,7 +310,7 @@ options[filter_name]['fill_value']='undef'                  #Possible values, un
 #This filter is not part of the Fuzzy logic algorithm.
 filter_name='BlockingFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=True                           #Enable / Disable filter
+options[filter_name]['flag']=False                           #Enable / Disable filter
 options[filter_name]['blocking_correction']=True            #Wether correction will be applied for partially blocked beams.
 options[filter_name]['save']=False                          #Save blocking factor into qc_output dictionary.
 options[filter_name]['code']=40                             #QC output code
@@ -346,7 +349,7 @@ options[filter_name]['fill_value']='undef'                  #Possible values, un
 #Low doppler velocity filter            ==============================================================
 filter_name='LowDopplerFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=True                          #Enable / Disable filter
+options[filter_name]['flag']=False                          #Enable / Disable filter
 options[filter_name]['nx']=0                                #NX
 options[filter_name]['ny']=0                                #NY
 options[filter_name]['nz']=0                                #NZ
@@ -367,7 +370,7 @@ options[filter_name]['fill_value']='undef'                  #Possible values, un
 #This filter is not included in the Fuzzy-logic approach.
 filter_name='InterferenceFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=True                          #Enable / Disable filter
+options[filter_name]['flag']=False                          #Enable / Disable filter
 options[filter_name]['save']=False                          #Save filter aux fields to output?
 options[filter_name]['nx']=0                                #NX
 options[filter_name]['ny']=4                                #NY
@@ -382,7 +385,7 @@ options[filter_name]['Smooth_Ref']=True                     #Smooth reflectivity
 options[filter_name]['Power_Regression']=True               #Wether robust regression will be performed in Dbz scale or linear scale
 options[filter_name]['offset']=200                          #Number of pixels from radar location that will be ignored in the regression.
 options[filter_name]['AzimuthFilter']=True                  #Enable filter to remove isolated pixels in azimuth.
-options[filter_name]['ElevationFilter']=False                #Enable filter to remove isolated pixels in elevation.
+options[filter_name]['ElevationFilter']=False               #Enable filter to remove isolated pixels in elevation.
 options[filter_name]['npass_filter']=3                      #Number of passes of the azimuthal continuity filter.
 options[filter_name]['percent_valid_threshold']=0.1         #Rays with valid pixels over this percentaje will be examinated.
 options[filter_name]['corr_threshold']=0.4                  #Rays that correlates well with the interference pattern will be flagged as 
@@ -491,7 +494,7 @@ options[filter_name]['fill_value']='undef'                  #Possible values, un
 #Detects holes in high reflectivity regions. 
 filter_name='MissingRefFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=True                           #Enable / Disable filter
+options[filter_name]['flag']=False                           #Enable / Disable filter
 options[filter_name]['threshold']=10                        #Threshold to detect sudden jumps in reflectivity between two consecutive pixels.
 options[filter_name]['nmissing_max']=15                     #Maximum number of missing values in a radial beam.
 options[filter_name]['save']=False                          #Save filter aux fields to output?
@@ -505,16 +508,5 @@ options[filter_name]['order'] = [50]
 options[filter_name]['var_update_list']=['ref']             #Which variables will be filtered.
 options[filter_name]['sequential']=True                     #Wheter this filter will affect the following  filters
 options[filter_name]['fill_value']='undef'                  #Possible values, undef, min_ref or fill value
-
-#Topography parameters
-
-#options['toporawdatapath']="./data/terrain_data/raw/"
-#options['toporadardatapath']="./data/terrain_data/radar/"
-
-options['toporawdatapath']="/media/jruiz/PAWR/Dropbox/DATA/radar_qc/data/terrain_data/raw/"
-options['toporadardatapath']="/media/jruiz/PAWR/Dropbox/DATA/radar_qc/data/terrain_data/radar/"
-
-#options['toporawdatapath']="/home/jruiz/Dropbox/DATA/radar_qc/data/terrain_data/raw/"
-#options['toporadardatapath']="/home/jruiz/Dropbox/DATA/radar_qc/data/terrain_data/radar/"
 
 

@@ -1238,6 +1238,10 @@ fieldo=0.0d0
 DO ix = 1 , nx
   DO iy = 1 , ny
     DO iz = 1 , nz
+       IF( field(ix,iy,iz) == undef )THEN
+         fieldo(ix,iy,iz) = undef 
+         cycle
+       ENDIF
        IF( field(ix,iy,iz) <= xx(1) )THEN
          fieldo(ix,iy,iz) = yy(1) 
        ELSEIF( field(ix,iy,iz) >= xx(nxx) )THEN
