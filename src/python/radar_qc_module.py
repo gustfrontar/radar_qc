@@ -162,6 +162,12 @@ def check_valid_data( radar , options )   :
 
     start=time.time()
 
+    #Sometimes radar filds have precissions other than numpy default. This breakes the code since the code relies on
+    #default numpy dtype.
+    default_type = np.ones( (1) ).dtype
+    for my_key in radar.fields  :
+       radar.fields[my_key]['data'] = ( radar.fields[my_key]['data'] ).astype( default_type )
+
     for my_key in radar.fields    :
        if my_key == options['name_ref']   :
           radar.fields[ my_key ]['data'].data[ np.isinf( radar.fields[ my_key ]['data'].data )  ] = options['norainrefval']
@@ -1782,9 +1788,9 @@ def interference_filter ( ref , undef , min_ref , r , my_conf )  :
 
    tmp_index=np.zeros( np.shape( ref ) ) 
 
-   tmp_z = np.power( 10.0, tmp_ref / 10.0  )
+   #tmp_z = np.power( 10.0, tmp_ref / 10.0  )
 
-   tmp_z[tmp_ref == undef ] = undef
+   #tmp_z[tmp_ref == undef ] = undef
 
    
    #offset=my_conf['offset']
@@ -1805,97 +1811,99 @@ def interference_filter ( ref , undef , min_ref , r , my_conf )  :
 
       for i in range(na)  :
 
-           local_ref = np.copy( tmp_ref[i,:,k] )
-           local_ref[0:offset]=undef
+           local_sref = np.copy( tmp_ref[i,:,k] )
+           local_sref[0:offset]=undef
 
-           undef_mask = local_ref != undef 
+           undef_mask = local_sref != undef 
+
+           local_ref = np.copy( ref[i,:,k] )
+           local_ref[0:offset] =undef
 
            tmp_count = np.sum( (undef_mask).astype(int) )/nr
 
-           power = local_ref  - 20.0 * np.log10( r ) - 2.0 * att * r
+
+           #Local smooth power
+           local_spower = np.power( 10.0 , ( local_sref  - 20.0 * np.log10( r ) - 2.0 * att * r ) / 10.0 )
+           local_spower[ local_sref == undef  ] = undef
+           #Local power
+           local_power  = np.power( 10.0 , ( ref[i,:,k] - 20.0 * np.log10( r ) - 2.0 * att * r ) / 10.0 )
+           local_power[ ref[i,:,k] == undef ] = undef 
+
+           local_inlier_mask = undef_mask 
 
            if tmp_count > percent_valid_threshold   :
               ransac = linear_model.RANSACRegressor()     
 
-              if Power_Regression   :
-                 ransac.fit( r[undef_mask].reshape(-1, 1) , np.power( 10.0 , power[undef_mask].reshape(-1, 1)/10.0 ) )
-                 inlier_mask = ransac.inlier_mask_
-                 outlier_mask = np.logical_not( inlier_mask )
+              ransac.fit( r[undef_mask].reshape(-1, 1) , local_spower[undef_mask].reshape(-1, 1) )
 
-                 tmppower=ransac.predict( r.reshape(-1,1) )[:,0]
-                 tmppower[ tmppower < 0.0 ]=10e-10
+              local_inlier_mask [ undef_mask ] = ransac.inlier_mask_
+              #inlier_mask = ransac.inlier_mask_
 
-                 powerrayo = 10.0*np.log10( tmppower ) + 20.0 * np.log10( r ) + 2.0 * att * r
+              local_fit_power = ransac.predict( r.reshape(-1,1) )[:,0]
+              local_fit_power[ local_fit_power < 0.0 ]=10e-10
 
-              else                  :
-                 ransac.fit( r[undef_mask].reshape(-1, 1) , power[undef_mask].reshape(-1, 1) )
-                 inlier_mask = ransac.inlier_mask_
-                 outlier_mask = np.logical_not(inlier_mask)
-
-                 powerrayo = ransac.predict( r.reshape(-1,1) )[:,0]  + 20.0 * np.log10( r ) + 2.0 * att * r
+              local_fit_ref = 10.0*np.log10( local_fit_power ) + 20.0 * np.log10( r ) + 2.0 * att * r
 
            else:
 
-              powerrayo = np.zeros( nr ) + 20.0 * np.log10( r ) + 2.0 * att * r
-              inlier_mask = np.zeros( np.sum( undef_mask.astype(int) ) ).astype(bool) 
+              local_fit_power = np.zeros( nr ) 
+              local_inlier_mask = np.zeros( nr ).astype(bool) 
 
-           #print( np.shape( powerrayo ),np.shape( local_ref )
-
-           if ( np.sum( inlier_mask.astype(int) ) >= 10 )  :
-               if ( np.std(local_ref[undef_mask][inlier_mask]) > 0 ) :
-                  #if k == 0  :
-                  #   print( i,k,np.sum( undef_mask.astype(int) ) , np.shape( inlier_mask ) )
-                  #   local_ref[ local_ref < 0 ] = undef
-                  #   print( local_ref[ undef_mask ] )
-                  corrcoef=np.corrcoef( powerrayo[undef_mask][inlier_mask],local_ref[undef_mask][inlier_mask] )[0,1]
+           if ( np.sum( local_inlier_mask.astype(int) ) >= 10 )  :
+               if ( np.std(local_sref[local_inlier_mask]) > 0 ) :
+                  corrcoef=np.corrcoef( local_fit_ref[ local_inlier_mask ],local_sref[ local_inlier_mask ] )[0,1]
                else                                                 :
-                  corrcoef = np.array(-1.0)
+                  corrcoef = np.array(0.0)
 
-           else                                      :
+           else                                             :
 
-              corrcoef=np.array(-1.0)
-
-           #if (k == 0) and (i == 348) :
-           #  plt.plot(  powerrayo[undef_mask] , local_ref[undef_mask] ,'or')
-           #  plt.plot(  powerrayo[undef_mask][inlier_mask],local_ref[undef_mask][inlier_mask] , 'ok')
-           #  plt.show()
-           #  print(corrcoef,np.sum( inlier_mask.astype(int) )/nr )
-           
-           #  plt.plot( r[undef_mask] , powerrayo[undef_mask] )
-           #  plt.plot( r[undef_mask][inlier_mask] , local_ref[undef_mask][inlier_mask] ,'ok' )
-           #  plt.plot( r[undef_mask] , local_ref[undef_mask])
-           #  plt.show()
+              corrcoef=np.array(0.0)
 
 
-           if( ( corrcoef > corr_threshold ) & ( np.sum( inlier_mask.astype(int) )/( nr-offset ) > percent_ref_threshold ) )  :
+           #if k == 0 :
+           #   print( i , corrcoef , np.sum( local_inlier_mask.astype(int) )  )
 
-              
+
+           if ( corrcoef > corr_threshold ) & ( np.sum( local_inlier_mask )/(nr-offset) > percent_ref_threshold )  :
+
               #This means that this ray is likely to be contaminated by interference.
 
-              undef_mask = ( tmp_z[i,:,k] != undef )
-              zrayo = np.power( 10.0,powerrayo  / 10.0 ) 
-              z     = np.power( 10.0,ref[i,:,k] / 10.0  )
+              undef_mask = ( local_ref != undef )
 
               #If the reflectivity is far from the fitted interference, and is greather than the fitted
               #Interference, then correct the power substracting the interference power.         
-              tmp_mask = np.logical_and( tmp_z[i,:,k] - zrayo > 5.0 ,  undef_mask  )  
-              tmp_mask = np.logical_and( z - zrayo > 0 , tmp_mask )
-              ref[i, tmp_mask ,k] = 10.0*np.log10( (z - zrayo)[tmp_mask] ) 
+              tmp_mask = np.logical_and( local_sref - local_fit_ref  > ref_threshold ,  undef_mask  )  
+              tmp_mask = np.logical_and( local_ref  - local_fit_ref  > 0 , tmp_mask )
+
+              ref[i, tmp_mask ,k] = 10.0*np.log10( local_power[tmp_mask] - local_fit_power[tmp_mask] ) + 20.0 * np.log10( r[tmp_mask] ) + 2.0 * att * r[tmp_mask]
  
               #If the reflectivity is far from the fitted interference, and is smaller than the fitted interference
               #then set that pixel as an undef pixel.
-              tmp_mask = np.logical_and( tmp_z[i,:,k] - zrayo <= 5.0 , undef_mask )
-              ref[i, tmp_mask ,k] = undef
-              tmp_index[i, tmp_mask ,k] = 1.0 
+              tmp_mask = np.logical_and( local_sref - local_fit_ref <= ref_threshold , undef_mask )
 
-              #if (k == 0) and (i == 348) :
-              #   plt.plot( r[undef_mask] , tmp_z[i,:,k][undef_mask] )
-              #   plt.plot( r[undef_mask] , z[undef_mask]      ,'ok' )
-              #   plt.plot( r[undef_mask] , zrayo[undef_mask])
+              ref[i, tmp_mask ,k] = undef
+
+              tmp_index[i , tmp_mask , k] = 1.0
+
+
+              #if (k == 0) and (i == 61) :
+              #   tmp_mask = local_spower != undef
+              #   local_spower[tmp_mask]
+              #   plt.figure()
+              #   plt.plot( r[tmp_mask] , local_spower[tmp_mask] )
+              #   plt.plot( r[tmp_mask] , local_fit_power[tmp_mask])
               #   plt.show()
 
-           #else :
-              #print(i,k)
+              #   local_fit_ref = 10.0*np.log10( local_fit_power ) + 20.0 * np.log10( r ) + 2.0 * att * r
+              #   plt.figure()
+                
+              #   plt.plot( r[tmp_mask] , local_sref[tmp_mask]      ,'ok' )
+              #   plt.plot( r[local_inlier_mask] , local_sref[local_inlier_mask]      ,'ob' )
+              #   plt.plot( r[tmp_mask] , local_fit_ref[tmp_mask] )
+              #   plt.plot( r[tmp_mask] , local_fit_ref[tmp_mask] - ref_threshold , '--')
+              #   plt.plot( r[tmp_mask] , local_fit_ref[tmp_mask] + ref_threshold , '--')
+              #   plt.show()
+
 
    #Additional filter for the remaining echoes
    #consider cyclic boundary conditions in azimuth.
@@ -1911,48 +1919,58 @@ def interference_filter ( ref , undef , min_ref , r , my_conf )  :
  
                   #If we have reflectivity in only one ray but not in the neighbors this suggest an interference pattern.
                   tmp_mask = np.logical_and( ref[i-1,:,k] == undef , ref[i+1,:,k] == undef )
+                  tmp_mask = np.logical_and( ref[i,:,k]   != undef , tmp_mask )
                   ref[i,:,k][ tmp_mask ] = undef
                   tmp_index[i,:,k][ tmp_mask ] = 1.0
 
                   tmp_mask = np.logical_and( ref[i-2,:,k] == undef , ref[i+2,:,k] == undef )
+                  tmp_mask = np.logical_and( ref[i,:,k]   != undef , tmp_mask )
                   ref[i,:,k][ tmp_mask ] = undef
                   tmp_index[i,:,k][ tmp_mask ] = 1.0
  
                elif  i==na-1   :
                   tmp_mask = np.logical_and( ref[i-1,:,k] == undef, ref[0,:,k] == undef )
+                  tmp_mask = np.logical_and( ref[i,:,k]   != undef , tmp_mask )
                   ref[i,:,k][ tmp_mask ] = undef
                   tmp_index[i,:,k][ tmp_mask ] = 1.0
 
                   tmp_mask = np.logical_and( ref[i-2,:,k] == undef , ref[1,:,k] == undef )
+                  tmp_mask = np.logical_and( ref[i,:,k]   != undef , tmp_mask )
                   ref[i,:,k][ tmp_mask ] = undef
                   tmp_index[i,:,k][ tmp_mask ] = 1.0
 
                elif  i==na-3   :
                   tmp_mask = np.logical_and( ref[i-1,:,k] == undef , ref[i,:,k] == undef )
+                  tmp_mask = np.logical_and( ref[i,:,k]   != undef , tmp_mask )
                   ref[i,:,k][ tmp_mask ] = undef
                   tmp_index[i,:,k][ tmp_mask ] = 1.0
 
                   tmp_mask = np.logical_and( ref[i-2,:,k] == undef , ref[0,:,k] == undef )
+                  tmp_mask = np.logical_and( ref[i,:,k]   != undef , tmp_mask )
                   ref[i,:,k][ tmp_mask ] = undef
                   tmp_index[i,:,k][ tmp_mask ] = 1.0
 
                elif  i==0      :
 
                   tmp_mask = np.logical_and( ref[na-1,:,k] == undef , ref[i+1,:,k] == undef )
+                  tmp_mask = np.logical_and( ref[i,:,k]    != undef , tmp_mask )
                   ref[i,:,k][ tmp_mask ] = undef
                   tmp_index[i,:,k][ tmp_mask ] = 1.0
 
                   tmp_mask = np.logical_and( ref[na-2,:,k] == undef , ref[i+2,:,k] == undef )
+                  tmp_mask = np.logical_and( ref[i,:,k]    != undef , tmp_mask )
                   ref[i,:,k][ tmp_mask ] = undef
                   tmp_index[i,:,k][ tmp_mask ] = 1.0
 
                elif  i==1      :
 
                   tmp_mask = np.logical_and( ref[i-1,:,k] == undef , ref[i+1,:,k] == undef )
+                  tmp_mask = np.logical_and( ref[i,:,k]    != undef , tmp_mask )
                   ref[i,:,k][ tmp_mask ] = undef
                   tmp_index[i,:,k][ tmp_mask ] = 1.0
 
                   tmp_mask = np.logical_and( ref[na-1,:,k] == undef , ref[i+2,:,k] == undef )
+                  tmp_mask = np.logical_and( ref[i,:,k]    != undef , tmp_mask )
                   ref[i,:,k][ tmp_mask ] = undef
                   tmp_index[i,:,k][ tmp_mask ] = 1.0
 
@@ -1962,18 +1980,21 @@ def interference_filter ( ref , undef , min_ref , r , my_conf )  :
                if ( k > 0 ) & ( k < ne-1 ) :
 
                   tmp_mask = np.logical_and( ref[i,:,k-1] == undef , ref[i,:,k+1] == undef )
+                  tmp_mask = np.logical_and( ref[i,:,k]    != undef , tmp_mask )
                   ref[i,:,k][ tmp_mask ] = undef
                   tmp_index[i,:,k][ tmp_mask ] = 1.0
 
                if ( k == 0 )                :
 
                   tmp_mask = np.logical_and( ref[i,:,k+2] == undef , ref[i,:,k+1] == undef )
+                  tmp_mask = np.logical_and( ref[i,:,k]    != undef , tmp_mask )
                   ref[i,:,k][ tmp_mask ] = undef
                   tmp_index[i,:,k][ tmp_mask ] = 1.0
 
                if ( k == ne-1 )            :
 
                   tmp_mask = np.logical_and( ref[i,:,k-2] == undef , ref[i,:,k-1] == undef )
+                  tmp_mask = np.logical_and( ref[i,:,k]    != undef , tmp_mask )
                   ref[i,:,k][ tmp_mask ] = undef
                   tmp_index[i,:,k][ tmp_mask ] = 1.0
 

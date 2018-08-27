@@ -23,7 +23,7 @@ instrument_list = ['RMA1',# 'RMA2', 'RMA3', 'RMA4', 'RMA5', 'RMA6',
 
 file_type_list = ['.H5','.VOL','.nc']
 
-init_date='20180824200000'
+init_date='20180824205000'
 end_date ='20180824210000'
 
 #Obtenemos la lista de archivos.

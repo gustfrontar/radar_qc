@@ -62,7 +62,6 @@ def read_multiple_files(  file_list , instrument_list = None )          :
             #So far my_radar contains all the variables corresponding to this instrument and initial time.
             my_radar = get_strat( filename , my_radar )  #Additional metadata that will be required by QC
             my_radar = rename_fields( my_radar )         #Rename fields different instruments share the same name convention.
-            my_radar = change_precission( my_radar , dtype )
           
             radar_list.append( my_radar )       
 
@@ -521,20 +520,6 @@ def merge_radar_object( radar_1 , radar_2 )    :
 
 
    return radar_1  , merged
-
-def change_precission( radar , dtype )   :
-   #Some radar objects might have float 32 precission 
-   #while QC routines are expecting float 64 fields.
-
-   import numpy as np
-
-   for my_key in radar.fields  :
-
-       radar.fields[my_key]['data'] = ( radar.fields[my_key]['data'] ).astype( dtype )
-
-
-
-   return radar
 
 
 
