@@ -13,14 +13,14 @@ def read_multiple_files(  file_list , instrument_list = None )          :
 
    #Generate a list of radar objects
    dtype = 'float64'  #On output radar object fields will have this precission.
-   
+
    radar_list   = []                                       #Final list of radar objects.
 
    used_file = np.zeros( len( file_list ) ).astype(bool)    #Keep record of which files has been used
 
    for ifile , filename in enumerate( file_list )    :
 
-      file_format = get_file_format( filename )
+      file_format = get_format_from_filename( filename )
  
       file_time   = get_time_from_filename( filename )
 
@@ -41,7 +41,7 @@ def read_multiple_files(  file_list , instrument_list = None )          :
             for tmp_ifile , tmp_filename  in enumerate( file_list )   :
   
                if ( not used_file[tmp_ifile] )    :
-                  if ( ( file_format     ==  get_file_format( tmp_filename ) ) and 
+                  if ( ( file_format     ==  get_format_from_filename( tmp_filename ) ) and 
                        ( file_time       ==  get_time_from_filename( tmp_filename ) ) and
                        ( file_instrument ==  get_instrument_type_from_filename( tmp_filename ) ) )  :
 
@@ -71,14 +71,14 @@ def read_multiple_files(  file_list , instrument_list = None )          :
          
    return radar_list
 
-def get_file_format( filename )            :
+def get_format_from_filename( filename )            :
 
    if ('.h5' in filename ) or ( '.H5' in filename )   :
       file_format = 'h5'
    if ( '.vol' in filename ) or ( 'VOL' in filename ) :
       file_format = 'vol' 
-   if ( '.nc'  in filename ) or ( 'NC' in filename )  :
-      file_format = 'nc' 
+   if ( '.nc'  in filename ) or ( 'NC' in filename )  or ( 'cfrad' in filename ) :
+      file_format = 'cfrad' 
 
    return file_format
 
@@ -95,7 +95,7 @@ def read_file( filename , format_file )    :
          radar = read_sinarame_h5(filename, file_field_names=True)
       if format_file == 'vol'  :
          radar = read_rainbow_wrl(filename, file_field_names=True)
-      if format_file == 'nc'   :
+      if format_file == 'cfrad'   :
          radar = pyart.io.read(filename)
 
       print( ' ' )
@@ -185,6 +185,8 @@ def get_strat ( filename , radar )  :
     radar.altitude_agl['data'] = 0.0
 
 
+    #TODO: Ver si podemos calcular esto en funcion de lo que esta
+    #en la estructura radar en lugar de tener que sacarlo del nombre del archivo.
     if 'RMA' in filename  :
 
 
@@ -241,11 +243,10 @@ def get_strat ( filename , radar )  :
 
     if ( 'PAR' in filename ) or ( 'ANG' in filename ) or ( 'PER' in filename )  :
 
-       if '/120/' in filename   : 
-          nyquist_velocity = 39.8  #120
-
-       if '/240/' in filename   :
-          nyquist_velocity = 6.63  #240
+          if np.max( radar.range['data']  ) == 119875.0 :
+             nyquist_velocity = 39.8  #120
+          if np.max( radar.range['data']  ) == 239750.0 :
+             nyquist_velocity = 6.63  #240
 
     #Correct instrument altitude.
     if 'PAR' in filename   :
@@ -343,15 +344,15 @@ def get_file_list( datapath , init_time , end_time , time_search_type = None , f
    for (dirpath, dirnames, filenames) in os.walk( datapath ):
 
       for filename in filenames            :
-         f = '/'.join([dirpath,filename])
+         current_filename = '/'.join([dirpath,filename])
 
          if time_search_type == 'filename'   :
-            date_c = get_time_from_filename( filename )
+            date_c = get_time_from_filename( current_filename )
          if time_search_type == 'timestamp'  :
-            date_c = dt.fromtimestamp( os.stat(f).st_ctime )
-
+            date_c = dt.fromtimestamp( os.stat(current_filename).st_ctime )
+      
          if date_c >= date_min and date_c <= date_max  :
-            file_list.append(f)
+            file_list.append( current_filename )
    
    #Keep only some file names and some paths.
 
@@ -371,7 +372,6 @@ def get_file_list( datapath , init_time , end_time , time_search_type = None , f
 
       final_flie_list  = file_list 
 
-
    return file_list
 
 
@@ -384,11 +384,19 @@ def get_time_from_filename( filename )    :
    filename = os.path.basename( filename )
    file_time = None
 
-   if ( 'PAR' in filename ) or ( 'PER' in filename ) or ( 'ANG' in filename )  :
+   format = get_format_from_filename( filename )
+
+   if format == 'h5'    :
+
+      file_time  = dt.datetime.strptime(filename.split('_')[-1][:15], '%Y%m%dT%H%M%S')  
+
+   if format == 'vol'   :
+
       file_time  = dt.datetime.strptime(filename[:14], '%Y%m%d%H%M%S')
 
-   if ( 'RMA' in filename )  :
-      file_time  = dt.datetime.strptime(filename.split('_')[-1][:15], '%Y%m%dT%H%M%S')  
+   if format == 'cfrad'   :
+
+      file_time  = dt.datetime.strptime(filename[6:21], '%Y%m%d_%H%M%S')
 
    return file_time
 
@@ -399,7 +407,8 @@ def get_instrument_type_from_filename( filename ) :
    filename = os.path.basename( filename )
    instrument_name = None
    if 'RMA' in filename    :
-      instrument_name = ( os.path.basename( filename ) ).split('_')[0]
+      index = filename.find('RMA')
+      instrument_name = filename[index:index+4]
    if 'ANG' in filename    :
       instrument_name = 'ANG'
    if 'PAR' in filename    :

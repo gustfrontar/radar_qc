@@ -33,11 +33,6 @@ def main_qc( options , radar = None ) :
 
       radar = pyart.io.read(options['filename'])
 
-
-   if radar.altitude_agl['data'] == 0.0    :
-      #Radar is assumed to be at ground level. Add the height of the tower.
-      radar.altitude['data']=radar.altitude['data']+options['radar_altitude_agl']
-
    output['maxw_ref']=0.0
    output['maxw_v']  =0.0
 
@@ -57,6 +52,9 @@ def main_qc( options , radar = None ) :
    #===================================================
    # CHECK IF WE HAVE INFINITE OR NAN VALUES IN DATA 
    #===================================================
+
+   #Check different aspects of the input data, numerical preccission
+   #presence of invalid data like Inf or NaN.
 
    print('')
    print('-------------------------------------------')
@@ -162,11 +160,19 @@ def check_valid_data( radar , options )   :
 
     start=time.time()
 
+    #=========================
+    # Check numeric precission
+    #=========================
+
     #Sometimes radar filds have precissions other than numpy default. This breakes the code since the code relies on
     #default numpy dtype.
     default_type = np.ones( (1) ).dtype
     for my_key in radar.fields  :
        radar.fields[my_key]['data'] = ( radar.fields[my_key]['data'] ).astype( default_type )
+
+    #=========================
+    # Check Nan and Inf
+    #=========================
 
     for my_key in radar.fields    :
        if my_key == options['name_ref']   :

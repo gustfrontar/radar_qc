@@ -10,7 +10,7 @@ sys.path.append('./src/python' )
 sys.path.append('./src/fortran')
 
 import radar_qc_module as rqc
-import conf_rma as conf
+import conf_defaults as conf
 import pyart
 
 #=======================================
@@ -22,6 +22,9 @@ conf.options['filename']='./cfrad.20170926_171335.0000_to_20170926_171446.0000_R
 conf.options['filename_out']='./cfrad.20170926_171335.0000_to_20170926_171446.0000_RMA1_0122_03.corrected.nc3'
 
 #Performs QC operations based on options
+
+radar = pyart.io.read(conf.options['filename'])
+
 [radar , qc_output] = rqc.main_qc( conf.options )
 
 
