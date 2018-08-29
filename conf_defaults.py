@@ -34,7 +34,7 @@ options['toporadardatapath']=""
 #======================================
 
 options['plot']=dict()
-options['plot']['Enable']=True
+options['plot']['Enable']=False
 options['plot']['Path']='./'
 options['plot']['FigNameSufix']='.png'
 options['plot']['VrMin']=-30
@@ -52,10 +52,10 @@ options['plot']['CmapDbz']='pyart_NWSRef'
 
 #General
 
-options['name_ref'] ='TH'    #'dBZ'              #Reflectivity
-options['name_cref']='CdBZ'             #Corrected reflectivity (qc output)
+options['name_ref'] ='ZH'    #'dBZ'              #Reflectivity
+options['name_cref']='CZH'             #Corrected reflectivity (qc output)
 options['name_v']   ='VRAD'  #'V'                #Dopper velocity
-options['name_cv']  ='CV'               #Corrected wind (qc ouput)
+options['name_cv']  ='CVRAD'               #Corrected wind (qc ouput)
 options['name_rho'] ='RHOHV' #'RhoHV'            #Rho HV
 
 options['name_model_ref_max']='dBZ_model_max'   #Maximum reflectivity from the model ensemble.

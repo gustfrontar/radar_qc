@@ -312,27 +312,41 @@ def get_topography( radar , output , options )  :
              str( radar.range['meters_between_gates'] ) + '_' + str( np.size( radar.range['data'] ) * radar.range['meters_between_gates'] / 1000 ) \
              + '.tif'
 
-   if ( os.path.isfile( polar_coord_topo_file ) )  :
-      read_raster = False
-      print('Using a previously generated topography file')
-   else                                :
-      read_raster = True
-      print('Topography file not found. We will generate a new file from raw raster data')
+   try    :
+      print('Trying to get a binary file with the interpolated topography')
+      my_topo=read_topo( polar_coord_topo_file )
 
-   if read_raster    :   #We read the original data and interpolate it to a polar grid centered at the radar.
-
+   except :
+      print('I could not find an adequate binary file. We will get the data')
       os.makedirs(options['toporawdatapath'],exist_ok=True)
       os.makedirs(options['toporadardatapath'],exist_ok=True)
 
       #Generate topo file ( inputs are , radar lat and lon, range and azimuth )
-      my_topo=generate_topo_file( radar.longitude['data'][0] , radar.latitude['data'][0] , radar.range['data'] , output['az'] , 
+      my_topo=generate_topo_file( radar.longitude['data'][0] , radar.latitude['data'][0] , radar.range['data'] , output['az'] ,
                                   options['toporawdatapath'] , polar_coord_topo_file )
+                        
 
-   else   :
+   #if ( os.path.isfile( polar_coord_topo_file ) )  :
+   #   read_raster = False
+   #   print('Using a previously generated topography file')
+   #else                                :
+   #   read_raster = True
+   #   print('Topography file not found. We will generate a new file from raw raster data')
 
-      print('Reading polar coordinate topography from a file')
+   #if read_raster    :   #We read the original data and interpolate it to a polar grid centered at the radar.
 
-      my_topo=read_topo( polar_coord_topo_file )
+   #   os.makedirs(options['toporawdatapath'],exist_ok=True)
+   #   os.makedirs(options['toporadardatapath'],exist_ok=True)
+
+   #   #Generate topo file ( inputs are , radar lat and lon, range and azimuth )
+   #   my_topo=generate_topo_file( radar.longitude['data'][0] , radar.latitude['data'][0] , radar.range['data'] , output['az'] , 
+   #                               options['toporawdatapath'] , polar_coord_topo_file )
+
+   #else   :
+
+   #   print('Reading polar coordinate topography from a file')
+
+   #   my_topo=read_topo( polar_coord_topo_file )
 
    #Interpolate topography data to the 3D radar structure.
 
@@ -2067,11 +2081,15 @@ def write_topo( my_topo , my_file )           :
     np.array(nr).astype('f4').tofile(f)
 
     #Write the components of the my_topo dictionary.
+    if numpy.ma.is_masked( my_topo['range'].data )    :
+       tmp=my_topo['range'].data
+    else                                              :
+       tmp=my_topo['range']
     np.reshape( my_topo['mean'].astype('f4') , (nr*na) ).tofile(f)
     np.reshape( my_topo['max'].astype('f4') , (nr*na) ).tofile(f)
     np.reshape( my_topo['min'].astype('f4') , (nr*na) ).tofile(f)
     np.reshape( my_topo['number'].astype('f4') , (nr*na) ).tofile(f)
-    np.reshape( my_topo['range'].astype('f4') , (nr*na) ).tofile(f)
+    np.reshape( tmp.astype('f4') , (nr*na) ).tofile(f)
     #np.reshape( (my_topo['range'].data).astype('f4') , (nr*na) ).tofile(f)
     np.reshape( my_topo['azimuth'].astype('f4') , (nr*na) ).tofile(f)
     np.reshape( my_topo['latitude'].astype('f4') , (nr*na) ).tofile(f)

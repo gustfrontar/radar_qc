@@ -13,19 +13,21 @@ import operational_tools as ot       #Operational tools.
 import conf_defaults as conf
 import numpy as np
 import datetime as dt
+import os
 
-datapath = '/home/jruiz/datosmate/RRA_radar/'  #Min data path.
-#datapath='/home/jruiz/share/DATA/DATOS_RADAR/RRA_radar/'
+os.system('export OMP_NUM_THREADS=12')
 
-instrument_list = ['ANG']
-                 #'RMA1','RMA3','RMA4','RMA5','RMA6',
-                 #'RMA7', 'RMA8',
-                 #'PAR',
-                 #'PER', 'ANG']         #Instrument list.
+#datapath = '/home/jruiz/datosmate/RRA_radar/'  #Min data path.
+datapath='/home/jruiz/share/DATA/DATOS_RADAR/RRA_radar/'
+
+instrument_list = ['RMA1','RMA3','RMA4','RMA5','RMA6',
+                 'RMA7', 'RMA8',
+                 'PAR',
+                 'PER', 'ANG']         #Instrument list.
 
 file_type_list = ['cfrad']
 
-time_delta = 600 #Time delta in seconds.
+time_delta = 300 #Time delta in seconds.
 
 init_date='20170923060000'
 end_date ='20170923060000'

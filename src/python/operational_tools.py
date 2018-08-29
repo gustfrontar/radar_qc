@@ -190,11 +190,11 @@ def get_strat ( filename , radar )  :
     if 'RMA' in filename  :
 
 
-       if '0117_01' in filename  :  #9005-1 STRATEGY
+       if '9005_01' in filename  :  #9005-1 STRATEGY
           nyquist_velocity     = 6.63
-       if '0117_02' in filename  :  #9005-2 STRATEGY
+       if '9005_02' in filename  :  #9005-2 STRATEGY
           nyquist_velocity     = 33.04
-       if '0117_03' in filename  :  #9005-3 STRATEGY
+       if '9005_03' in filename  :  #9005-3 STRATEGY
           nyquist_velocity     = 3.98
 
        if '0117_01' in filename  :  #122-1 STRATEGY
@@ -242,11 +242,13 @@ def get_strat ( filename , radar )  :
 
 
     if ( 'PAR' in filename ) or ( 'ANG' in filename ) or ( 'PER' in filename )  :
-
+          print('pepe')
           if np.max( radar.range['data']  ) == 119875.0 :
              nyquist_velocity = 39.8  #120
           if np.max( radar.range['data']  ) == 239750.0 :
              nyquist_velocity = 6.63  #240
+
+
 
     #Correct instrument altitude.
     if 'PAR' in filename   :
