@@ -2081,15 +2081,12 @@ def write_topo( my_topo , my_file )           :
     np.array(nr).astype('f4').tofile(f)
 
     #Write the components of the my_topo dictionary.
-    if numpy.ma.is_masked( my_topo['range'].data )    :
-       tmp=my_topo['range'].data
-    else                                              :
-       tmp=my_topo['range']
+    tmp=my_topo['range'].data
     np.reshape( my_topo['mean'].astype('f4') , (nr*na) ).tofile(f)
     np.reshape( my_topo['max'].astype('f4') , (nr*na) ).tofile(f)
     np.reshape( my_topo['min'].astype('f4') , (nr*na) ).tofile(f)
     np.reshape( my_topo['number'].astype('f4') , (nr*na) ).tofile(f)
-    np.reshape( tmp.astype('f4') , (nr*na) ).tofile(f)
+    np.reshape( tmp.astype('f4') , (nr*na)  ).tofile(f)
     #np.reshape( (my_topo['range'].data).astype('f4') , (nr*na) ).tofile(f)
     np.reshape( my_topo['azimuth'].astype('f4') , (nr*na) ).tofile(f)
     np.reshape( my_topo['latitude'].astype('f4') , (nr*na) ).tofile(f)

@@ -26,7 +26,9 @@ def read_multiple_files(  file_list , instrument_list = None )          :
 
       file_instrument = get_instrument_type_from_filename( filename )
 
-      if ( ( file_instrument in instrument_list ) or ( instrument_list == None ) ) and ( not used_file[ifile] ) :
+      #print('Main',file_format,file_time,file_instrument)
+
+      if ( ( file_instrument in instrument_list ) or ( instrument_list == None ) ) and ( not used_file[ifile] ) and ( file_format != None )  and ( file_time != None ) :
          #Read the radar 
          my_radar = read_file( filename , file_format )  
 
@@ -39,14 +41,16 @@ def read_multiple_files(  file_list , instrument_list = None )          :
             #Check if we can associate other radars in the list to the current radar.
   
             for tmp_ifile , tmp_filename  in enumerate( file_list )   :
+
+               #print('Second loop',get_format_from_filename( tmp_filename ),get_time_from_filename( tmp_filename ),get_instrument_type_from_filename( tmp_filename ) , used_file[tmp_ifile])
   
-               if ( not used_file[tmp_ifile] )    :
+               if ( not used_file[tmp_ifile] ) and ( ifile != tmp_ifile )   :
                   if ( ( file_format     ==  get_format_from_filename( tmp_filename ) ) and 
                        ( file_time       ==  get_time_from_filename( tmp_filename ) ) and
                        ( file_instrument ==  get_instrument_type_from_filename( tmp_filename ) ) )  :
 
                      #Read the data
-                     tmp_radar = read_file( filename , file_format )
+                     tmp_radar = read_file( tmp_filename , file_format )
                      if tmp_radar !=  None  :
                         
                         #Check if we can merge tmp_radar and my_radar objects.
@@ -56,8 +60,10 @@ def read_multiple_files(  file_list , instrument_list = None )          :
                            used_file[ tmp_ifile ] = True
                            
                         else        :       
-                           print('Warning: Inconsistent shapes found for ' + file_instrument + ' ' + file_time )
+                           print('Warning: Inconsistent shapes found for ' + file_instrument + ' ' + file_time.strftime('%Y-%m-%d-%H-%M-%S') )
                            print('This volume will be processed separately')  
+                     if tmp_radar == None  :
+                           used_file[ tmp_ifile ] = True
 
             #So far my_radar contains all the variables corresponding to this instrument and initial time.
             my_radar = get_strat( filename , my_radar )  #Additional metadata that will be required by QC
@@ -68,10 +74,13 @@ def read_multiple_files(  file_list , instrument_list = None )          :
             print('RADAR : ' + my_radar.metadata['instrument_name'] + ' ' + file_time.strftime('%Y-%m-%d-%H-%M-%S') )
             for ifile in my_radar.files   :
                 print('   FILE: ' + ifile )
-         
+         else       :
+             used_file[ifile]=True 
    return radar_list
 
 def get_format_from_filename( filename )            :
+
+   file_format = None 
 
    if ('.h5' in filename ) or ( '.H5' in filename )   :
       file_format = 'h5'
@@ -352,9 +361,9 @@ def get_file_list( datapath , init_time , end_time , time_search_type = None , f
             date_c = get_time_from_filename( current_filename )
          if time_search_type == 'timestamp'  :
             date_c = dt.fromtimestamp( os.stat(current_filename).st_ctime )
-      
-         if date_c >= date_min and date_c <= date_max  :
-            file_list.append( current_filename )
+         if date_c != None  :
+            if date_c >= date_min and date_c <= date_max  :
+               file_list.append( current_filename )
    
    #Keep only some file names and some paths.
 
@@ -458,7 +467,7 @@ def merge_radar_object( radar_1 , radar_2 )    :
       #Dimensions of radar_1 and radar_2 are the same.
       for my_key in radar_2.fields   :
          if not my_key in radar_1.fields   :
-            radar_1.fields[my_key] = radar_2.fields.pop(my_key)
+            radar_1.fields[my_key] = radar_2.fields[my_key]
             merged = True
    else                                                                                  :
       print('Warning: Inconsistent shapes found for ' + file_instrument + ' ' + file_time )

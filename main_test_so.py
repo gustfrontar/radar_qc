@@ -1,7 +1,7 @@
 ##!/home/qcradar/.conda/envs/da/bin/python
 #qc_path = "/home/qcradar/scripts/radar_qc/"
-qc_path = "/home/jruiz/share/radar_qc/"
-so_path = "/home/jruiz/share/radar_so/"
+qc_path = "/home/qcradar/scripts/radar_qc/"
+so_path = "/home/qcradar/scripts/radar_so/"
 
 import sys
 sys.path.append( qc_path + '/src/python/' )
@@ -18,7 +18,7 @@ import numpy as np
 
 import radar_so as so                #Superobbing python classes
 
-datapath = '/home/jruiz/test_qc/'  #Main data path.
+datapath = './'  #Main data path.
 
 
 instrument_list = ['RMA1',# 'RMA2', 'RMA3', 'RMA4', 'RMA5', 'RMA6',
@@ -28,13 +28,12 @@ instrument_list = ['RMA1',# 'RMA2', 'RMA3', 'RMA4', 'RMA5', 'RMA6',
 
 file_type_list = ['.H5','.VOL','.nc']
 
-init_date='20180824205000'
-end_date ='20180824210000'
+init_date='20170926170000'
+end_date ='20170926180000'
 
 #Obtenemos la lista de archivos.
 file_list = ot.get_file_list( datapath , init_date , end_date , time_search_type='filename' , file_type_list = file_type_list )
 
-print(file_list)
 
 #Obtenemos la lista de objetos radares.
 radar_list = ot.read_multiple_files(  file_list , instrument_list )
