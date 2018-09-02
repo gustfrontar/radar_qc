@@ -25,6 +25,10 @@ options['output_to_file'] = False #Wether the output will be written to a netcdf
 options['filename_out'] = ''      #The name of the netcdf file where output will be written.
 options['file_out_format']='NETCDF4'
 options['keep_original_fields']=False
+#Topography database.
+options['toporawdatapath']=""
+options['toporadardatapath']=""
+
 
 #======================================
 # PLOTING PARAMETERS
@@ -506,15 +510,5 @@ options[filter_name]['var_update_list']=['ref']             #Which variables wil
 options[filter_name]['sequential']=True                     #Wheter this filter will affect the following  filters
 options[filter_name]['fill_value']='undef'                  #Possible values, undef, min_ref or fill value
 
-#Topography parameters
-
-#options['toporawdatapath']="./data/terrain_data/raw/"
-#options['toporadardatapath']="./data/terrain_data/radar/"
-
-options['toporawdatapath']="/media/jruiz/PAWR/Dropbox/DATA/radar_qc/data/terrain_data/raw/"
-options['toporadardatapath']="/media/jruiz/PAWR/Dropbox/DATA/radar_qc/data/terrain_data/radar/"
-
-#options['toporawdatapath']="/home/jruiz/Dropbox/DATA/radar_qc/data/terrain_data/raw/"
-#options['toporadardatapath']="/home/jruiz/Dropbox/DATA/radar_qc/data/terrain_data/radar/"
 
 

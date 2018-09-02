@@ -2,7 +2,7 @@
 # Author: Rapid Refresh Argentina Team
 # License: BSD 3 clause
 
-def main_qc( options , radar = 'None' ):
+def main_qc( options , radar = None ) :
 
    import sys
    import time
@@ -23,7 +23,7 @@ def main_qc( options , radar = 'None' ):
 
    #Read the data
 
-   if radar == 'None'  :
+   if radar == None  :
 
       print('')
       print('-------------------------------------------')
@@ -32,14 +32,6 @@ def main_qc( options , radar = 'None' ):
       print('')
 
       radar = pyart.io.read(options['filename'])
-
-   if options['is_rma']  :
-
-      radar = get_rma_strat( options['filename'] , radar ) 
-
-   if radar.altitude_agl['data'] == 0.0    :
-      #Radar is assumed to be at ground level. Add the height of the tower.
-      radar.altitude['data']=radar.altitude['data']+options['radar_altitude_agl']
 
    output['maxw_ref']=0.0
    output['maxw_v']  =0.0
@@ -56,6 +48,21 @@ def main_qc( options , radar = 'None' ):
       print('-------------------------------------------')
       print('')
       return radar , output
+
+   #===================================================
+   # CHECK IF WE HAVE INFINITE OR NAN VALUES IN DATA 
+   #===================================================
+
+   #Check different aspects of the input data, numerical preccission
+   #presence of invalid data like Inf or NaN.
+
+   print('')
+   print('-------------------------------------------')
+   print('Checking if input data is valid')
+   print('-------------------------------------------')
+   print('')
+
+   radar = check_valid_data( radar , options )
 
    #===================================================
    # SOME PRELIMINARY PROCEDURES.
@@ -142,6 +149,45 @@ def main_qc( options , radar = 'None' ):
 # FUNCIONES GENERALES ------------------------------
 #===================================================
 
+#===================================================
+# Check if input data is valid.
+#===================================================
+
+def check_valid_data( radar , options )   :
+
+    import numpy as np
+    import time
+
+    start=time.time()
+
+    #=========================
+    # Check numeric precission
+    #=========================
+
+    #Sometimes radar filds have precissions other than numpy default. This breakes the code since the code relies on
+    #default numpy dtype.
+    default_type = np.ones( (1) ).dtype
+    for my_key in radar.fields  :
+       radar.fields[my_key]['data'] = ( radar.fields[my_key]['data'] ).astype( default_type )
+
+    #=========================
+    # Check Nan and Inf
+    #=========================
+
+    for my_key in radar.fields    :
+       if my_key == options['name_ref']   :
+          radar.fields[ my_key ]['data'].data[ np.isinf( radar.fields[ my_key ]['data'].data )  ] = options['norainrefval']
+          radar.fields[ my_key ]['data'].data[ np.isnan( radar.fields[ my_key ]['data'].data )  ] = options['norainrefval']
+          radar.fields[ my_key ]['data'].data[ radar.fields[ my_key ]['data'].data < options['norainrefval']  ] = options['norainrefval']
+          
+       else                               :
+          radar.fields[ my_key ]['data'].data[ np.isinf( radar.fields[ my_key ]['data'].data )  ] = radar.fields[ my_key ]['_FillValue']
+          radar.fields[ my_key ]['data'].data[ np.isnan( radar.fields[ my_key ]['data'].data )  ] = radar.fields[ my_key ]['_FillValue']
+
+    end=time.time()
+    print("The elapsed time in {:s} is {:2f}".format("Input data check",end-start) )
+
+    return radar
 
 #==================================================a
 #' RESHAPE VARIABLES
@@ -167,6 +213,7 @@ def reshape_variables( radar , output , options )    :
         output['nr']=nr
         output['ne']=ne
 
+        output['cref'] = np.ones( (na,nr,ne))
         output['cref'] = np.copy(output['ref'])           #Initialize the corrected reflectivity array.
         output['ref_input'] = np.copy(output['ref'])      #Initialize the input reflectivity array (for ploting only)
  
@@ -177,6 +224,7 @@ def reshape_variables( radar , output , options )    :
         output['wref']  = np.zeros(output['cref'].shape)  #Set the weigths to 0.
 
         output['elevations']=np.unique(radar.elevation['data'])
+
 
    if options['name_v'] in radar.fields  : 
 
@@ -190,7 +238,8 @@ def reshape_variables( radar , output , options )    :
         output['na']=na
         output['nr']=nr
         output['ne']=ne
- 
+
+        output['cv'] = np.ones((na,nr,ne))
         output['cv'] = np.copy(output['v'])              #Initialize the corrected velocity array
         output['input_v'] = np.copy(output['v'])         #Initialize the input velocity array (for ploting only)
 
@@ -219,9 +268,9 @@ def georeference_data( radar , output , options )    :
 
    #dm is a dummy variable
 
-   [ output['altitude'] , dm , dm , dm , dm ] = order_variable( radar , 'altitude' , options['undef'] )
-   [ output['x']        , dm , dm , dm , dm ] = order_variable( radar , 'x' , options['undef'] ) 
-   [ output['y']        , dm , dm , dm , dm ] = order_variable( radar , 'y' , options['undef'] )
+   [ output['altitude'] , dm , dm , dm , dm ] = order_variable( radar , 'altitude' ,  options['undef'] )
+   [ output['x']        , dm , dm , dm , dm ] = order_variable( radar , 'x' ,  options['undef'] ) 
+   [ output['y']        , dm , dm , dm , dm ] = order_variable( radar , 'y' ,  options['undef'] )
 
 
    #Compute distance to radar for the first azimuth (we assume that distance to radar will be the same.
@@ -263,27 +312,41 @@ def get_topography( radar , output , options )  :
              str( radar.range['meters_between_gates'] ) + '_' + str( np.size( radar.range['data'] ) * radar.range['meters_between_gates'] / 1000 ) \
              + '.tif'
 
-   if ( os.path.isfile( polar_coord_topo_file ) )  :
-      read_raster = False
-      print('Using a previously generated topography file')
-   else                                :
-      read_raster = True
-      print('Topography file not found. We will generate a new file from raw raster data')
+   try    :
+      print('Trying to get a binary file with the interpolated topography')
+      my_topo=read_topo( polar_coord_topo_file )
 
-   if read_raster    :   #We read the original data and interpolate it to a polar grid centered at the radar.
-
+   except :
+      print('I could not find an adequate binary file. We will get the data')
       os.makedirs(options['toporawdatapath'],exist_ok=True)
       os.makedirs(options['toporadardatapath'],exist_ok=True)
 
       #Generate topo file ( inputs are , radar lat and lon, range and azimuth )
-      my_topo=generate_topo_file( radar.longitude['data'][0] , radar.latitude['data'][0] , radar.range['data'] , output['az'] , 
+      my_topo=generate_topo_file( radar.longitude['data'][0] , radar.latitude['data'][0] , radar.range['data'] , output['az'] ,
                                   options['toporawdatapath'] , polar_coord_topo_file )
+                        
 
-   else   :
+   #if ( os.path.isfile( polar_coord_topo_file ) )  :
+   #   read_raster = False
+   #   print('Using a previously generated topography file')
+   #else                                :
+   #   read_raster = True
+   #   print('Topography file not found. We will generate a new file from raw raster data')
 
-      print('Reading polar coordinate topography from a file')
+   #if read_raster    :   #We read the original data and interpolate it to a polar grid centered at the radar.
 
-      my_topo=read_topo( polar_coord_topo_file )
+   #   os.makedirs(options['toporawdatapath'],exist_ok=True)
+   #   os.makedirs(options['toporadardatapath'],exist_ok=True)
+
+   #   #Generate topo file ( inputs are , radar lat and lon, range and azimuth )
+   #   my_topo=generate_topo_file( radar.longitude['data'][0] , radar.latitude['data'][0] , radar.range['data'] , output['az'] , 
+   #                               options['toporawdatapath'] , polar_coord_topo_file )
+
+   #else   :
+
+   #   print('Reading polar coordinate topography from a file')
+
+   #   my_topo=read_topo( polar_coord_topo_file )
 
    #Interpolate topography data to the 3D radar structure.
 
@@ -385,6 +448,9 @@ def output_update( output , qc_index , options , filter_name )  :
    weigth = qc.multiple_1d_interpolation( field=qc_index , nx=na , ny=nr , nz=ne
                                          , undef=options['undef'] , xx=options[filter_name]['ifx']
                                          , yy=options[filter_name]['ify'] , nxx=np.size(options[filter_name]['ifx']) )
+
+   weigth[ weigth == options['undef'] ] = 0.0
+
 
    if ( 'ref' in options[filter_name]['var_update_list'] ) and ( 'ref' in output )  : 
       #Update reflectivity
@@ -762,6 +828,7 @@ def EchoTopFilter( radar , output , options )   :
 
 
       if  options[filter_name]['fast_computation']          :
+
          [tmp_index,tmp_data_2d]=qc.echo_top_fast(reflectivity=output['ref'],heigth=output['altitude'][0,:,:]
                                                 ,rrange=output['distance'],na=na,nr=nr,ne=ne
                                                 ,undef=output['undef_ref'],nx=nx,ny=ny,nz=nz)
@@ -1373,37 +1440,40 @@ def order_variable ( radar , var_name , undef )  :
 
    na=np.size(order_azimuth)
    ne=np.size(levels)
+   nr=np.size(radar.range['data'].data) 
+
+
+   var = np.ones( (nb,nr) )
 
    if ( var_name == 'altitude' ) :
-      var=np.copy(radar.gate_altitude['data'])
+       var[:]=radar.gate_altitude['data']  
    elif( var_name == 'longitude' ) :
-      var=np.copy(radar.gate_longitude['data'])
+       var[:]=radar.gate_longitude['data']
    elif( var_name == 'latitude'  ) :
-      var=np.copy(radar.gate_latitude['data'])
+       var[:]=radar.gate_latitude['data']
    elif( var_name == 'x' )         :
-      var=np.copy(radar.gate_x['data'])
+       var[:]=radar.gate_x['data']
    elif( var_name == 'y' )         : 
-      var=np.copy(radar.gate_y['data'])
+       var[:]=radar.gate_y['data']
    else  :
-      var=np.copy(radar.fields[var_name]['data'].data)
+       var[:]=radar.fields[var_name]['data'].data
 
-   nr=var.shape[1]
 
    #Allocate arrays
    order_var    =np.zeros((na,nr,ne))
    order_time   =np.zeros((na,ne)) 
    azimuth_exact=np.zeros((na,ne))
-   order_n      =np.zeros((na,nr,ne))
+   order_n      =np.zeros((na,nr,ne),dtype='int')
    
    current_lev = radar.elevation['data'][0]
-   ilev = np.where( levels == current_lev  )[0]  
+   ilev = np.where( levels == current_lev )[0]
 
    for iray in range( 0 , nb )  :   #Loop over all the rays
  
      #Check if we are in the same elevation.
      if  radar.elevation['data'][iray] != current_lev  :
-         ilev=ilev = np.where( levels == current_lev  )[0]
-         current_lev = radar.elevation['data'][iray]  
+         current_lev = radar.elevation['data'][iray]
+         ilev=np.where( levels == current_lev  )[0]
 
      #Compute the corresponding azimuth index.
      az_index = np.round( radar.azimuth['data'][iray] / ray_angle_res ).astype(int)
@@ -1449,15 +1519,15 @@ def order_variable_inv (  radar , var , undef )  :
    current_lev = radar.elevation['data'][0]
    ilev = np.where( levels == current_lev  )[0]
 
-   output_var = np.zeros((nb,nr))
+   output_var = np.zeros((nb,nr) )
    output_var[:] = undef
 
    for iray in range( 0 , nb )  :   #Loop over all the rays
 
       #Check if we are in the same elevation.
       if  radar.elevation['data'][iray] != current_lev  :
-          ilev=ilev = np.where( levels == current_lev  )[0]
           current_lev = radar.elevation['data'][iray]
+          ilev=np.where( levels == current_lev  )[0]
 
       #Compute the corresponding azimuth index.
       az_index = np.round( radar.azimuth['data'][iray] / ray_angle_res ).astype(int)
@@ -1468,115 +1538,6 @@ def order_variable_inv (  radar , var , undef )  :
       output_var[ iray , : ] = var[ az_index , : , ilev ]
 
    return output_var
-
-
-def get_rma_strat ( filename , radar )  :
-
-    import numpy as np
-    import numpy.ma as ma
-
-    local_fill_value = -9999.0
-    levels=np.unique(radar.elevation['data'])
-
-    #Add missing structures to the radar object.
-    if radar.altitude_agl == None :
-       radar.altitude_agl = dict()
-    if radar.metadata == None :
-       radar.metadata = dict()
-    if radar.instrument_parameters == None :
-       radar.instrument_parameters = dict()
-       radar.instrument_parameters['nyquist_velocity']=dict()
-       radar.instrument_parameters['nyquist_velocity']['long_name']='unambiguous_doppler_velocity'
-       radar.instrument_parameters['nyquist_velocity']['units']='meters per second'
-       radar.instrument_parameters['nyquist_velocity']['_FillValue']= local_fill_value
-       radar.instrument_parameters['nyquist_velocity']['meta_group']='instrument_parameters'
- 
-       radar.instrument_parameters['radar_beam_width_v']=dict()
-       radar.instrument_parameters['radar_beam_width_v']['long_name']='half_power_radar_beam_width_v_channel'
-       radar.instrument_parameters['radar_beam_width_v']['units']='degrees'
-       radar.instrument_parameters['radar_beam_width_v']['_FillValue']= local_fill_value
-       radar.instrument_parameters['radar_beam_width_v']['meta_group']='instrument_parameters'
-
-       radar.instrument_parameters['radar_beam_width_h']=dict()
-       radar.instrument_parameters['radar_beam_width_h']['long_name']='half_power_radar_beam_width_h_channel'
-       radar.instrument_parameters['radar_beam_width_h']['units']='degrees'
-       radar.instrument_parameters['radar_beam_width_h']['_FillValue']= local_fill_value
-       radar.instrument_parameters['radar_beam_width_h']['meta_group']='instrument_parameters'
-
-    if radar.range == None :
-       radar.range = dict()
-    if radar.ray_angle_res == None :
-       radar.ray_angle_res = dict()
-       radar.ray_angle_res['long_name']='angular_resolution_between_rays'
-       radar.ray_angle_res['units']='degrees'
-       radar.ray_angle_res['_FillValue']= local_fill_value
-       
-    #Get the corresponding radar strategy depending on the filename.
-    radar.altitude_agl['data'] = 0.0   
-
-    radar.metadata['instrument_name'] = 'RMA' + filename[ filename.find('RMA') + 3 ]
-
-    if '0117_01' in filename  :  #9005-1 STRATEGY
-       nyquist_velocity     = 6.63
-    if '0117_02' in filename  :  #9005-2 STRATEGY
-       nyquist_velocity     = 33.04
-    if '0117_03' in filename  :  #9005-3 STRATEGY
-       nyquist_velocity     = 3.98
-
-    if '0117_01' in filename  :  #122-1 STRATEGY
-       nyquist_velocity     = 6.63
-    if '0117_02' in filename  :  #122-2 STRATEGY
-       nyquist_velocity     = 13.25
-
-    if '0121_01' in filename  :  #122-1 STRATEGY
-       nyquist_velocity     = 6.63
-    if '0121_02' in filename  :  #122-2 STRATEGY
-       nyquist_velocity     = 13.25
-
-    if '0122_01' in filename  :  #122-1 STRATEGY
-       nyquist_velocity     = 8.28
-    if '0122_02' in filename  :  #122-2 STRATEGY
-       nyquist_velocity     = 39.79
-    if '0122_03' in filename  :  #122-3 STRATEGY
-       nyquist_velocity     = 13.35
-
-    if '0123_01' in filename  :  #123-1 STRATEGY
-       nyquist_velocity     = 8.28
-    if '0123_02' in filename  :  #123-2 STRATEGY
-       nyquist_velocity     = 39.79
-    if '0123_03' in filename  :  #123-3 STRATEGY
-       nyquist_velocity     = 13.25
-    if '0123_04' in filename  :  #123-4 STRATEGY
-       nyquist_velocity     = 8.28
-
-    if '0200_01' in filename  :  #200-1 STRATEGY
-       nyquist_velocity     = 4.42
-    if '0200_02' in filename  :  #200-2 STRATEGY
-       nyquist_velocity     = 13.25
-
-    if '0201_01' in filename  :  #201-1 STRATEGY
-       nyquist_velocity     = 4.42
-    if '0201_02' in filename  :  #201-2 STRATEGY
-       nyquist_velocity     = 13.25
-    if '0201_03' in filename  :  #201-3 STRATEGY
-       nyquist_velocity     = 8.28
-
-    #Some common parameters
-    ray_angle_res        = 1.0 
-    radar_beam_width_h   = 1.0
-    radar_beam_width_v   = 1.0
-    meters_between_gates  = radar.range['data'][1]-radar.range['data'][0]
-
-    #Apply the missing parameters to the radar structure.
-    radar.instrument_parameters['nyquist_velocity']['data'] = ma.array(np.ones( np.shape(radar.azimuth['data']) )*nyquist_velocity , mask = np.zeros( np.shape(radar.azimuth['data']) , dtype=bool ) , fill_value = local_fill_value )
-    radar.instrument_parameters['radar_beam_width_h']['data'] = ma.array( radar_beam_width_h , mask =False , fill_value = local_fill_value )
-    radar.instrument_parameters['radar_beam_width_v']['data'] = ma.array( radar_beam_width_v , mask =False , fill_value = local_fill_value )
-    radar.ray_angle_res['data'] = ma.array( np.ones( np.shape( levels ) )*ray_angle_res , mask = np.zeros( np.shape( levels ) , dtype=bool ) , fill_value = local_fill_value )
-    radar.range['meters_between_gates']= meters_between_gates
-    radar.range['meters_to_center_of_first_gate']= radar.range['data'][0]  #meters_between_gates / 2.0
-
-    return radar
-
 
 def dopplerspatialcoherence_filter( v , undef , my_conf ) : 
 
@@ -1826,6 +1787,8 @@ def interference_filter ( ref , undef , min_ref , r , my_conf )  :
    #r : radar range (vector)
    #my_conf : configuration for this filter.
 
+   ref[ ref == min_ref ] = undef
+
    offset= my_conf['offset']
 
    na=ref.shape[0]
@@ -1845,10 +1808,10 @@ def interference_filter ( ref , undef , min_ref , r , my_conf )  :
 
    tmp_index=np.zeros( np.shape( ref ) ) 
 
-   tmp_z = np.power( 10.0, tmp_ref / 10.0  )
+   #tmp_z = np.power( 10.0, tmp_ref / 10.0  )
 
-   tmp_z[tmp_ref == undef ] = undef
-  
+   #tmp_z[tmp_ref == undef ] = undef
+
    
    #offset=my_conf['offset']
    att=my_conf['att']
@@ -1868,93 +1831,103 @@ def interference_filter ( ref , undef , min_ref , r , my_conf )  :
 
       for i in range(na)  :
 
-           local_ref = np.copy( tmp_ref[i,:,k] )
-           local_ref[0:offset]=undef
+           local_sref = np.copy( tmp_ref[i,:,k] )
+           local_sref[0:offset]=undef
 
-           undef_mask = local_ref != undef 
+           undef_mask = local_sref != undef 
+
+           local_ref = np.copy( ref[i,:,k] )
+           local_ref[0:offset] =undef
 
            tmp_count = np.sum( (undef_mask).astype(int) )/nr
 
-           power = local_ref  - 20.0 * np.log10( r ) - 2.0 * att * r
+
+           #Local smooth power
+           local_spower = np.power( 10.0 , ( local_sref  - 20.0 * np.log10( r ) - 2.0 * att * r ) / 10.0 )
+           local_spower[ local_sref == undef  ] = undef
+           #Local power
+           local_power  = np.power( 10.0 , ( ref[i,:,k] - 20.0 * np.log10( r ) - 2.0 * att * r ) / 10.0 )
+           local_power[ ref[i,:,k] == undef ] = undef 
+
+           local_inlier_mask = undef_mask 
 
            if tmp_count > percent_valid_threshold   :
               ransac = linear_model.RANSACRegressor()     
 
-              if Power_Regression   :
-                 ransac.fit( r[undef_mask].reshape(-1, 1) , np.power( 10.0 , power[undef_mask].reshape(-1, 1)/10.0 ) )
-                 inlier_mask = ransac.inlier_mask_
-                 outlier_mask = np.logical_not( inlier_mask )
+              ransac.fit( r[undef_mask].reshape(-1, 1) , local_spower[undef_mask].reshape(-1, 1) )
 
-                 tmppower=ransac.predict( r.reshape(-1,1) )[:,0]
-                 tmppower[ tmppower < 0.0 ]=10e-10
+              local_inlier_mask [ undef_mask ] = ransac.inlier_mask_
+              #inlier_mask = ransac.inlier_mask_
 
-                 powerrayo = 10.0*np.log10( tmppower ) + 20.0 * np.log10( r ) + 2.0 * att * r
+              local_fit_power = ransac.predict( r.reshape(-1,1) )[:,0]
+              local_fit_power[ local_fit_power < 0.0 ]=10e-10
 
-              else                  :
-                 ransac.fit( r[undef_mask].reshape(-1, 1) , power[undef_mask].reshape(-1, 1) )
-                 inlier_mask = ransac.inlier_mask_
-                 outlier_mask = np.logical_not(inlier_mask)
-
-                 powerrayo = ransac.predict( r.reshape(-1,1) )[:,0]  + 20.0 * np.log10( r ) + 2.0 * att * r
+              local_fit_ref = 10.0*np.log10( local_fit_power ) + 20.0 * np.log10( r ) + 2.0 * att * r
 
            else:
 
-              powerrayo = np.zeros( nr ) + 20.0 * np.log10( r ) + 2.0 * att * r
+              local_fit_power = np.zeros( nr ) 
+              local_inlier_mask = np.zeros( nr ).astype(bool) 
 
-           #print( np.shape( powerrayo ),np.shape( local_ref )
+           if ( np.sum( local_inlier_mask.astype(int) ) >= 10 )  :
+               if ( np.std(local_sref[local_inlier_mask]) > 0 ) :
+                  corrcoef=np.corrcoef( local_fit_ref[ local_inlier_mask ],local_sref[ local_inlier_mask ] )[0,1]
+               else                                                 :
+                  corrcoef = np.array(0.0)
 
-           if ( np.sum( inlier_mask.astype(int) ) >= 10 ) & ( np.std(local_ref[undef_mask][inlier_mask]) > 0 ) :
-           
-              corrcoef=np.corrcoef( powerrayo[undef_mask][inlier_mask],local_ref[undef_mask][inlier_mask] )[0,1]
+           else                                             :
 
-           else                                      :
-
-              corrcoef=-1.0
-
-           #if (k == 0) and (i == 348) :
-           #  plt.plot(  powerrayo[undef_mask] , local_ref[undef_mask] ,'or')
-           #  plt.plot(  powerrayo[undef_mask][inlier_mask],local_ref[undef_mask][inlier_mask] , 'ok')
-           #  plt.show()
-           #  print(corrcoef,np.sum( inlier_mask.astype(int) )/nr )
-           
-           #  plt.plot( r[undef_mask] , powerrayo[undef_mask] )
-           #  plt.plot( r[undef_mask][inlier_mask] , local_ref[undef_mask][inlier_mask] ,'ok' )
-           #  plt.plot( r[undef_mask] , local_ref[undef_mask])
-           #  plt.show()
+              corrcoef=np.array(0.0)
 
 
-           if( ( corrcoef > corr_threshold ) & ( np.sum( inlier_mask.astype(int) )/( nr-offset ) > percent_ref_threshold ) )  :
+           #if k == 0 :
+           #   print( i , corrcoef , np.sum( local_inlier_mask.astype(int) )  )
 
-              
+
+           if ( corrcoef > corr_threshold ) & ( np.sum( local_inlier_mask )/(nr-offset) > percent_ref_threshold )  :
+
               #This means that this ray is likely to be contaminated by interference.
 
-              undef_mask = ( tmp_z[i,:,k] != undef )
-              zrayo = np.power( 10.0,powerrayo  / 10.0 ) 
-              z     = np.power( 10.0,ref[i,:,k] / 10.0  )
+              undef_mask = ( local_ref != undef )
 
               #If the reflectivity is far from the fitted interference, and is greather than the fitted
               #Interference, then correct the power substracting the interference power.         
-              tmp_mask = np.logical_and( tmp_z[i,:,k] - zrayo > 5.0 ,  undef_mask  )  
-              tmp_mask = np.logical_and( z - zrayo > 0 , tmp_mask )
-              ref[i, tmp_mask ,k] = 10.0*np.log10( (z - zrayo)[tmp_mask] ) 
+              tmp_mask = np.logical_and( local_sref - local_fit_ref  > ref_threshold ,  undef_mask  )  
+              tmp_mask = np.logical_and( local_ref  - local_fit_ref  > 0 , tmp_mask )
+
+              ref[i, tmp_mask ,k] = 10.0*np.log10( local_power[tmp_mask] - local_fit_power[tmp_mask] ) + 20.0 * np.log10( r[tmp_mask] ) + 2.0 * att * r[tmp_mask]
  
               #If the reflectivity is far from the fitted interference, and is smaller than the fitted interference
               #then set that pixel as an undef pixel.
-              tmp_mask = np.logical_and( tmp_z[i,:,k] - zrayo <= 5.0 , undef_mask )
-              ref[i, tmp_mask ,k] = undef
-              tmp_index[i, tmp_mask ,k] = 1.0 
+              tmp_mask = np.logical_and( local_sref - local_fit_ref <= ref_threshold , undef_mask )
 
-              #if (k == 0) and (i == 348) :
-              #   plt.plot( r[undef_mask] , tmp_z[i,:,k][undef_mask] )
-              #   plt.plot( r[undef_mask] , z[undef_mask]      ,'ok' )
-              #   plt.plot( r[undef_mask] , zrayo[undef_mask])
+              ref[i, tmp_mask ,k] = undef
+
+              tmp_index[i , tmp_mask , k] = 1.0
+
+
+              #if (k == 0) and (i == 61) :
+              #   tmp_mask = local_spower != undef
+              #   local_spower[tmp_mask]
+              #   plt.figure()
+              #   plt.plot( r[tmp_mask] , local_spower[tmp_mask] )
+              #   plt.plot( r[tmp_mask] , local_fit_power[tmp_mask])
               #   plt.show()
 
-           #else :
-              #print(i,k)
+              #   local_fit_ref = 10.0*np.log10( local_fit_power ) + 20.0 * np.log10( r ) + 2.0 * att * r
+              #   plt.figure()
+                
+              #   plt.plot( r[tmp_mask] , local_sref[tmp_mask]      ,'ok' )
+              #   plt.plot( r[local_inlier_mask] , local_sref[local_inlier_mask]      ,'ob' )
+              #   plt.plot( r[tmp_mask] , local_fit_ref[tmp_mask] )
+              #   plt.plot( r[tmp_mask] , local_fit_ref[tmp_mask] - ref_threshold , '--')
+              #   plt.plot( r[tmp_mask] , local_fit_ref[tmp_mask] + ref_threshold , '--')
+              #   plt.show()
+
 
    #Additional filter for the remaining echoes
    #consider cyclic boundary conditions in azimuth.
+
    for ifilter in range( npass_filter )  :
 
       for k in range(ne) :
@@ -1966,48 +1939,58 @@ def interference_filter ( ref , undef , min_ref , r , my_conf )  :
  
                   #If we have reflectivity in only one ray but not in the neighbors this suggest an interference pattern.
                   tmp_mask = np.logical_and( ref[i-1,:,k] == undef , ref[i+1,:,k] == undef )
+                  tmp_mask = np.logical_and( ref[i,:,k]   != undef , tmp_mask )
                   ref[i,:,k][ tmp_mask ] = undef
                   tmp_index[i,:,k][ tmp_mask ] = 1.0
 
                   tmp_mask = np.logical_and( ref[i-2,:,k] == undef , ref[i+2,:,k] == undef )
+                  tmp_mask = np.logical_and( ref[i,:,k]   != undef , tmp_mask )
                   ref[i,:,k][ tmp_mask ] = undef
                   tmp_index[i,:,k][ tmp_mask ] = 1.0
  
                elif  i==na-1   :
                   tmp_mask = np.logical_and( ref[i-1,:,k] == undef, ref[0,:,k] == undef )
+                  tmp_mask = np.logical_and( ref[i,:,k]   != undef , tmp_mask )
                   ref[i,:,k][ tmp_mask ] = undef
                   tmp_index[i,:,k][ tmp_mask ] = 1.0
 
                   tmp_mask = np.logical_and( ref[i-2,:,k] == undef , ref[1,:,k] == undef )
+                  tmp_mask = np.logical_and( ref[i,:,k]   != undef , tmp_mask )
                   ref[i,:,k][ tmp_mask ] = undef
                   tmp_index[i,:,k][ tmp_mask ] = 1.0
 
                elif  i==na-3   :
                   tmp_mask = np.logical_and( ref[i-1,:,k] == undef , ref[i,:,k] == undef )
+                  tmp_mask = np.logical_and( ref[i,:,k]   != undef , tmp_mask )
                   ref[i,:,k][ tmp_mask ] = undef
                   tmp_index[i,:,k][ tmp_mask ] = 1.0
 
                   tmp_mask = np.logical_and( ref[i-2,:,k] == undef , ref[0,:,k] == undef )
+                  tmp_mask = np.logical_and( ref[i,:,k]   != undef , tmp_mask )
                   ref[i,:,k][ tmp_mask ] = undef
                   tmp_index[i,:,k][ tmp_mask ] = 1.0
 
                elif  i==0      :
 
                   tmp_mask = np.logical_and( ref[na-1,:,k] == undef , ref[i+1,:,k] == undef )
+                  tmp_mask = np.logical_and( ref[i,:,k]    != undef , tmp_mask )
                   ref[i,:,k][ tmp_mask ] = undef
                   tmp_index[i,:,k][ tmp_mask ] = 1.0
 
                   tmp_mask = np.logical_and( ref[na-2,:,k] == undef , ref[i+2,:,k] == undef )
+                  tmp_mask = np.logical_and( ref[i,:,k]    != undef , tmp_mask )
                   ref[i,:,k][ tmp_mask ] = undef
                   tmp_index[i,:,k][ tmp_mask ] = 1.0
 
                elif  i==1      :
 
                   tmp_mask = np.logical_and( ref[i-1,:,k] == undef , ref[i+1,:,k] == undef )
+                  tmp_mask = np.logical_and( ref[i,:,k]    != undef , tmp_mask )
                   ref[i,:,k][ tmp_mask ] = undef
                   tmp_index[i,:,k][ tmp_mask ] = 1.0
 
                   tmp_mask = np.logical_and( ref[na-1,:,k] == undef , ref[i+2,:,k] == undef )
+                  tmp_mask = np.logical_and( ref[i,:,k]    != undef , tmp_mask )
                   ref[i,:,k][ tmp_mask ] = undef
                   tmp_index[i,:,k][ tmp_mask ] = 1.0
 
@@ -2017,18 +2000,21 @@ def interference_filter ( ref , undef , min_ref , r , my_conf )  :
                if ( k > 0 ) & ( k < ne-1 ) :
 
                   tmp_mask = np.logical_and( ref[i,:,k-1] == undef , ref[i,:,k+1] == undef )
+                  tmp_mask = np.logical_and( ref[i,:,k]    != undef , tmp_mask )
                   ref[i,:,k][ tmp_mask ] = undef
                   tmp_index[i,:,k][ tmp_mask ] = 1.0
 
                if ( k == 0 )                :
 
                   tmp_mask = np.logical_and( ref[i,:,k+2] == undef , ref[i,:,k+1] == undef )
+                  tmp_mask = np.logical_and( ref[i,:,k]    != undef , tmp_mask )
                   ref[i,:,k][ tmp_mask ] = undef
                   tmp_index[i,:,k][ tmp_mask ] = 1.0
 
                if ( k == ne-1 )            :
 
                   tmp_mask = np.logical_and( ref[i,:,k-2] == undef , ref[i,:,k-1] == undef )
+                  tmp_mask = np.logical_and( ref[i,:,k]    != undef , tmp_mask )
                   ref[i,:,k][ tmp_mask ] = undef
                   tmp_index[i,:,k][ tmp_mask ] = 1.0
 
@@ -2095,11 +2081,13 @@ def write_topo( my_topo , my_file )           :
     np.array(nr).astype('f4').tofile(f)
 
     #Write the components of the my_topo dictionary.
+    tmp=my_topo['range'].data
     np.reshape( my_topo['mean'].astype('f4') , (nr*na) ).tofile(f)
     np.reshape( my_topo['max'].astype('f4') , (nr*na) ).tofile(f)
     np.reshape( my_topo['min'].astype('f4') , (nr*na) ).tofile(f)
     np.reshape( my_topo['number'].astype('f4') , (nr*na) ).tofile(f)
-    np.reshape( (my_topo['range'].data).astype('f4') , (nr*na) ).tofile(f)
+    np.reshape( tmp.astype('f4') , (nr*na)  ).tofile(f)
+    #np.reshape( (my_topo['range'].data).astype('f4') , (nr*na) ).tofile(f)
     np.reshape( my_topo['azimuth'].astype('f4') , (nr*na) ).tofile(f)
     np.reshape( my_topo['latitude'].astype('f4') , (nr*na) ).tofile(f)
     np.reshape( my_topo['longitude'].astype('f4') , (nr*na) ).tofile(f)
