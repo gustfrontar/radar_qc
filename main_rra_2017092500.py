@@ -1,14 +1,20 @@
 ##!/home/qcradar/.conda/envs/da/bin/python
 #qc_path = "/home/qcradar/scripts/radar_qc/"
 qc_path = "/home/jruiz/share/radar_qc/"
+so_path = "/home/jruiz/share/radar_so/"
 
 import sys
 sys.path.append( qc_path + '/src/python/' )
 sys.path.append( qc_path + '/src/fortran/')
+sys.path.append( so_path )
+sys.path.append( so_path + '/fortran/')
+
 
 import radar_qc_module as rqc        #Radar qc python modules
 import conf_defaults as conf         #Radar qc default configuration
 import operational_tools as ot       #Operational tools.
+import radar_so as so                #Superobbing python classes
+
 
 import conf_defaults as conf
 import numpy as np
@@ -62,6 +68,29 @@ while cdate <= edate    :
       options['toporadardatapath']= qc_path + "/data/terrain_data/radar/" 
 
       [ radar , qc_output ] = rqc.main_qc( options , radar )
+
+      print('=============================================================================')
+      print(' SUPEROBBING')
+      print('=============================================================================')
+
+      output_freq = 300
+      #        dx    dz   zmax  rmax
+      grid = [2000, 1000, 15e3, 240e3]
+      opts = {'CZH': [4001, 5, 0], 'CVRAD': [4002, 2]}
+      outputpath = './superobbing'
+
+      letkf_filelist = so.main_radar_so(radar, output_freq, grid, opts, outputpath)
+      print(letkf_filelist)
+
+      print('Uploading files to RELAMPAGO FTP')
+      for ifile in letkf_filelist:
+         # ot.upload_to_ftp(ifile, ftp_host, ftp_user, ftp_passwd)   
+         pass
+
+      print('=============================================================================')
+      print(' END OF SUPEROBBING')
+      print('=============================================================================')
+
 
 
    cdate = cdate + dated 
