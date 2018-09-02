@@ -23,7 +23,7 @@ datapath = './'  #Main data path.
 
 instrument_list = ['RMA1',# 'RMA2', 'RMA3', 'RMA4', 'RMA5', 'RMA6',
                  # 'RMA7', 'RMA8',
-                 # 'PAR',
+                 #'PAR',
                  'PER', 'ANG']         #Instrument list.
 
 file_type_list = ['.H5','.VOL','.nc']
@@ -57,16 +57,20 @@ for radar in radar_list :
     print('=============================================================================')
     print(' SUPEROBBING')
     print('=============================================================================')
-    print(radar.fields.keys())
-    print(radar.gate_longitude['data'].shape)
 
     output_freq = 300
-    #        dx    dz   zmax rmax
-    grid = [2000, 1000, 15e3,240e3 ]
+    #        dx    dz   zmax  rmax
+    grid = [2000, 1000, 15e3, 240e3]
     opts = {'CZH': [4001, 5, 0], 'CVRAD': [4002, 2]}
-    outputpath = './superobbing/'
+    outputpath = './superobbing'
 
-    so_fields = so.main_radar_so(radar, output_freq, grid, opts,outputpath)
+    letkf_filelist = so.main_radar_so(radar, output_freq, grid, opts, outputpath)
+    print(letkf_filelist)
+
+    print('Uploading files to RELAMPAGO FTP')
+    for ifile in letkf_filelist:
+       # ot.upload_to_ftp(ifile, ftp_host, ftp_user, ftp_passwd)   
+       pass
 
     print('=============================================================================')
     print(' END OF SUPEROBBING')

@@ -541,5 +541,10 @@ def merge_radar_object( radar_1 , radar_2 )    :
 
    return radar_1  , merged
 
+def upload_to_ftp(filename, ftp_host, ftp_user, ftp_passwd):
+    from ftplib import FTP
+    ftp = FTP(ftp_host, ftp_user, ftp_passwd)
+    ftp.storbinary('STOR ' + filename, open(filename, 'rb'))
+
 
 
