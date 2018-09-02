@@ -33,7 +33,7 @@ for (dirpath, dirnames, filenames) in os.walk(datapath):
 #file_list=['/media/jruiz/PAWR/RADAR_DATA_RRA_RMA1/RMA1/20170926/cfrad.20170926_211512.0000_to_20170926_212043.0000_RMA1_0122_01.nc']
 #file_list=['/media/jruiz/PAWR/RADAR_DATA_RRA_RMA1/ANG/20170930/cfrad.20170930_133002.000_to_20170930_133420.001_ANG_SUR.nc']
 #file_list=['/media/jruiz/PAWR/RADAR_DATA_RRA_RMA1/PAR/20170930//cfrad.20170930_222434.000_to_20170930_222732.000_PAR_SUR.nc']
-file_list=['./cfrad.20091117_174348.000_to_20091117_174737.000_PAR_SUR.nc3']
+file_list=['./cfrad.20170926_171335.0000_to_20170926_171446.0000_RMA1_0122_03.nc3']
 
 options = conf.options #This is the default configuration.
 
@@ -69,7 +69,7 @@ for ifile in file_list  :
    print('Is this an RMA radar?')
    print(options['is_rma'])
    #Performs QC operations based on options
-   [radar , qc_output] = rqc.main_qc( options )
+   [ radar , qc_output ] = rqc.main_qc( options )
 
 
 

@@ -148,7 +148,7 @@ options[filter_name]['fill_value']='undef'                  #Possible values, un
 
 filter_name='EchoTopFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=True                          #Enable / disable filter
+options[filter_name]['flag']=False                          #Enable / disable filter
 options[filter_name]['nx']=2                                #NX
 options[filter_name]['ny']=2                                #NY
 options[filter_name]['nz']=0                                #NZ
@@ -367,7 +367,7 @@ options[filter_name]['fill_value']='undef'                  #Possible values, un
 #This filter is not included in the Fuzzy-logic approach.
 filter_name='InterferenceFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=False                          #Enable / Disable filter
+options[filter_name]['flag']=True                          #Enable / Disable filter
 options[filter_name]['save']=False                          #Save filter aux fields to output?
 options[filter_name]['nx']=0                                #NX
 options[filter_name]['ny']=4                                #NY

@@ -2,7 +2,7 @@
 # Author: Rapid Refresh Argentina Team
 # License: BSD 3 clause
 
-def main_qc( options ) :
+def main_qc( options , radar = 'None' ):
 
    import sys
    import time
@@ -23,13 +23,15 @@ def main_qc( options ) :
 
    #Read the data
 
-   print('')
-   print('-------------------------------------------')
-   print('Reading the data')
-   print('-------------------------------------------')
-   print('')
+   if radar == 'None'  :
 
-   radar = pyart.io.read(options['filename'])
+      print('')
+      print('-------------------------------------------')
+      print('Reading the data')
+      print('-------------------------------------------')
+      print('')
+
+      radar = pyart.io.read(options['filename'])
 
    if options['is_rma']  :
 
