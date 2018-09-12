@@ -41,7 +41,7 @@ options['plot']['VrMin']=-30
 options['plot']['VrMax']=30
 options['plot']['DbzMin']=0
 options['plot']['DbzMax']=70
-options['plot']['Elevs']=[0]             #List with elevations that will be ploted.
+options['plot']['Elevs']=[3]             #List with elevations that will be ploted.
 options['plot']['Show']=False
 options['plot']['CmapWind']='pyart_NWSVel'
 options['plot']['CmapDbz']='pyart_NWSRef'
@@ -53,9 +53,9 @@ options['plot']['CmapDbz']='pyart_NWSRef'
 #General
 
 options['name_ref'] ='ZH'    #'dBZ'              #Reflectivity
-options['name_cref']='CZH'             #Corrected reflectivity (qc output)
+options['name_cref']='CZH'   #Corrected reflectivity (qc output)
 options['name_v']   ='VRAD'  #'V'                #Dopper velocity
-options['name_cv']  ='CZH'               #Corrected wind (qc ouput)
+options['name_cv']  ='CVRAD' #Corrected wind (qc ouput)
 options['name_rho'] ='RHOHV' #'RhoHV'            #Rho HV
 
 options['name_model_ref_max']='dBZ_model_max'   #Maximum reflectivity from the model ensemble.

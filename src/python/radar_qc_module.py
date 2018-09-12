@@ -420,7 +420,6 @@ def  update_radar_object( radar , output , options )   :
       radar.add_field_like( options['name_v'] , options['name_cv'] , radar.fields[ options['name_v'] ]['data'] , True)
       radar.fields[ options['name_cv'] ]['data']=np.ma.masked_array(tmp , tmp==output['undef_v'] )
 
-
    if not options['keep_original_fields']  :
 
       radar.fields.pop( options['name_v']   , None )
@@ -716,6 +715,7 @@ def Dealiasing( radar , output , options )   :
 
    filter_name='Dealiasing'
    if options[filter_name]['flag']  and ( options['name_v'] in radar.fields ) :
+
       #Define a new instance of the radar strcture containing the wind (potentially affected by previous filters).
       radar.add_field_like( options['name_v'], options['name_cv'] , radar.fields[ options['name_v'] ]['data'] , True)
       tmp = order_variable_inv(  radar , output['v'] , output['undef_v'] )

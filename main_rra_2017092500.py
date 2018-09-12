@@ -15,15 +15,13 @@ import conf_defaults as conf         #Radar qc default configuration
 import operational_tools as ot       #Operational tools.
 import radar_so as so                #Superobbing python classes
 
+import matplotlib.pyplot as plt
 
 import conf_defaults as conf
 import numpy as np
 import datetime as dt
 import os
 
-os.system('export OMP_NUM_THREADS=12')
-
-#datapath = '/home/jruiz/datosmate/RRA_radar/'  #Min data path.
 datapath='/home/jruiz/share/DATA/DATOS_RADAR/RRA_radar/'
 
 instrument_list = ['RMA1','RMA3','RMA4','RMA5','RMA6',
@@ -36,8 +34,8 @@ file_type_list = ['cfrad']
 time_delta = 300 #Time delta in seconds.
 
 init_date='20170923060000'
-end_date ='20170923060000'
-#end_date ='20171003000000'
+#end_date ='20170923060000'
+end_date ='20171003000000'
 
 idate=dt.datetime.strptime(init_date,"%Y%m%d%H%M%S")
 edate=dt.datetime.strptime(end_date ,"%Y%m%d%H%M%S")
@@ -51,6 +49,10 @@ while cdate <= edate    :
 
    #Obtenemos la lista de archivos.
    file_list = ot.get_file_list( datapath , c_ini_date , c_end_date , time_search_type='filename' , file_type_list = file_type_list )
+   #file_list = ['/home/jruiz/share/DATA/DATOS_RADAR/RRA_radar/RMA4/20170923/cfrad.20170923_060943.0000_to_20170923_061330.0000_RMA4_9005_02.nc']
+   #file_list=['/home/jruiz/share/DATA/DATOS_RADAR/RRA_radar/PAR/20170923/cfrad.20170923_063432.000_to_20170923_063730.000_PAR_SUR.nc']
+   #file_list=['/home/jruiz/share/DATA/DATOS_RADAR/RRA_radar/PAR/20170923/cfrad.20170923_060433.000_to_20170923_060731.000_PAR_SUR.nc']
+   #file_list=['/home/jruiz/share/DATA/DATOS_RADAR/RRA_radar/RMA1/20170923/cfrad.20170923_060658.0000_to_20170923_060809.0000_RMA1_0122_03.nc']
 
    #Obtenemos la lista de objetos radares.
    radar_list = ot.read_multiple_files(  file_list , instrument_list )
@@ -68,6 +70,7 @@ while cdate <= edate    :
       options['toporadardatapath']= qc_path + "/data/terrain_data/radar/" 
 
       [ radar , qc_output ] = rqc.main_qc( options , radar )
+
 
       print('=============================================================================')
       print(' SUPEROBBING')
