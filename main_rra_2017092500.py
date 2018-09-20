@@ -33,7 +33,7 @@ file_type_list = ['cfrad']
 
 time_delta = 300 #Time delta in seconds.
 
-init_date='20170923060000'
+init_date='20170923230000'
 #end_date ='20170923060000'
 end_date ='20171003000000'
 
