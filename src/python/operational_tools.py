@@ -251,7 +251,6 @@ def get_strat ( filename , radar )  :
 
 
     if ( 'PAR' in filename ) or ( 'ANG' in filename ) or ( 'PER' in filename )  :
-          print('pepe')
           if np.max( radar.range['data']  ) == 119875.0 :
              nyquist_velocity = 39.8  #120
           if np.max( radar.range['data']  ) == 239750.0 :
@@ -387,15 +386,15 @@ def get_file_list( datapath , init_time , end_time , time_search_type = None , f
 
 
 
-def get_time_from_filename( filename )    :
+def get_time_from_filename( file_complete_path )    :
 
    import datetime as dt
    import os 
 
-   filename = os.path.basename( filename )
+   filename = os.path.basename( file_complete_path )
    file_time = None
 
-   format = get_format_from_filename( filename )
+   format = get_format_from_filename( file_complete_path )
 
    if format == 'h5'    :
 
@@ -412,19 +411,19 @@ def get_time_from_filename( filename )    :
    return file_time
 
 
-def get_instrument_type_from_filename( filename ) :
+def get_instrument_type_from_filename( file_complete_path ) :
    import os
 
-   filename = os.path.basename( filename )
+   filename = os.path.basename( file_complete_path )
    instrument_name = None
    if 'RMA' in filename    :
       index = filename.find('RMA')
       instrument_name = filename[index:index+4]
-   if 'ANG' in filename    :
+   if 'ANG' in file_complete_path    :
       instrument_name = 'ANG'
-   if 'PAR' in filename    :
+   if 'PAR' in file_complete_path    :
       instrument_name = 'PAR'
-   if 'PER' in filename    :
+   if 'PER' in file_complete_path    :
       instrument_name = 'PER'
 
    return instrument_name    
@@ -465,12 +464,13 @@ def merge_radar_object( radar_1 , radar_2 )    :
    #Check the ideal case
    if ( na_1 == na_2 ) and ( nr_1 == nr_2 ) and ( diff_a == 0.0 ) and ( diff_r == 0.0 )  :
       #Dimensions of radar_1 and radar_2 are the same.
+      merged = True 
+      #Check if the field is not already present. If it is present do not merge.
       for my_key in radar_2.fields   :
          if not my_key in radar_1.fields   :
             radar_1.fields[my_key] = radar_2.fields[my_key]
-            merged = True
    else                                                                                  :
-      print('Warning: Inconsistent shapes found for ' + file_instrument + ' ' + file_time )
+      print('Warning: Inconsistent shapes found for ' + radar_1.metadata['instrument_name']  )
       #Test if radial shapes conform.
       if  nr_1 != nr_2  :
          #These objects have different ranges. We will try to solve this issue.
@@ -537,7 +537,6 @@ def merge_radar_object( radar_1 , radar_2 )    :
                    radar_1.fields[my_key] = radar_2.fields.pop(my_key)
                    radar_1.fields[my_key] = np.ma.masked_array( tmp_data , tmp_data == undef )
             merged = True
-
 
    return radar_1  , merged
 
