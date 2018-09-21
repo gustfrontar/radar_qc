@@ -2086,7 +2086,14 @@ def write_topo( my_topo , my_file )           :
     np.reshape( my_topo['max'].astype('f4') , (nr*na) ).tofile(f)
     np.reshape( my_topo['min'].astype('f4') , (nr*na) ).tofile(f)
     np.reshape( my_topo['number'].astype('f4') , (nr*na) ).tofile(f)
-    np.reshape( tmp.astype('f4') , (nr*na)  ).tofile(f)
+    try     : 
+       tmp=my_topo['range'].data
+       np.reshape( tmp.astype('f4') , (nr*na)  ).tofile(f)
+    except  :
+       tmp=my_topo['range']
+       np.reshape( tmp.astype('f4') , (nr*na)  ).tofile(f)
+       
+
     #np.reshape( (my_topo['range'].data).astype('f4') , (nr*na) ).tofile(f)
     np.reshape( my_topo['azimuth'].astype('f4') , (nr*na) ).tofile(f)
     np.reshape( my_topo['latitude'].astype('f4') , (nr*na) ).tofile(f)
@@ -2180,13 +2187,15 @@ def generate_topo_file( rlon , rlat , rrange , razimuth , raster_path , topo_fil
     maxlat = int( np.ceil( np.max(my_topo['latitude']) )  )
     minlat = int( np.floor( np.min(my_topo['latitude']) ) )
 
+    array_size = np.shape( my_topo['range'] )
+
     #Download the data to a raster file.
     #west, south, east, north 
 
-    my_topo['mean'] = np.zeros( np.shape( my_topo['range'] ) , order='F' , dtype=np.float32 )  
-    my_topo['min']  = np.zeros( np.shape( my_topo['range'] ) , order='F' , dtype=np.float32 )
-    my_topo['max']  = np.zeros( np.shape( my_topo['range'] ) , order='F' , dtype=np.float32 )
-    my_topo['number']  = np.zeros( np.shape( my_topo['range'] ) , order='F' , dtype=np.int32 ) 
+    my_topo['mean'] = np.zeros( array_size , order='F' , dtype=np.float32 )  
+    my_topo['min']  = np.zeros( array_size , order='F' , dtype=np.float32 )
+    my_topo['max']  = np.zeros( array_size , order='F' , dtype=np.float32 )
+    my_topo['number']  = np.zeros( array_size , order='F' , dtype=np.int32 ) 
 
     #Data is downloaded and processed into 1 deg patches.
     for ilon in range( minlon , maxlon )  :
