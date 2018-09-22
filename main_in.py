@@ -16,7 +16,7 @@ datapath_out = '/home/qcradar/data'    #Out data path
 deltat = 600.0                         #Time window (seconds)
 time_offset = 0.0                      #Time offset (from current time)
 instrument_list = ['RMA1','RMA2','RMA3','RMA4','RMA5','RMA6',
-                 'RMA7', 'RMA8','PAR','PER', 'ANG']         #Instrument list.
+                 'RMA7','RMA8','PAR','PER','ANG']         #Instrument list.
 
 file_type_list = ['.h5','.vol','.nc']
 

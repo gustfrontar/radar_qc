@@ -1365,7 +1365,7 @@ def DopplerTextureFilter( radar , output , options )   :
 
    filter_name='DopplerTextureFilter'
 
-   if  options['name_ref'] in radar.fields  :
+   if  options['name_v'] in radar.fields  :
 
      na=output['na']
      nr=output['nr']
@@ -1411,6 +1411,47 @@ def LowDopplerFilter( radar , output , options )   :
  
    return radar , output 
 
+#===================================================
+# REF RANGE FILTER
+#===================================================
+
+def RefRangeFilter( radar , output , options )  :
+
+   import numpy as np
+   from common_qc_tools  import qc  #Fortran code routines.
+
+   filter_name = 'RefRangeFilter'
+
+   if options['name_ref'] in radar.fields  :
+
+      tmp_index = np.zeros( np.shape( output['cref'] ) )
+
+      tmp_index[ np.logical_or( output['cref'] > options[filter_name]['max'] , output['cref'] < options[filter_name]['min'] ) ] = 1.0
+
+      output = output_update( output , tmp_index , options , filter_name )
+
+   return radar , output
+
+#===================================================
+# DOPPLER RANGE FILTER
+#===================================================
+
+def DopplerRangeFilter( radar , output , options )  :
+
+   import numpy as np
+   from common_qc_tools  import qc  #Fortran code routines.
+
+   filter_name = 'DopplerRangeFilter'
+
+   if options['name_v'] in radar.fields  :
+
+      tmp_index = np.zeros( np.shape( output['cv'] ) )
+
+      tmp_index[ np.logical_or( output['cv'] > options[filter_name]['max'] , output['cv'] < options[filter_name]['min'] ) ] = 1.0
+ 
+      output = output_update( output , tmp_index , options , filter_name )
+
+   return radar , output
 
 #===========================================================================================================
 # OTRAS FUNCIONES CONTENIDAS EN ESTE MODULO
@@ -2205,11 +2246,13 @@ def generate_topo_file( rlon , rlat , rrange , razimuth , raster_path , topo_fil
 
          #If raster file is not present, then download it from the internet.
          raster_file = raster_path + '/' + product + str(ilon) + '_' + str(ilat) + '.tif'
+         print('Downloading ' + raster_file )
 
          if ( not os.path.isfile( raster_file ) )  :
              elevation.clip(bounds=(ilon,ilat,ilon+1,ilat+1),output=raster_file,product=product)
 
          #Read data from raster file.
+         print('Reading ' + raster_file ) 
          [raster_lon,raster_lat,raster_data]=read_raster_data(raster_file)
          raster_nx=raster_data.shape[0]
          raster_ny=raster_data.shape[1]

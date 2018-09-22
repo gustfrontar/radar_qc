@@ -501,12 +501,51 @@ options[filter_name]['save']=False                          #Save filter aux fie
 options[filter_name]['w']=1.0                               #Relative parameter weigth. 
 options[filter_name]['ify']=np.array([0,1.0])               #Importance function y
 options[filter_name]['ifx']=np.array([0,1.0])               #Importance function x
-options[filter_name]['code']= 22
+options[filter_name]['code']= 32
 options[filter_name]['force']=True                          #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                     #Threshold for force
-options[filter_name]['order'] = [50]
+options[filter_name]['order'] = [60]
 options[filter_name]['var_update_list']=['ref']             #Which variables will be filtered.
 options[filter_name]['sequential']=True                     #Wheter this filter will affect the following  filters
 options[filter_name]['fill_value']='undef'                  #Possible values, undef, min_ref or fill value
+
+#Doppler Range Filter  ==================================================================
+#Filter gates with out of range value for the Doppler field.
+filter_name='DopplerRangeFilter'
+options[filter_name]=dict()
+options[filter_name]['flag']=True                           #Enable / Disable filter
+options[filter_name]['min']=-100                            #Threshold to detect sudden jumps in reflectivity between two consecutive pixels.
+options[filter_name]['max']=100                             #Maximum number of missing values in a radial beam.
+options[filter_name]['save']=False                          #Save filter aux fields to output?
+options[filter_name]['w']=1.0                               #Relative parameter weigth. 
+options[filter_name]['ify']=np.array([0,1.0])               #Importance function y
+options[filter_name]['ifx']=np.array([0,1.0])               #Importance function x
+options[filter_name]['code']= 33
+options[filter_name]['force']=True                          #Wether we will reject data based on this filter alone.
+options[filter_name]['force_value']=0.5                     #Threshold for force
+options[filter_name]['order'] = [61]
+options[filter_name]['var_update_list']=['v']               #Which variables will be filtered.
+options[filter_name]['sequential']=True                     #Wheter this filter will affect the following  filters
+options[filter_name]['fill_value']='undef'                  #Possible values, undef, min_ref or fill value
+
+#Doppler Range Filter  ==================================================================
+#Filter gates with out of range value for the Doppler field.
+filter_name='RefRangeFilter'
+options[filter_name]=dict()
+options[filter_name]['flag']=True                           #Enable / Disable filter
+options[filter_name]['min']=0                               #Threshold to detect sudden jumps in reflectivity between two consecutive pixels.
+options[filter_name]['max']=80                              #Maximum number of missing values in a radial beam.
+options[filter_name]['save']=False                          #Save filter aux fields to output?
+options[filter_name]['w']=1.0                               #Relative parameter weigth. 
+options[filter_name]['ify']=np.array([0,1.0])               #Importance function y
+options[filter_name]['ifx']=np.array([0,1.0])               #Importance function x
+options[filter_name]['code']= 32
+options[filter_name]['force']=True                          #Wether we will reject data based on this filter alone.
+options[filter_name]['force_value']=0.5                     #Threshold for force
+options[filter_name]['order'] = [60]
+options[filter_name]['var_update_list']=['ref']               #Which variables will be filtered.
+options[filter_name]['sequential']=True                     #Wheter this filter will affect the following  filters
+options[filter_name]['fill_value']='undef'                  #Possible values, undef, min_ref or fill value
+
 
 
