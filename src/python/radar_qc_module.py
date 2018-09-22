@@ -412,13 +412,13 @@ def  update_radar_object( radar , output , options )   :
 
       tmp=order_variable_inv( radar , output['cref'] , output['undef_ref'] )
       radar.add_field_like( options['name_ref'] , options['name_cref'] , radar.fields[ options['name_ref'] ]['data'] , True)
-      radar.fields[ options['name_cref'] ]['data']=np.ma.masked_array(tmp , tmp==output['undef_ref'] )
+      radar.fields[ options['name_cref'] ]['data']=np.ma.masked_array(tmp , mask=tmp==output['undef_ref'] )
 
    if options['name_v'] in radar.fields :
 
       tmp=order_variable_inv( radar , output['cv'] , output['undef_v'] )
       radar.add_field_like( options['name_v'] , options['name_cv'] , radar.fields[ options['name_v'] ]['data'] , True)
-      radar.fields[ options['name_cv'] ]['data']=np.ma.masked_array(tmp , tmp==output['undef_v'] )
+      radar.fields[ options['name_cv'] ]['data']=np.ma.masked_array(tmp , mask=tmp==output['undef_v'] )
 
    if not options['keep_original_fields']  :
 
