@@ -86,6 +86,7 @@ for radar in radar_list :
       outputpath = '/home/qcradar/data/'
 
       plt.pcolor( radar.fields['CVRAD']['data'] )
+      plt.show()
 
       letkf_filelist = so.main_radar_so(radar, output_freq, grid, opts, outputpath)
       print(letkf_filelist)
