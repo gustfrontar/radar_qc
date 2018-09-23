@@ -1,5 +1,5 @@
 #!/home/qcradar/.conda/envs/da/bin/python
-qc_path = "/home/qcradar/scripts/"
+qc_path = "/home/jruiz/Dropbox/DATA/"
 
 import sys
 sys.path.append( qc_path + '/radar_qc/' )
@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 import conf_defaults_test as conf
 
 datapath = '/ms-36/mrugna/RMA/datos/'  #Main data path.
-datapath_out = '/home/qcradar/data'    #Out data path
+datapath_out = '/home/jruiz/Dropbox/DATA/radar_qc/'    #Out data path
 deltat = dt.timedelta( seconds=600 )   #Time window (seconds)
 time_offset = 0.0                      #Time offset (from current time)
 instrument_list = ['RMA1','RMA2','RMA3','RMA4','RMA5','RMA6',
@@ -67,7 +67,10 @@ for radar in radar_list :
       options['toporawdatapath']= qc_path + "/data/terrain_data/raw/"
       options['toporadardatapath']= qc_path + "/data/terrain_data/radar/"
 
-      print( np.max( radar.fields['VRAD']['data'] ) , np.min( radar.fields['VRAD']['data'] ) )
+      #print( np.max( radar.fields['VRAD']['data'] ) , np.min( radar.fields['VRAD']['data'] ) )
+
+      #plt.pcolor( radar.fields['VRAD']['data'] )
+      #plt.show()
 
       [ radar , qc_output ] = rqc.main_qc( options , radar )
 
@@ -83,10 +86,11 @@ for radar in radar_list :
       #        dx    dz   zmax  rmax
       grid = [10000, 1000, 15e3, 240e3]
       opts = {'CZH': [4001, 5, 0], 'CVRAD': [4002, 2]}
-      outputpath = '/home/qcradar/data/'
+      outputpath = datapath_out
 
-      plt.pcolor( radar.fields['CVRAD']['data'] )
-      plt.show()
+      
+      #plt.pcolor( radar.fields['CVRAD']['data'] )
+      #plt.show()
 
       letkf_filelist = so.main_radar_so(radar, output_freq, grid, opts, outputpath)
       print(letkf_filelist)
