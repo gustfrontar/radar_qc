@@ -136,6 +136,9 @@ def rename_fields ( radar )  :
   if 'W' in radar.fields     :
      radar.fields['WRAD'] = radar.fields.pop('W')
 
+  if 'RhoHV' in radar.fields :
+     radar.fields['RHOHV'] = radar.fields.pop('RhoHV') 
+
   return radar   
 
 def get_strat ( filename , radar )  :
@@ -371,7 +374,7 @@ def get_file_list( datapath , init_time , end_time , time_search_type = None , f
    if file_type_list != None :
 
       for my_file in file_list  :
-
+     
          filename = os.path.basename( my_file )
 
          if any(ft in filename for ft in file_type_list ):
@@ -380,7 +383,7 @@ def get_file_list( datapath , init_time , end_time , time_search_type = None , f
 
    else                      :
 
-      final_flie_list  = file_list 
+      final_file_list  = file_list 
 
    return file_list
 

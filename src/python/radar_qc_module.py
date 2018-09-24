@@ -967,6 +967,11 @@ def RhoFilter( radar , output , options )  :
       tmp_index[ tmp_index == output['undef_rho'] ] = options['undef']
 
       output = output_update( output , tmp_index , options , filter_name ) 
+
+   else   :
+ 
+      print('Could not found variable ' + options['name_rho'] )
+      print(radar.fields.keys() )
       
 
    return radar , output
