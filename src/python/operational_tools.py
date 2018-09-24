@@ -543,10 +543,20 @@ def merge_radar_object( radar_1 , radar_2 )    :
 
    return radar_1  , merged
 
-def upload_to_ftp(filename, ftp_host, ftp_user, ftp_passwd):
+def upload_to_ftp(filename_list , ftp_host, ftp_user, ftp_passwd , ftp_path , ftp_passive=False ) :
     from ftplib import FTP
+    import os
+    import path
+    
     ftp = FTP(ftp_host, ftp_user, ftp_passwd)
-    ftp.storbinary('STOR ' + filename, open(filename, 'rb'))
-
+    ftp.cwd(ftp_path)
+    ftp.set_pasv(ftp_passive)
+    for my_file in filename_list  :
+       my_path=os.path.dirname( my_file )
+       my_file_name=os.path.basename( my_file )
+       my_current_path=os.getcwd()
+       os.chdir(my_path)
+       ftp.storbinary('STOR ' + my_file_name , open( my_file_name ,'rb') )
+       os.chdir(my_current_path)
 
 
