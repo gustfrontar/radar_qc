@@ -179,10 +179,12 @@ def check_valid_data( radar , options )   :
           radar.fields[ my_key ]['data'].data[ np.isinf( radar.fields[ my_key ]['data'].data )  ] = options['norainrefval']
           radar.fields[ my_key ]['data'].data[ np.isnan( radar.fields[ my_key ]['data'].data )  ] = options['norainrefval']
           radar.fields[ my_key ]['data'].data[ radar.fields[ my_key ]['data'].data < options['norainrefval']  ] = options['norainrefval']
+          radar.fields[ my_key ]['data'].mask= radar.fields[ my_key ]['data'].data == radar.fields[ my_key ]['_FillValue']
           
        else                               :
           radar.fields[ my_key ]['data'].data[ np.isinf( radar.fields[ my_key ]['data'].data )  ] = radar.fields[ my_key ]['_FillValue']
           radar.fields[ my_key ]['data'].data[ np.isnan( radar.fields[ my_key ]['data'].data )  ] = radar.fields[ my_key ]['_FillValue']
+          radar.fields[ my_key ]['data'].mask= radar.fields[ my_key ]['data'].data == radar.fields[ my_key ]['_FillValue']
 
     end=time.time()
     print("The elapsed time in {:s} is {:2f}".format("Input data check",end-start) )
@@ -413,6 +415,8 @@ def  update_radar_object( radar , output , options )   :
       tmp=order_variable_inv( radar , output['cref'] , output['undef_ref'] )
       radar.add_field_like( options['name_ref'] , options['name_cref'] , radar.fields[ options['name_ref'] ]['data'] , True)
       radar.fields[ options['name_cref'] ]['data']=np.ma.masked_array(tmp , mask = ( tmp==output['undef_ref'] ) )
+
+      #print( np.min( radar.fields[options['name_cref']]['data'] ) ) 
 
    if options['name_v'] in radar.fields :
 
@@ -684,6 +688,9 @@ def run_filters( radar , output , options )   :
           print('-------------------------------------------')
           print('')
           exec("[ radar , output ] = " + ifilter + "( radar , output , options )")
+
+          #if 'cref' in output.keys()  :
+          #    print( np.min( output['cref'] ) , output['undef_ref'] )
 
           end=time.time()
           print('')
