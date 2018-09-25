@@ -1,12 +1,14 @@
 #print __doc__
 # Author: Rapid Refresh Argentina Team
 # License: BSD 3 clause
-
+import datetime as dt
+import os
+import numpy as np
 
 def read_multiple_files(  file_list , instrument_list = None )          :
 
-   import numpy as np
-   import datetime as dt
+   #import numpy as np
+   #import datetime as dt
    #file_list is a list of filenames corresponding to radar files in different formats.
    #instrument_list (if present) a list of instrument names. Only names in instrument_list will be incorporated to the 
    #radar object list.
@@ -82,12 +84,16 @@ def get_format_from_filename( filename )            :
 
    file_format = None 
 
-   if ('.h5' in filename ) or ( '.H5' in filename )   :
+   if ('.h5' in filename ) or ( '.H5' in filename )    :
       file_format = 'h5'
-   if ( '.vol' in filename ) or ( 'VOL' in filename ) :
+   if ( '.vol' in filename ) or ( '.VOL' in filename ) :
       file_format = 'vol' 
-   if ( '.nc'  in filename ) or ( 'NC' in filename )  or ( 'cfrad' in filename ) :
+   if ( '.nc'  in filename ) or ( '.NC' in filename )  or ( 'cfrad' in filename ) :
       file_format = 'cfrad' 
+   if ( '.dat' in filename ) or ( '.DAT' in filename)  :
+      file_format = 'letkf'
+   if ( '.pkl' in filename ) or ( '.PKL' in filename)  :
+      file_format = 'pickle' 
 
    return file_format
 
@@ -145,9 +151,9 @@ def get_strat ( filename , radar )  :
 
 #Include some parameters that are required by the QC module.
 
-    import numpy as np
+    #import numpy as np
     import numpy.ma as ma
-    import os
+    #import os
 
     local_fill_value = -9999.0
     levels=np.unique(radar.elevation['data'])
@@ -342,9 +348,9 @@ def get_file_list( datapath , init_time , end_time , time_search_type = None , f
    #time_search_type : [filename] or [timestamp]
    #file_types_list  : a list with file extensions that will be included in the file_list
 
-   import os
-   import datetime as dt 
-   import numpy as np
+   #import os
+   #import datetime as dt 
+   #import numpy as np
 
    if time_search_type == None :
       time_search_type = 'timestamp'
@@ -391,8 +397,8 @@ def get_file_list( datapath , init_time , end_time , time_search_type = None , f
 
 def get_time_from_filename( file_complete_path )    :
 
-   import datetime as dt
-   import os 
+   #import datetime as dt
+   #import os 
 
    filename = os.path.basename( file_complete_path )
    file_time = None
@@ -411,11 +417,19 @@ def get_time_from_filename( file_complete_path )    :
 
       file_time  = dt.datetime.strptime(filename[6:21], '%Y%m%d_%H%M%S')
 
+   if format == 'letkf'   :
+ 
+      file_time  = dt.datetime.strptime(filename.split('_')[-1][:14], '%Y%m%d%H%M%S')
+
+   if format == 'pickle'  :
+
+      file_time  = dt.datetime.strptime(filename.split('_')[-1][:14], '%Y%m%d%H%M%S')
+
    return file_time
 
 
 def get_instrument_type_from_filename( file_complete_path ) :
-   import os
+   #import os
 
    filename = os.path.basename( file_complete_path )
    instrument_name = None
@@ -435,7 +449,7 @@ def get_instrument_type_from_filename( file_complete_path ) :
 
 def merge_radar_object( radar_1 , radar_2 )    :
 
-   import numpy as np
+   #import numpy as np
 
    na_1 = np.shape( radar_1.azimuth['data'] )[0]
    na_2 = np.shape( radar_2.azimuth['data'] )[0]
@@ -543,12 +557,11 @@ def merge_radar_object( radar_1 , radar_2 )    :
 
    return radar_1  , merged
 
-def upload_to_ftp(filename_list , ftp_host, ftp_user, ftp_passwd , ftp_path , ftp_passive=False ) :
+def upload_to_ftp(filename_list , ftp_host, ftp_user, ftp_pass , ftp_path , ftp_passive=False , compress=False ) :
     from ftplib import FTP
-    import os
-    import path
+    #import os
     
-    ftp = FTP(ftp_host, ftp_user, ftp_passwd)
+    ftp = FTP(ftp_host, ftp_user, ftp_pass)
     ftp.cwd(ftp_path)
     ftp.set_pasv(ftp_passive)
     for my_file in filename_list  :
@@ -556,7 +569,79 @@ def upload_to_ftp(filename_list , ftp_host, ftp_user, ftp_passwd , ftp_path , ft
        my_file_name=os.path.basename( my_file )
        my_current_path=os.getcwd()
        os.chdir(my_path)
+       if compress  :
+          os.system('gzip -f ' + my_file )
+          my_file_name = my_file_name + '.gz'
        ftp.storbinary('STOR ' + my_file_name , open( my_file_name ,'rb') )
+          
        os.chdir(my_current_path)
+
+def remove_from_ftp_timebased( ftp_host, ftp_user, ftp_pass , ftp_path , ini_time , end_time , file_format_list = None ) :
+    from ftplib import FTP
+    #import os
+    #import datetime as dt
+
+    if file_format_list == None :
+       file_format_list = []
+
+    ftp = FTP(ftp_host, ftp_user, ftp_pass)
+    ftp.cwd(ftp_path)
+
+    #Get the file list in the remote server at the current directory
+    files = []
+
+    try:
+       files = ftp.nlst()
+    except :
+       print ('No file list available')
+
+    #Keep only the files which are within the time period and remove the rest.
+    date_min = dt.datetime.strptime( ini_time  , '%Y%m%d%H%M%S')
+    date_max = dt.datetime.strptime( end_time  , '%Y%m%d%H%M%S')
+
+    for my_file in files   :
+
+       date_c = get_time_from_filename( my_file )
+       file_format = get_format_from_filename( my_file )
+
+       if date_c != None  :
+          if date_c <= date_min or date_c >= date_max  :
+             if file_format in file_format_list  :
+                 print('Deleting ' + my_file + ' from remote server' )
+                 ftp.delete( my_file )
+          
+   
+def remove_from_localpath_timebased( local_path , ini_time , end_time , file_format_list = None , time_search_type = None )  :
+
+   if time_search_type == None :
+      time_search_type = 'filename'
+
+   if file_format_list == None :
+      file_format_list = []
+
+   date_min = dt.datetime.strptime( ini_time  , '%Y%m%d%H%M%S')
+   date_max = dt.datetime.strptime( end_time  , '%Y%m%d%H%M%S')
+
+   file_list=[]
+
+   for (dirpath, dirnames, filenames) in os.walk( local_path ):
+
+      for filename in filenames            :
+         current_filename = '/'.join([dirpath,filename])
+ 
+         file_format = get_format_from_filename( filename )
+
+         if time_search_type == 'filename'   :
+            date_c = get_time_from_filename( current_filename )
+         if time_search_type == 'timestamp'  :
+            date_c = dt.fromtimestamp( os.stat(current_filename).st_ctime )
+         if date_c != None  :
+            if date_c <= date_min or date_c >= date_max  :
+               if file_format in file_format_list :
+                  #We will remove this file.
+                  print('Deleting ' + current_filename )
+                  os.system('rm ' + current_filename )
+
+
 
 
