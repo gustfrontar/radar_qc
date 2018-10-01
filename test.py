@@ -1,31 +1,36 @@
 #!/home/qcradar/.conda/envs/da/bin/python
-qc_path = "/home/qcradar/scripts/radar_qc/"
+qc_path = "/home/qcradar/scripts/"
 
 import sys
-sys.path.append( qc_path + '/src/python/' )
-sys.path.append( qc_path + '/src/fortran/')
+sys.path.append( qc_path + '/radar_qc/' )
+sys.path.append( qc_path + '/radar_qc/src/python/' )
+sys.path.append( qc_path + '/radar_qc/src/fortran/')
+sys.path.append( qc_path + '/radar_so/fortran/')
+sys.path.append( qc_path + '/radar_so/')
 
 import radar_qc_module as rqc        #Radar qc python modules
 import conf_defaults as conf         #Radar qc default configuration
 import operational_tools as ot       #Operational tools.
+import datetime as dt                #Datetime operations
+import numpy as np                   #Numpy
+import radar_so as so                #Superobbing module
 
 import conf_defaults as conf
 
 datapath = '/ms-36/mrugna/RMA/datos/'  #Main data path.
 datapath_out = '/home/qcradar/data'    #Out data path
-deltat = 600.0                         #Time window (seconds)
-time_offset = 0.0                      #Time offset (from current time)
-instrument_list = ['RMA1','RMA2','RMA3','RMA4','RMA5','RMA6',
-                 'RMA7','RMA8','PAR','PER','ANG']         #Instrument list.
+deltat = dt.timedelta( seconds=1800 )   #Time window (seconds)
+instrument_list = ['ANG','PAR','PER']
 
 file_type_list = ['.h5','.vol','.nc']
 
-current_time = datetime.datetime.now()
+current_date = dt.datetime.utcnow()
 
-ref_date=datetime(current_time.year, current_time.month, 1, 0, 0, 0)
-freqtimes = freq*floor((current_date-ref_date).total_seconds()/freq)
-c_end_date = current_date + timedelta( seconds=freqtimes )
-c_ini_date = current_date + timedelta( seconds=freqtimes-deltat )
+ref_date=dt.datetime(current_date.year, current_date.month, 1, 0, 0, 0)
+freqtimes = deltat.total_seconds()*np.floor((current_date-ref_date).total_seconds()/deltat.total_seconds())
+c_end_date=( ref_date + dt.timedelta( seconds=freqtimes ) ).strftime('%Y%m%d%H%M%S')
+c_ini_date=( ref_date + dt.timedelta( seconds=freqtimes ) - deltat ).strftime('%Y%m%d%H%M%S')
+
 
 print('')
 print('=============================================================================')
@@ -38,4 +43,9 @@ print('')
 #Obtenemos la lista de archivos.
 file_list = ot.get_file_list( datapath , c_ini_date , c_end_date , time_search_type='filename' , file_type_list = file_type_list )
 
-print(file_list)
+for i in file_list :
+   print (i)
+#Obtenemos la lista de objetos radares.
+radar_list = ot.read_multiple_files(  file_list , instrument_list )
+
+
