@@ -168,7 +168,7 @@ options[filter_name]['force_value']=0.5                     #Threshold for force
 options[filter_name]['order'] = [15]
 options[filter_name]['var_update_list']=['ref']             #Which variables will be filtered.
 options[filter_name]['sequential']=True                     #Wheter this filter will affect the following filters.
-options[filter_name]['fill_value']='min_ref'                #Possible values, undef, min_ref or fill value
+options[filter_name]['fill_value']='undef'                #Possible values, undef, min_ref or fill value
 
 #Echo depth filter parameters ===================================================================
 
@@ -361,7 +361,7 @@ options[filter_name]['code']= 19
 options[filter_name]['force']=True                          #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                     #Threshold for force
 options[filter_name]['height_thr']=1000                     #Height threshold.
-options[filter_name]['order'] = [33]
+options[filter_name]['order'] = [2]
 options[filter_name]['var_update_list']=['v','ref']         #Which variables will be filtered.
 options[filter_name]['sequential']=True                     #Wheter this filter will affect the following filters.
 options[filter_name]['fill_value']='undef'                  #Possible values, undef, min_ref or fill value
@@ -469,14 +469,36 @@ options[filter_name]['var_update_list']=['v']               #Which variables wil
 options[filter_name]['sequential']=True                     #Wheter this filter will affect the following filters.
 options[filter_name]['fill_value']='undef'                  #Possible values, undef, min_ref or fill value
 
-#Doppler Noise filter            ==============================================================
+#Doppler Noise filter FIRST PASS, BEFORE DEALIASING    ==============================================================
 filter_name='DopplerNoiseFilter'
 options[filter_name]=dict()
 options[filter_name]['flag']=True                          #Enable / Disable filter
 options[filter_name]['nx']=[1,10]                           #NX
 options[filter_name]['ny']=[1,10]                           #NY
 options[filter_name]['nz']=[0,0]                            #NZ
-options[filter_name]['threshold']=[2.0,15.0] 
+options[filter_name]['threshold']=[2.0] 
+options[filter_name]['n_filter_pass']=[3]                   #Filter repetition
+options[filter_name]['save']=False                          #Save filter aux fields to output?
+options[filter_name]['ify']=np.array([0,1])                 #Importance function y
+options[filter_name]['ifx']=np.array([0,1])                 #Importance function x
+options[filter_name]['w']=1.0                               #Relative parameter weigth. 
+options[filter_name]['code']= 1
+options[filter_name]['force']=True                          #Wether we will reject data based on this filter alone.
+options[filter_name]['force_value']=0.5                     #Threshold for force
+options[filter_name]['order'] = [0]
+options[filter_name]['var_update_list']=['v']               #Which variables will be filtered.
+options[filter_name]['sequential']=True                     #Wheter this filter will affect the following filters.
+options[filter_name]['fill_value']='undef'                  #Possible values, undef, min_ref or fill value
+
+
+#Doppler Noise filter SECOND PASS      ==============================================================
+filter_name='DopplerNoiseFilter'
+options[filter_name]=dict()
+options[filter_name]['flag']=True                          #Enable / Disable filter
+options[filter_name]['nx']=[1,10]                           #NX
+options[filter_name]['ny']=[1,10]                           #NY
+options[filter_name]['nz']=[0,0]                            #NZ
+options[filter_name]['threshold']=[2.0,15.0]
 options[filter_name]['n_filter_pass']=[3,3]                 #Filter repetition
 options[filter_name]['save']=False                          #Save filter aux fields to output?
 options[filter_name]['ify']=np.array([0,1])                 #Importance function y
@@ -489,6 +511,7 @@ options[filter_name]['order'] = [18]
 options[filter_name]['var_update_list']=['v']               #Which variables will be filtered.
 options[filter_name]['sequential']=True                     #Wheter this filter will affect the following filters.
 options[filter_name]['fill_value']='undef'                  #Possible values, undef, min_ref or fill value
+
 
 #Missing reflectivity filter ==================================================================
 #Detects holes in high reflectivity regions. 

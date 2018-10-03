@@ -845,10 +845,13 @@ def EchoTopFilter( radar , output , options )   :
                                                 ,rrange=output['distance'],na=na,nr=nr,ne=ne
                                                 ,undef=output['undef_ref'],nx=nx,ny=ny,nz=nz)
          tmp_index=tmp_data_3d[:,:,:,0]
+
+      tmp_index = tmp_index - output['topo']  #Compute the echo top height over the terrain.
         
       computed_etfilter = True  #In case we need any of the other variables computed in this routine.
 
-      tmp_index[ tmp_max_z < options[filter_name]['heigthtr'] ] = output['undef_ref']  #Do not consider this filter when the volume maximum heigth is below
+      #JUAN: Comente esta linea para poder filtrar tambien los ecos de terreno cerca del radar.
+      #tmp_index[ tmp_max_z < options[filter_name]['heigthtr'] ] = output['undef_ref']  #Do not consider this filter when the volume maximum heigth is below
                                                                   #the specified threshold (i.e. pixels close to the radar)
 
       tmp_index[ tmp_index == output['undef_ref'] ] = options['undef']
