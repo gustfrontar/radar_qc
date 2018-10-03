@@ -24,6 +24,8 @@ import os
 
 datapath='/home/jruiz/share/DATA/DATOS_RADAR/RRA_radar/'
 
+datapath_out='/home/jruiz/share/DATA/DATOS_RADAR/RRA_radar/superobbing/'
+
 instrument_list = ['RMA1','RMA3','RMA4','RMA5','RMA6',
                  'RMA7', 'RMA8',
                  'PAR',
@@ -33,11 +35,10 @@ file_type_list = ['cfrad']
 
 time_delta = 300 #Time delta in seconds.
 
-init_date='20170923230000'
-#end_date ='20170923060000'
+ini_date ='20170923060000'
 end_date ='20171003000000'
 
-idate=dt.datetime.strptime(init_date,"%Y%m%d%H%M%S")
+idate=dt.datetime.strptime(ini_date ,"%Y%m%d%H%M%S")
 edate=dt.datetime.strptime(end_date ,"%Y%m%d%H%M%S")
 cdate=idate
 dated=dt.timedelta( seconds = time_delta )
@@ -78,9 +79,9 @@ while cdate <= edate    :
 
       output_freq = 300
       #        dx    dz   zmax  rmax
-      grid = [2000, 1000, 15e3, 240e3]
+      grid = [10000, 1000, 15e3, 240e3]
       opts = {'CZH': [4001, 5, 0], 'CVRAD': [4002, 2]}
-      outputpath = './superobbing'
+      outputpath = datapath_out 
 
       letkf_filelist = so.main_radar_so(radar, output_freq, grid, opts, outputpath)
       print(letkf_filelist)
