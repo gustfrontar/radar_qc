@@ -44,7 +44,7 @@ def read_multiple_files(  file_list , instrument_list = None )          :
   
             for tmp_ifile , tmp_filename  in enumerate( file_list )   :
 
-               #print('Second loop',get_format_from_filename( tmp_filename ),get_time_from_filename( tmp_filename ),get_instrument_type_from_filename( tmp_filename ) , used_file[tmp_ifile])
+		       #print('Second loop',get_format_from_filename( tmp_filename ),get_time_from_filename( tmp_filename ),get_instrument_type_from_filename( tmp_filename ) , used_file[tmp_ifile])
   
                if ( not used_file[tmp_ifile] ) and ( ifile != tmp_ifile )   :
                   if ( ( file_format     ==  get_format_from_filename( tmp_filename ) ) and 
@@ -391,7 +391,7 @@ def get_file_list( datapath , init_time , end_time , time_search_type = None , f
 
       final_file_list  = file_list 
 
-   return file_list
+   return final_file_list
 
 
 
@@ -414,8 +414,8 @@ def get_time_from_filename( file_complete_path )    :
       file_time  = dt.datetime.strptime(filename[:14], '%Y%m%d%H%M%S')
 
    if format == 'cfrad'   :
-
-      file_time  = dt.datetime.strptime(filename[6:21], '%Y%m%d_%H%M%S')
+      
+      file_time  = dt.datetime.strptime( filename.split('.')[1] , '%Y%m%d_%H%M%S')
 
    if format == 'letkf'   :
  
@@ -641,6 +641,27 @@ def remove_from_localpath_timebased( local_path , ini_time , end_time , file_for
                   #We will remove this file.
                   print('Deleting ' + current_filename )
                   os.system('rm ' + current_filename )
+
+
+def save_cfradial( local_path , radar , fileformat='NETCDF4' )  :
+
+    import pyart
+
+    os.makedirs( local_path ,exist_ok=True)
+
+    input_file = radar.files[0] 
+
+    file_instrument = get_instrument_type_from_filename( input_file )
+
+    file_time   = dt.datetime.strftime( get_time_from_filename( input_file ) , '%Y%m%d_%H%M%S' )
+ 
+    filename = local_path + '/cfrad.' + file_time + '.' + file_instrument + '.nc'
+
+    print('Writing file : ',filename)
+
+    pyart.io.cfradial.write_cfradial(filename , radar, format=fileformat, time_reference=None, arm_time_variables=False)
+
+  
 
 
 

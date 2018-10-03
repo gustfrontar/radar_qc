@@ -16,11 +16,12 @@ deltat_archive = dt.timedelta( seconds=86400 ) #Time window that will be kept in
 time_offset = 0.0                      #Time offset (from current time)
 instrument_list = ['RMA1','RMA2','RMA4','RMA6','RMA8','RMA11','PAR','PER','ANG']  #Instrument list.
 
-file_type_list = ['.h5','.vol','.nc']
+file_type_list = ['.H5','.vol','.nc']
 
 remove_local_pkl = True                #Remove intermediate gridded data in pkl format.
 remove_local_dat = False               #Remove gridded data in letkf format.
-remove_remote_data = True              #Remove remote letkf files.
+remove_remote_dat = True               #Remove remote letkf files.
+write_cfradial=True                    #Write a cfradial file with the qced data
 #Qc section
 name_ref='ZH'                                               #Reflectivity name
 name_v  ='VRAD'                                             #Doppler velocity name
@@ -29,7 +30,7 @@ toporawdatapath=qc_path + "/data/terrain_data/raw/"         #Raw topography data
 toporadardatapath=qc_path + "/data/terrain_data/radar/"     #Interpolated topography data path (unformatted)
 
 #Superobbing section 
-output_freq = 300
+output_freq = 600
 #        dx    dz   zmax  rmax
 grid = [10000, 1000, 15e3, 240e3]
 opts = {'CZH': [4001, 5, 0], 'CVRAD': [4002, 2]}
@@ -70,8 +71,13 @@ current_date = dt.datetime.utcnow()
 
 ref_date=dt.datetime(current_date.year, current_date.month, 1, 0, 0, 0)
 freqtimes = deltat.total_seconds()*np.floor((current_date-ref_date).total_seconds()/deltat.total_seconds())
-c_end_date=( ref_date + dt.timedelta( seconds=freqtimes ) - deltat).strftime('%Y%m%d%H%M%S')
+c_end_date=( ref_date + dt.timedelta( seconds=freqtimes ) - deltat   ).strftime('%Y%m%d%H%M%S')
 c_ini_date=( ref_date + dt.timedelta( seconds=freqtimes ) - deltat*2 ).strftime('%Y%m%d%H%M%S')
+
+#Set the dates that will be archived. 
+a_end_date=( ref_date + dt.timedelta( seconds=freqtimes ) + deltat         ).strftime('%Y%m%d%H%M%S')
+a_ini_date=( ref_date + dt.timedelta( seconds=freqtimes ) - deltat_archive ).strftime('%Y%m%d%H%M%S')
+
 
 
 print('')
@@ -96,6 +102,10 @@ print('')
 #Obtenemos la lista de archivos.
 file_list = ot.get_file_list( datapath , c_ini_date , c_end_date , time_search_type='filename' , file_type_list = file_type_list )
 
+#file_list = ['/ms-36/mrugna/RMA/datos/RMA6/2018/09/25/06/2737/RMA6_0200_01_TH_20180925T062737Z.H5']
+
+print(file_list)
+
 print('')
 print('=============================================================================')
 print(' READING FILE LIST ')
@@ -115,6 +125,18 @@ for radar in radar_list :
       #Call QC routine
 
       [ radar , qc_output ] = rqc.main_qc( options , radar )
+
+      #Save data in cfradial format
+
+      if write_cfradial  :
+
+         print('=============================================================================')
+         print(' WRITING QC OUTPUT IN CFRADIAL FORMAT')
+         print('=============================================================================')
+         print('')
+
+
+         ot.save_cfradial( datapath_out + '/cfradial/' , radar )
 
       print('')
       print('=============================================================================')
@@ -136,6 +158,16 @@ for radar in radar_list :
 
       ot.upload_to_ftp( letkf_filelist , ftp_host, ftp_user, ftp_pass , ftp_path , compress=compress )
 
+
+print('')
+print('=============================================================================')
+print('We will keep all the files within the following dates:' )
+print( a_ini_date )
+print( a_end_date )
+print('=============================================================================')
+print('')
+
+
 print('')
 print('=============================================================================')
 print(' REMOVE OLD FILES FROM REMOTE SERVER ' + ftp_host )
@@ -146,7 +178,7 @@ print('')
 
 if remove_remote_dat :
 
-   ot.remove_from_ftp_timebased( ftp_host, ftp_user, ftp_passwd , ftp_path , a_ini_time , a_end_time , file_format_list = ['.dat'] ) 
+   ot.remove_from_ftp_timebased( ftp_host, ftp_user, ftp_pass , ftp_path , a_ini_date , a_end_date , file_format_list = ['letkf'] ) 
 
 print('')
 print('=============================================================================')
@@ -157,11 +189,11 @@ print('')
 #Call local server deleting routine 
 tmp_format_list=[]
 if remove_local_pkl : 
-   tmp_format_list.append('pkl')
+   tmp_format_list.append('pickle')
 if remove_local_dat :
-   tmp_format_list.append('dat')
+   tmp_format_list.append('letkf')
 
-ot.remove_from_localpath_timebased( datapath_out , a_ini_time , a_end_time , file_format_list = tmp_format_list )
+ot.remove_from_localpath_timebased( datapath_out , a_ini_date , a_end_date , file_format_list = tmp_format_list )
 
 
 
