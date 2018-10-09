@@ -52,8 +52,6 @@ options['name_v']   ='VRAD'  #'V'                #Dopper velocity
 options['name_cv']  ='CVRAD' #Corrected wind (qc ouput)
 options['name_rho'] ='RHOHV' #'RhoHV'            #Rho HV
 
-
-
 #Set the dates that will be processed. 
 current_date = dt.datetime.utcnow()
 
@@ -443,12 +441,9 @@ for my_file in file_list :
                plt.close()
 
 
-
 #fig_list=[]
 
 #for file in file_list :
-
-
 
 print('')
 print('=============================================================================')
