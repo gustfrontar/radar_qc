@@ -89,7 +89,7 @@ options['w_tr']=0.5                  #When total normalized weight is greather t
 filter_name='Dealiasing'
 
 options[filter_name]=dict()
-options[filter_name]['flag']=True
+options[filter_name]['flag']=False
 options[filter_name]['interval_split']=3
 options[filter_name]['skip_between_ray']=10
 options[filter_name]['skip_along_ray']=10
@@ -439,7 +439,7 @@ options[filter_name]['fill_value']='undef'                  #Possible values, un
 #Doppler Spatial Coherence Filter ==============================================================
 filter_name='DopplerSpatialCoherenceFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=True                          #Enable / Disable filter
+options[filter_name]['flag']=False                          #Enable / Disable filter
 options[filter_name]['nx']=2                                #NX
 options[filter_name]['ny']=2                                #NY
 options[filter_name]['nz']=0                                #NZ
@@ -472,7 +472,7 @@ options[filter_name]['fill_value']='undef'                  #Possible values, un
 #Doppler Noise filter FIRST PASS, BEFORE DEALIASING    ==============================================================
 filter_name='DopplerNoiseFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=True                          #Enable / Disable filter
+options[filter_name]['flag']=False                          #Enable / Disable filter
 options[filter_name]['nx']=[1,10]                           #NX
 options[filter_name]['ny']=[1,10]                           #NY
 options[filter_name]['nz']=[0,0]                            #NZ
@@ -494,7 +494,7 @@ options[filter_name]['fill_value']='undef'                  #Possible values, un
 #Doppler Noise filter SECOND PASS      ==============================================================
 filter_name='DopplerNoiseFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=True                          #Enable / Disable filter
+options[filter_name]['flag']=False                          #Enable / Disable filter
 options[filter_name]['nx']=[1,10]                           #NX
 options[filter_name]['ny']=[1,10]                           #NY
 options[filter_name]['nz']=[0,0]                            #NZ
@@ -536,7 +536,7 @@ options[filter_name]['fill_value']='undef'                  #Possible values, un
 #Filter gates with out of range value for the Doppler field.
 filter_name='DopplerRangeFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=True                           #Enable / Disable filter
+options[filter_name]['flag']=False                           #Enable / Disable filter
 options[filter_name]['min']=-100                            #Threshold to detect sudden jumps in reflectivity between two consecutive pixels.
 options[filter_name]['max']=100                             #Maximum number of missing values in a radial beam.
 options[filter_name]['save']=False                          #Save filter aux fields to output?

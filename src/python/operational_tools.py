@@ -94,6 +94,8 @@ def get_format_from_filename( filename )            :
       file_format = 'letkf'
    if ( '.pkl' in filename ) or ( '.PKL' in filename)  :
       file_format = 'pickle' 
+   if ( '.tar.gz' in filename ) or ( '.TAR.GZ' in filename ) :
+      file_format = 'tgz'
 
    return file_format
 
@@ -424,6 +426,14 @@ def get_time_from_filename( file_complete_path )    :
    if format == 'pickle'  :
 
       file_time  = dt.datetime.strptime(filename.split('_')[-1][:14], '%Y%m%d%H%M%S')
+
+   if format == 'letkf'   :
+
+      file_time  = dt.datetime.strptime(filename.split('_')[-1][:14], '%Y%m%d%H%M%S')
+
+   if format == 'tgz'     :
+
+      file_time  = dt.datetime.strptime(filename[:10], '%Y%m%d_%H')
 
    return file_time
 

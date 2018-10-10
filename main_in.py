@@ -1,6 +1,7 @@
 #!/home/qcradar/.conda/envs/da/bin/python
 import datetime as dt                #Datetime operations
 import numpy as np                   #Numpy
+import os
 
 #=========================================================================================================
 # CONFIGURATION SECTION
@@ -10,7 +11,11 @@ import numpy as np                   #Numpy
 qc_path = "/home/jruiz/share/"
 
 datapath = '/ms-36/mrugna/RMA/datos/'  #Main data path.
+<<<<<<< HEAD
 datapath_out = './'    #Out data path
+=======
+datapath_out = '/home/qcradar/data/'    #Out data path
+>>>>>>> bd243c99effe225025ccfe09e72c2fb7fac0531f
 deltat = dt.timedelta( seconds=600 )   #Time window (seconds)
 deltat_archive = dt.timedelta( seconds=86400 ) #Time window that will be kept in the remote ftp server.
 time_offset = 0.0                      #Time offset (from current time)
@@ -41,7 +46,7 @@ ftp_host='ftp.smn.gob.ar'
 ftp_user='rra'
 ftp_pass='TwV/27gm7YQsw'
 ftp_path='radar'
-compress=True
+compress=False
 
 #=========================================================================================================
 # END OF CONFIGURATION SECTION
@@ -79,7 +84,6 @@ a_end_date=( ref_date + dt.timedelta( seconds=freqtimes ) + deltat         ).str
 a_ini_date=( ref_date + dt.timedelta( seconds=freqtimes ) - deltat_archive ).strftime('%Y%m%d%H%M%S')
 
 
-
 print('')
 print('=============================================================================')
 print('We will process all the files within the following dates:' )
@@ -102,7 +106,11 @@ print('')
 #Obtenemos la lista de archivos.
 file_list = ot.get_file_list( datapath , c_ini_date , c_end_date , time_search_type='filename' , file_type_list = file_type_list )
 
+<<<<<<< HEAD
 file_list = ['./RMA1_0200_02_TH_20181010T114222Z.H5']
+=======
+#file_list = ['/ms-36/mrugna/RMA/datos/RMA2/2018/10/09/01/0028/RMA2_0200_01_TH_20181009T010028Z.H5']
+>>>>>>> bd243c99effe225025ccfe09e72c2fb7fac0531f
 
 print(file_list)
 
@@ -114,6 +122,11 @@ print('')
 
 #Obtenemos la lista de objetos radares.
 radar_list = ot.read_multiple_files(  file_list , instrument_list )
+
+
+my_updated_dirs =  []
+
+my_updated_tars =  []
 
 for radar in radar_list :
 
@@ -148,15 +161,71 @@ for radar in radar_list :
 
       letkf_filelist = so.main_radar_so(radar, output_freq, grid, opts, datapath_out  )
 
-      print('')
-      print('=============================================================================')
-      print(' UPLOADING FILES TO REMOTE FTP SERVER ' + ftp_host )
-      print('=============================================================================')
-      print('')
+      my_updated_dirs =  []
 
-      #Call remote server uploading routine
+      my_updated_tars =  []
+ 
+      for my_file in letkf_filelist :
 
-      ot.upload_to_ftp( letkf_filelist , ftp_host, ftp_user, ftp_pass , ftp_path , compress=compress )
+          my_time_datetime = ot.get_time_from_filename( my_file )
+
+          my_time = dt.datetime.strftime( my_time_datetime , '%Y%m%d_%H' )
+
+          my_minute = dt.datetime.strftime( my_time_datetime , '%M' )
+ 
+          complete_path = datapath_out + '/radar/' + my_time
+
+          if not complete_path in my_updated_dirs :
+
+             my_updated_dirs.append( complete_path ) 
+  
+          if not os.path.isdir( complete_path )  :
+
+             os.makedirs( complete_path )
+
+          os.system('ln -sf ' + my_file + ' ' + complete_path + '/' + os.path.basename(my_file) )
+
+          if my_minute == '00'   :  #Copy the file in the previous folder as well.
+
+             my_time = dt.datetime.strftime( my_time_datetime - dt.timedelta( seconds=3600) , '%Y%m%d_%H' )
+
+             complete_path = datapath_out + '/radar/' + my_time
+
+             if not complete_path in my_updated_dirs :
+
+                my_updated_dirs.append( complete_path )
+
+             if not os.path.isdir( complete_path )  :
+
+                os.makedirs( complete_path )
+
+             os.system('ln -sf ' + my_file + ' ' + complete_path + '/' + os.path.basename(my_file) )
+             
+
+print('')
+print('=============================================================================')
+print(' UPLOADING FILES TO REMOTE FTP SERVER ' + ftp_host )
+print('=============================================================================')
+print('')
+
+for my_dir in my_updated_dirs  :
+
+   my_tar_file = my_dir + '.tar.gz'
+ 
+   if not my_tar_file in my_updated_tars :
+
+      my_updated_tars.append( my_tar_file )
+
+   os.system('rm -f ' + my_tar_file )
+   os.system('tar --dereference -czvf ' + my_tar_file + ' -C ' + my_dir + ' .') 
+   #os.system('gzip -f ' + my_tar_file )
+
+
+ot.upload_to_ftp( my_updated_tars , ftp_host, ftp_user, ftp_pass , ftp_path , compress=compress ) 
+
+for my_tar_file in my_updated_tars :
+
+    os.system('rm -f ' + my_tar_file)
 
 
 print('')
@@ -166,7 +235,6 @@ print( a_ini_date )
 print( a_end_date )
 print('=============================================================================')
 print('')
-
 
 print('')
 print('=============================================================================')
@@ -178,7 +246,7 @@ print('')
 
 if remove_remote_dat :
 
-   ot.remove_from_ftp_timebased( ftp_host, ftp_user, ftp_pass , ftp_path , a_ini_date , a_end_date , file_format_list = ['letkf'] ) 
+   ot.remove_from_ftp_timebased( ftp_host, ftp_user, ftp_pass , ftp_path , a_ini_date , a_end_date , file_format_list = ['tgz'] ) 
 
 print('')
 print('=============================================================================')
