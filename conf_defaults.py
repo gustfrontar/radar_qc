@@ -42,7 +42,7 @@ options['plot']['VrMax']=30
 options['plot']['DbzMin']=0
 options['plot']['DbzMax']=70
 options['plot']['Elevs']=[3]             #List with elevations that will be ploted.
-options['plot']['Show']=False
+options['plot']['Show']=True
 options['plot']['CmapWind']='pyart_NWSVel'
 options['plot']['CmapDbz']='pyart_NWSRef'
 

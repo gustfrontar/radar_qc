@@ -7,10 +7,10 @@ import numpy as np                   #Numpy
 #=========================================================================================================
 
 #General section
-qc_path = "/home/qcradar/scripts/"
+qc_path = "/home/jruiz/share/"
 
 datapath = '/ms-36/mrugna/RMA/datos/'  #Main data path.
-datapath_out = '/home/qcradar/data'    #Out data path
+datapath_out = './'    #Out data path
 deltat = dt.timedelta( seconds=600 )   #Time window (seconds)
 deltat_archive = dt.timedelta( seconds=86400 ) #Time window that will be kept in the remote ftp server.
 time_offset = 0.0                      #Time offset (from current time)
@@ -102,7 +102,7 @@ print('')
 #Obtenemos la lista de archivos.
 file_list = ot.get_file_list( datapath , c_ini_date , c_end_date , time_search_type='filename' , file_type_list = file_type_list )
 
-#file_list = ['/ms-36/mrugna/RMA/datos/RMA6/2018/09/25/06/2737/RMA6_0200_01_TH_20180925T062737Z.H5']
+file_list = ['./RMA1_0200_02_TH_20181010T114222Z.H5']
 
 print(file_list)
 

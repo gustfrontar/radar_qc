@@ -45,7 +45,8 @@ print('')
 #Obtenemos la lista de archivos.
 file_list = ot.get_file_list( datapath , c_ini_date , c_end_date , time_search_type='filename' , file_type_list = file_type_list )
 
-file_list=['./RMA2_0200_02_VRAD_20180921T133347Z.H5']
+#file_list=['./RMA2_0200_02_VRAD_20180921T133347Z.H5']
+file_list=['./RMA1_0200_02_TH_20181010T114222Z.H5']
 
 #Obtenemos la lista de objetos radares.
 radar_list = ot.read_multiple_files(  file_list , instrument_list )

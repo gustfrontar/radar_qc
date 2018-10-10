@@ -24,7 +24,7 @@ options['filename'] = ''          #The name of the input netcdf file
 options['output_to_file'] = False #Wether the output will be written to a netcdf file.
 options['filename_out'] = ''      #The name of the netcdf file where output will be written.
 options['file_out_format']='NETCDF4'
-options['keep_original_fields']=False
+options['keep_original_fields']=True
 #Topography database paths
 options['toporawdatapath']=""
 options['toporadardatapath']=""
@@ -89,7 +89,7 @@ options['w_tr']=0.5                  #When total normalized weight is greather t
 filter_name='Dealiasing'
 
 options[filter_name]=dict()
-options[filter_name]['flag']=False
+options[filter_name]['flag']=True
 options[filter_name]['interval_split']=3
 options[filter_name]['skip_between_ray']=10
 options[filter_name]['skip_along_ray']=10
@@ -168,7 +168,7 @@ options[filter_name]['force_value']=0.5                     #Threshold for force
 options[filter_name]['order'] = [15]
 options[filter_name]['var_update_list']=['ref']             #Which variables will be filtered.
 options[filter_name]['sequential']=True                     #Wheter this filter will affect the following filters.
-options[filter_name]['fill_value']='min_ref'                #Possible values, undef, min_ref or fill value
+options[filter_name]['fill_value']='undef'                #Possible values, undef, min_ref or fill value
 
 #Echo depth filter parameters ===================================================================
 
@@ -238,20 +238,20 @@ options[filter_name]['fill_value']='undef'                  #Possible values, un
 filter_name='DopplerTextureFilter'
 options[filter_name]=dict()
 options[filter_name]['flag']=False                          #Enable / disable filter
-options[filter_name]['nx']=5                               #NX
-options[filter_name]['ny']=5                               #NY
-options[filter_name]['nz']=0                               #NZ
-options[filter_name]['save']=False                         #Save filter aux fields to output?
-options[filter_name]['ify']=np.array([0,0,1,1])            #Importance function y
-options[filter_name]['ifx']=np.array([0,20,21,200])        #Importance function x
-options[filter_name]['w']=1.0                              #Relative parameter weigth. 
+options[filter_name]['nx']=1                                #NX
+options[filter_name]['ny']=2                                #NY
+options[filter_name]['nz']=0                                #NZ
+options[filter_name]['save']=False                           #Save filter aux fields to output?
+options[filter_name]['ify']=np.array([0,0,1,1])             #Importance function y
+options[filter_name]['ifx']=np.array([0,2.5,10,200])        #Importance function x
+options[filter_name]['w']=1.0                               #Relative parameter weigth. 
 options[filter_name]['code']=15
 options[filter_name]['force']=True                         #Wether we will reject data based on this filter alone.
-options[filter_name]['force_value']=0.5                    #Threshold for force
-options[filter_name]['order'] = [0]
-options[filter_name]['var_update_list']=['v']              #Which variables will be filtered.
-options[filter_name]['sequential']=True                    #Wheter this filter will affect the following filters.
-options[filter_name]['fill_value']='undef'                 #Possible values, undef, min_ref or fill value
+options[filter_name]['force_value']=0.5                     #Threshold for force
+options[filter_name]['order'] = [8]
+options[filter_name]['var_update_list']=['v']               #Which variables will be filtered.
+options[filter_name]['sequential']=True                     #Wheter this filter will affect the following filters.
+options[filter_name]['fill_value']='undef'                  #Possible values, undef, min_ref or fill value
 
 #Reflectivity texture filter  parameters ==============================================================
 
@@ -361,7 +361,7 @@ options[filter_name]['code']= 19
 options[filter_name]['force']=True                          #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                     #Threshold for force
 options[filter_name]['height_thr']=1000                     #Height threshold.
-options[filter_name]['order'] = [33]
+options[filter_name]['order'] = [2]
 options[filter_name]['var_update_list']=['v','ref']         #Which variables will be filtered.
 options[filter_name]['sequential']=True                     #Wheter this filter will affect the following filters.
 options[filter_name]['fill_value']='undef'                  #Possible values, undef, min_ref or fill value
@@ -431,7 +431,7 @@ options[filter_name]['w']=1.0                               #Relative parameter 
 options[filter_name]['code']=23
 options[filter_name]['force']=True                         #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                     #Threshold for force
-options[filter_name]['order'] = [16] 
+options[filter_name]['order'] = [16]
 options[filter_name]['var_update_list']=['v']               #Which variables will be filtered.
 options[filter_name]['sequential']=True                     #Wheter this filter will affect the following filters.
 options[filter_name]['fill_value']='undef'                  #Possible values, undef, min_ref or fill value
@@ -469,14 +469,36 @@ options[filter_name]['var_update_list']=['v']               #Which variables wil
 options[filter_name]['sequential']=True                     #Wheter this filter will affect the following filters.
 options[filter_name]['fill_value']='undef'                  #Possible values, undef, min_ref or fill value
 
-#Doppler Noise filter            ==============================================================
+#Doppler Noise filter FIRST PASS, BEFORE DEALIASING    ==============================================================
 filter_name='DopplerNoiseFilter'
 options[filter_name]=dict()
 options[filter_name]['flag']=True                          #Enable / Disable filter
 options[filter_name]['nx']=[1,10]                           #NX
 options[filter_name]['ny']=[1,10]                           #NY
 options[filter_name]['nz']=[0,0]                            #NZ
-options[filter_name]['threshold']=[2.0,15.0] 
+options[filter_name]['threshold']=[2.0] 
+options[filter_name]['n_filter_pass']=[3]                   #Filter repetition
+options[filter_name]['save']=False                          #Save filter aux fields to output?
+options[filter_name]['ify']=np.array([0,1])                 #Importance function y
+options[filter_name]['ifx']=np.array([0,1])                 #Importance function x
+options[filter_name]['w']=1.0                               #Relative parameter weigth. 
+options[filter_name]['code']= 1
+options[filter_name]['force']=True                          #Wether we will reject data based on this filter alone.
+options[filter_name]['force_value']=0.5                     #Threshold for force
+options[filter_name]['order'] = [0]
+options[filter_name]['var_update_list']=['v']               #Which variables will be filtered.
+options[filter_name]['sequential']=True                     #Wheter this filter will affect the following filters.
+options[filter_name]['fill_value']='undef'                  #Possible values, undef, min_ref or fill value
+
+
+#Doppler Noise filter SECOND PASS      ==============================================================
+filter_name='DopplerNoiseFilter'
+options[filter_name]=dict()
+options[filter_name]['flag']=True                          #Enable / Disable filter
+options[filter_name]['nx']=[1,10]                           #NX
+options[filter_name]['ny']=[1,10]                           #NY
+options[filter_name]['nz']=[0,0]                            #NZ
+options[filter_name]['threshold']=[2.0,15.0]
 options[filter_name]['n_filter_pass']=[3,3]                 #Filter repetition
 options[filter_name]['save']=False                          #Save filter aux fields to output?
 options[filter_name]['ify']=np.array([0,1])                 #Importance function y
@@ -489,6 +511,7 @@ options[filter_name]['order'] = [18]
 options[filter_name]['var_update_list']=['v']               #Which variables will be filtered.
 options[filter_name]['sequential']=True                     #Wheter this filter will affect the following filters.
 options[filter_name]['fill_value']='undef'                  #Possible values, undef, min_ref or fill value
+
 
 #Missing reflectivity filter ==================================================================
 #Detects holes in high reflectivity regions. 
@@ -533,8 +556,8 @@ options[filter_name]['fill_value']='undef'                  #Possible values, un
 filter_name='RefRangeFilter'
 options[filter_name]=dict()
 options[filter_name]['flag']=True                           #Enable / Disable filter
-options[filter_name]['min']=0                               #Threshold to detect sudden jumps in reflectivity between two consecutive pixels.
-options[filter_name]['max']=80                              #Maximum number of missing values in a radial beam.
+options[filter_name]['min']=-10.0                           #Threshold to detect sudden jumps in reflectivity between two consecutive pixels.
+options[filter_name]['max']=80.0                            #Maximum number of missing values in a radial beam.
 options[filter_name]['save']=False                          #Save filter aux fields to output?
 options[filter_name]['w']=1.0                               #Relative parameter weigth. 
 options[filter_name]['ify']=np.array([0,1.0])               #Importance function y
@@ -543,7 +566,7 @@ options[filter_name]['code']= 32
 options[filter_name]['force']=True                          #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                     #Threshold for force
 options[filter_name]['order'] = [60]
-options[filter_name]['var_update_list']=['ref']               #Which variables will be filtered.
+options[filter_name]['var_update_list']=['ref']             #Which variables will be filtered.
 options[filter_name]['sequential']=True                     #Wheter this filter will affect the following  filters
 options[filter_name]['fill_value']='undef'                  #Possible values, undef, min_ref or fill value
 

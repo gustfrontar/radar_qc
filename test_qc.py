@@ -31,15 +31,20 @@ import conf_defaults_test as conf
 #           file_list.append(f)
 
 
-    for filename in filenames:
-        if ( os.path.basename(filename).find('.nc') > 0 ) and ( os.path.basename(filename).find('.corr.') < 0 ) :
-           f = '/'.join([dirpath,filename])
-           file_list.append(f)
+#for filename in filenames:
+#        if ( os.path.basename(filename).find('.nc') > 0 ) and ( os.path.basename(filename).find('.corr.') < 0 ) :
+#           f = '/'.join([dirpath,filename])
+#           file_list.append(f)
 #file_list=['/media/jruiz/PAWR/RADAR_DATA_RRA_RMA1/RMA1/20170923/cfrad.20170923_114117.0000_to_20170923_114310.0000_RMA1_0122_02.nc']
 #file_list=['/media/jruiz/PAWR/RADAR_DATA_RRA_RMA1/RMA1/20170926/cfrad.20170926_211512.0000_to_20170926_212043.0000_RMA1_0122_01.nc']
 #file_list=['/media/jruiz/PAWR/RADAR_DATA_RRA_RMA1/ANG/20170930/cfrad.20170930_133002.000_to_20170930_133420.001_ANG_SUR.nc']
 #file_list=['/media/jruiz/PAWR/RADAR_DATA_RRA_RMA1/PAR/20170930//cfrad.20170930_222434.000_to_20170930_222732.000_PAR_SUR.nc']
-file_list=['./cfrad.20170926_171335.0000_to_20170926_171446.0000_RMA1_0122_03.nc3']
+
+#file_list=['./cfrad.20170926_171335.0000_to_20170926_171446.0000_RMA1_0122_03.nc3']
+
+#file_list=['./cfrad.20181008_181228.RMA2.nc']
+
+file_list=['./RMA1_0200_02_TH_20181010T114222Z.H5']
 
 toporawdatapath="/home/jruiz/share/radar_qc/data/terrain_data/raw/"
 toporadardatapath="/home/jruiz/share/radar_qc/data/terrain_data/radar/"

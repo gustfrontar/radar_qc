@@ -24,12 +24,13 @@ import os
 
 datapath='/home/jruiz/share/DATA/DATOS_RADAR/RRA_radar/'
 
-datapath_out='/home/jruiz/share/DATA/DATOS_RADAR/RRA_radar/superobbing/'
+datapath_out='/home/jruiz/share/DATA/DATOS_RADAR/RRA_radar_superobbing/'
 
-instrument_list = ['RMA1','RMA3','RMA4','RMA5','RMA6',
-                 'RMA7', 'RMA8',
-                 'PAR',
-                 'PER', 'ANG']         #Instrument list.
+instrument_list = ['RMA1','PAR']
+#instrument_list = ['RMA1','RMA3','RMA4','RMA5','RMA6',
+#                 'RMA7', 'RMA8',
+#                 'PAR',
+#                 'PER', 'ANG']         #Instrument list.
 
 file_type_list = ['cfrad']
 
@@ -50,7 +51,6 @@ while cdate <= edate    :
 
    #Obtenemos la lista de archivos.
    file_list = ot.get_file_list( datapath , c_ini_date , c_end_date , time_search_type='filename' , file_type_list = file_type_list )
-   #file_list = ['/home/jruiz/share/DATA/DATOS_RADAR/RRA_radar/RMA4/20170923/cfrad.20170923_060943.0000_to_20170923_061330.0000_RMA4_9005_02.nc']
    #file_list=['/home/jruiz/share/DATA/DATOS_RADAR/RRA_radar/PAR/20170923/cfrad.20170923_063432.000_to_20170923_063730.000_PAR_SUR.nc']
    #file_list=['/home/jruiz/share/DATA/DATOS_RADAR/RRA_radar/PAR/20170923/cfrad.20170923_060433.000_to_20170923_060731.000_PAR_SUR.nc']
    #file_list=['/home/jruiz/share/DATA/DATOS_RADAR/RRA_radar/RMA1/20170923/cfrad.20170923_060658.0000_to_20170923_060809.0000_RMA1_0122_03.nc']
@@ -74,6 +74,15 @@ while cdate <= edate    :
 
 
       print('=============================================================================')
+      print(' WRITING QC OUTPUT IN CFRADIAL FORMAT')
+      print('=============================================================================')
+      print('')
+
+
+      ot.save_cfradial( datapath_out + '/cfradial/' , radar )
+
+
+      print('=============================================================================')
       print(' SUPEROBBING')
       print('=============================================================================')
 
@@ -84,7 +93,6 @@ while cdate <= edate    :
       outputpath = datapath_out 
 
       letkf_filelist = so.main_radar_so(radar, output_freq, grid, opts, outputpath)
-      print(letkf_filelist)
 
       print('Uploading files to RELAMPAGO FTP')
       for ifile in letkf_filelist:
