@@ -171,36 +171,6 @@ def get_strat ( filename , radar )  :
     if radar.instrument_parameters == None :
        radar.instrument_parameters = dict()
 
-    if (not  'nyquist_velocity' in radar.instrument_parameters ) or ( radar.instrument_parameters['nyquist_velocity'] == None )  :
-
-       radar.instrument_parameters['nyquist_velocity']=dict()
-       radar.instrument_parameters['nyquist_velocity']['long_name']='unambiguous_doppler_velocity'
-       radar.instrument_parameters['nyquist_velocity']['units']='meters per second'
-       radar.instrument_parameters['nyquist_velocity']['_FillValue']= local_fill_value
-       radar.instrument_parameters['nyquist_velocity']['meta_group']='instrument_parameters'
-
-    if (not 'radar_beam_width_v' in radar.instrument_parameters ) or ( radar.instrument_parameters['radar_beam_width_v'] == None ) :
-       radar.instrument_parameters['radar_beam_width_v']=dict()
-       radar.instrument_parameters['radar_beam_width_v']['long_name']='half_power_radar_beam_width_v_channel'
-       radar.instrument_parameters['radar_beam_width_v']['units']='degrees'
-       radar.instrument_parameters['radar_beam_width_v']['_FillValue']= local_fill_value
-       radar.instrument_parameters['radar_beam_width_v']['meta_group']='instrument_parameters'
-
-    if (not 'radar_beam_width_h' in radar.instrument_parameters ) or ( radar.instrument_parameters['radar_beam_width_h'] == None ) :
-       radar.instrument_parameters['radar_beam_width_h']=dict()
-       radar.instrument_parameters['radar_beam_width_h']['long_name']='half_power_radar_beam_width_h_channel'
-       radar.instrument_parameters['radar_beam_width_h']['units']='degrees'
-       radar.instrument_parameters['radar_beam_width_h']['_FillValue']= local_fill_value
-       radar.instrument_parameters['radar_beam_width_h']['meta_group']='instrument_parameters'
-
-    if radar.range == None :
-       radar.range = dict()
-    if radar.ray_angle_res == None :
-       radar.ray_angle_res = dict()
-       radar.ray_angle_res['long_name']='angular_resolution_between_rays'
-       radar.ray_angle_res['units']='degrees'
-       radar.ray_angle_res['_FillValue']= local_fill_value
-
     #Get the corresponding radar strategy depending on the filename.
     radar.altitude_agl['data'] = 0.0
 
@@ -332,12 +302,48 @@ def get_strat ( filename , radar )  :
     meters_between_gates  = radar.range['data'][1]-radar.range['data'][0]
 
     #Apply the missing parameters to the radar structure.
-    radar.instrument_parameters['nyquist_velocity']['data'] = ma.array(np.ones( np.shape(radar.azimuth['data']) )*nyquist_velocity , mask = np.zeros( np.shape(radar.azimuth['data']) , dtype=bool ) , fill_value = local_fill_value )
-    radar.instrument_parameters['radar_beam_width_h']['data'] = ma.array( radar_beam_width_h , mask =False , fill_value = local_fill_value )
-    radar.instrument_parameters['radar_beam_width_v']['data'] = ma.array( radar_beam_width_v , mask =False , fill_value = local_fill_value )
-    radar.ray_angle_res['data'] = ma.array( np.ones( np.shape( levels ) )*ray_angle_res , mask = np.zeros( np.shape( levels ) , dtype=bool ) , fill_value = local_fill_value )
-    radar.range['meters_between_gates']= meters_between_gates
-    radar.range['meters_to_center_of_first_gate']= radar.range['data'][0]  #meters_between_gates / 2.0
+
+    if (not  'nyquist_velocity' in radar.instrument_parameters ) or ( radar.instrument_parameters['nyquist_velocity'] == None )  :
+
+       radar.instrument_parameters['nyquist_velocity']=dict()
+       radar.instrument_parameters['nyquist_velocity']['long_name']='unambiguous_doppler_velocity'
+       radar.instrument_parameters['nyquist_velocity']['units']='meters per second'
+       radar.instrument_parameters['nyquist_velocity']['_FillValue']= local_fill_value
+       radar.instrument_parameters['nyquist_velocity']['meta_group']='instrument_parameters'
+
+       radar.instrument_parameters['nyquist_velocity']['data'] = ma.array(np.ones( np.shape(radar.azimuth['data']) )*nyquist_velocity , mask = np.zeros( np.shape(radar.azimuth['data']) , dtype=bool ) , fill_value = local_fill_value )
+
+    if (not 'radar_beam_width_v' in radar.instrument_parameters ) or ( radar.instrument_parameters['radar_beam_width_v'] == None ) :
+       radar.instrument_parameters['radar_beam_width_v']=dict()
+       radar.instrument_parameters['radar_beam_width_v']['long_name']='half_power_radar_beam_width_v_channel'
+       radar.instrument_parameters['radar_beam_width_v']['units']='degrees'
+       radar.instrument_parameters['radar_beam_width_v']['_FillValue']= local_fill_value
+       radar.instrument_parameters['radar_beam_width_v']['meta_group']='instrument_parameters'
+
+       radar.instrument_parameters['radar_beam_width_v']['data'] = ma.array( radar_beam_width_v , mask =False , fill_value = local_fill_value )
+
+    if (not 'radar_beam_width_h' in radar.instrument_parameters ) or ( radar.instrument_parameters['radar_beam_width_h'] == None ) :
+       radar.instrument_parameters['radar_beam_width_h']=dict()
+       radar.instrument_parameters['radar_beam_width_h']['long_name']='half_power_radar_beam_width_h_channel'
+       radar.instrument_parameters['radar_beam_width_h']['units']='degrees'
+       radar.instrument_parameters['radar_beam_width_h']['_FillValue']= local_fill_value
+       radar.instrument_parameters['radar_beam_width_h']['meta_group']='instrument_parameters'
+ 
+       radar.instrument_parameters['radar_beam_width_h']['data'] = ma.array( radar_beam_width_h , mask =False , fill_value = local_fill_value )
+
+    if radar.ray_angle_res == None :
+       radar.ray_angle_res = dict()
+       radar.ray_angle_res['long_name']='angular_resolution_between_rays'
+       radar.ray_angle_res['units']='degrees'
+       radar.ray_angle_res['_FillValue']= local_fill_value
+    
+       radar.ray_angle_res['data'] = ma.array( np.ones( np.shape( levels ) )*ray_angle_res , mask = np.zeros( np.shape( levels ) , dtype=bool ) , fill_value = local_fill_value )
+
+    if radar.range == None :
+       radar.range = dict()
+
+       radar.range['meters_between_gates']= meters_between_gates
+       radar.range['meters_to_center_of_first_gate']= radar.range['data'][0]  #meters_between_gates / 2.0
 
     return radar
 

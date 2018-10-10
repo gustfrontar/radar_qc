@@ -34,7 +34,7 @@ options['toporadardatapath']=""
 #======================================
 
 options['plot']=dict()
-options['plot']['Enable']=False
+options['plot']['Enable']=True
 options['plot']['Path']='./'
 options['plot']['FigNameSufix']='.png'
 options['plot']['VrMin']=-30
@@ -105,7 +105,7 @@ options[filter_name]['var_update_list']=['v']              #Which variables will
 
 filter_name='RhoFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=True                          #Enable / disable filter
+options[filter_name]['flag']=False                          #Enable / disable filter
 options[filter_name]['nx']=2                                #NX
 options[filter_name]['ny']=2                                #NY
 options[filter_name]['nz']=0                                #NZ
@@ -151,7 +151,7 @@ options[filter_name]['fill_value']='undef'                  #Possible values, un
 
 filter_name='EchoTopFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=True                          #Enable / disable filter
+options[filter_name]['flag']=False                          #Enable / disable filter
 options[filter_name]['nx']=2                                #NX
 options[filter_name]['ny']=2                                #NY
 options[filter_name]['nz']=0                                #NZ
@@ -195,7 +195,7 @@ options[filter_name]['fill_value']='undef'                  #Possible values, un
 
 filter_name='RefSpeckleFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=True                          #Enable / disable filter
+options[filter_name]['flag']=False                          #Enable / disable filter
 options[filter_name]['nx']=2                                #NX
 options[filter_name]['ny']=2                                #NY
 options[filter_name]['nz']=0                                #NZ
@@ -216,7 +216,7 @@ options[filter_name]['fill_value']='min_ref'                  #Possible values, 
 
 filter_name='DopplerSpeckleFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=True                          #Enable / disable filter
+options[filter_name]['flag']=False                          #Enable / disable filter
 options[filter_name]['nx']=2                                #NX
 options[filter_name]['ny']=2                                #NY
 options[filter_name]['nz']=0                                #NZ
@@ -278,7 +278,7 @@ options[filter_name]['fill_value']='undef'                  #Possible values, un
 #Attenuation parameters           ==============================================================
 filter_name='AttenuationFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=True                           #Enable / Disable filter
+options[filter_name]['flag']=False                           #Enable / Disable filter
 options[filter_name]['nx']=0                                #NX
 options[filter_name]['ny']=0                                #NY
 options[filter_name]['nz']=0                                #NZ
@@ -310,7 +310,7 @@ options[filter_name]['fill_value']='undef'                  #Possible values, un
 #This filter is not part of the Fuzzy logic algorithm.
 filter_name='BlockingFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=True                           #Enable / Disable filter
+options[filter_name]['flag']=False                          #Enable / Disable filter
 options[filter_name]['blocking_correction']=True            #Wether correction will be applied for partially blocked beams.
 options[filter_name]['save']=False                          #Save blocking factor into qc_output dictionary.
 options[filter_name]['code']=40                             #QC output code
@@ -349,7 +349,7 @@ options[filter_name]['fill_value']='undef'                  #Possible values, un
 #Low doppler velocity filter            ==============================================================
 filter_name='LowDopplerFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=True                          #Enable / Disable filter
+options[filter_name]['flag']=False                          #Enable / Disable filter
 options[filter_name]['nx']=0                                #NX
 options[filter_name]['ny']=0                                #NY
 options[filter_name]['nz']=0                                #NZ
@@ -370,7 +370,7 @@ options[filter_name]['fill_value']='undef'                  #Possible values, un
 #This filter is not included in the Fuzzy-logic approach.
 filter_name='InterferenceFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=True                          #Enable / Disable filter
+options[filter_name]['flag']=False                          #Enable / Disable filter
 options[filter_name]['save']=False                          #Save filter aux fields to output?
 options[filter_name]['nx']=0                                #NX
 options[filter_name]['ny']=4                                #NY
@@ -439,7 +439,7 @@ options[filter_name]['fill_value']='undef'                  #Possible values, un
 #Doppler Spatial Coherence Filter ==============================================================
 filter_name='DopplerSpatialCoherenceFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=True                          #Enable / Disable filter
+options[filter_name]['flag']=False                          #Enable / Disable filter
 options[filter_name]['nx']=2                                #NX
 options[filter_name]['ny']=2                                #NY
 options[filter_name]['nz']=0                                #NZ
@@ -472,7 +472,7 @@ options[filter_name]['fill_value']='undef'                  #Possible values, un
 #Doppler Noise filter FIRST PASS, BEFORE DEALIASING    ==============================================================
 filter_name='DopplerNoiseFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=True                          #Enable / Disable filter
+options[filter_name]['flag']=False                          #Enable / Disable filter
 options[filter_name]['nx']=[1,10]                           #NX
 options[filter_name]['ny']=[1,10]                           #NY
 options[filter_name]['nz']=[0,0]                            #NZ
@@ -494,7 +494,7 @@ options[filter_name]['fill_value']='undef'                  #Possible values, un
 #Doppler Noise filter SECOND PASS      ==============================================================
 filter_name='DopplerNoiseFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=True                          #Enable / Disable filter
+options[filter_name]['flag']=False                          #Enable / Disable filter
 options[filter_name]['nx']=[1,10]                           #NX
 options[filter_name]['ny']=[1,10]                           #NY
 options[filter_name]['nz']=[0,0]                            #NZ
@@ -517,7 +517,7 @@ options[filter_name]['fill_value']='undef'                  #Possible values, un
 #Detects holes in high reflectivity regions. 
 filter_name='MissingRefFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=True                           #Enable / Disable filter
+options[filter_name]['flag']=False                           #Enable / Disable filter
 options[filter_name]['threshold']=10                        #Threshold to detect sudden jumps in reflectivity between two consecutive pixels.
 options[filter_name]['nmissing_max']=15                     #Maximum number of missing values in a radial beam.
 options[filter_name]['save']=False                          #Save filter aux fields to output?
@@ -536,7 +536,7 @@ options[filter_name]['fill_value']='undef'                  #Possible values, un
 #Filter gates with out of range value for the Doppler field.
 filter_name='DopplerRangeFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=True                           #Enable / Disable filter
+options[filter_name]['flag']=False                           #Enable / Disable filter
 options[filter_name]['min']=-100                            #Threshold to detect sudden jumps in reflectivity between two consecutive pixels.
 options[filter_name]['max']=100                             #Maximum number of missing values in a radial beam.
 options[filter_name]['save']=False                          #Save filter aux fields to output?
@@ -555,7 +555,7 @@ options[filter_name]['fill_value']='undef'                  #Possible values, un
 #Filter gates with out of range value for the Doppler field.
 filter_name='RefRangeFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=True                           #Enable / Disable filter
+options[filter_name]['flag']=False                           #Enable / Disable filter
 options[filter_name]['min']=-10.0                           #Threshold to detect sudden jumps in reflectivity between two consecutive pixels.
 options[filter_name]['max']=80.0                            #Maximum number of missing values in a radial beam.
 options[filter_name]['save']=False                          #Save filter aux fields to output?

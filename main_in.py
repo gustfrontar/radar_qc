@@ -11,11 +11,7 @@ import os
 qc_path = "/home/jruiz/share/"
 
 datapath = '/ms-36/mrugna/RMA/datos/'  #Main data path.
-<<<<<<< HEAD
 datapath_out = './'    #Out data path
-=======
-datapath_out = '/home/qcradar/data/'    #Out data path
->>>>>>> bd243c99effe225025ccfe09e72c2fb7fac0531f
 deltat = dt.timedelta( seconds=600 )   #Time window (seconds)
 deltat_archive = dt.timedelta( seconds=86400 ) #Time window that will be kept in the remote ftp server.
 time_offset = 0.0                      #Time offset (from current time)
@@ -106,11 +102,8 @@ print('')
 #Obtenemos la lista de archivos.
 file_list = ot.get_file_list( datapath , c_ini_date , c_end_date , time_search_type='filename' , file_type_list = file_type_list )
 
-<<<<<<< HEAD
 file_list = ['./RMA1_0200_02_TH_20181010T114222Z.H5']
-=======
 #file_list = ['/ms-36/mrugna/RMA/datos/RMA2/2018/10/09/01/0028/RMA2_0200_01_TH_20181009T010028Z.H5']
->>>>>>> bd243c99effe225025ccfe09e72c2fb7fac0531f
 
 print(file_list)
 
