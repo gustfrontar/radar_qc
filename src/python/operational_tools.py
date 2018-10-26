@@ -218,6 +218,11 @@ def get_strat ( filename , radar )  :
        if '0200_02' in filename  :  #200-2 STRATEGY
           nyquist_velocity     = 13.25
 
+       if '0300_01' in filename  :  #300-1 STRATEGY
+          nyquist_velocity     = 4.42
+       if '0300_02' in filename  :  #300-2 STRATEGY
+          nyquist_velocity     = 13.25
+
        if '0201_01' in filename  :  #201-1 STRATEGY
           nyquist_velocity     = 4.42
        if '0201_02' in filename  :  #201-2 STRATEGY
