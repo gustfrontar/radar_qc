@@ -347,7 +347,10 @@ def get_strat ( filename , radar )  :
     if radar.range == None :
        radar.range = dict()
 
+    if not 'meters_between_gates' in radar.range :
        radar.range['meters_between_gates']= meters_between_gates
+
+    if not 'meters_to_center_of_first_gate' in radar.range :
        radar.range['meters_to_center_of_first_gate']= radar.range['data'][0]  #meters_between_gates / 2.0
 
     return radar
