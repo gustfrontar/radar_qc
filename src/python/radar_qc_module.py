@@ -533,8 +533,9 @@ def plot_filter( output , qc_index , weigth , options , filter_name )  :
 
    if ( 'ref' in options[filter_name]['var_update_list'] ) and ( 'ref' in output )  :
 
-    tmp_ref=np.ma.masked_array( output['input_ref'] , output['input_ref'] == output['undef_ref'] )
-    tmp_cref=np.ma.masked_array( output['cref'] , output['cref'] == output['undef_ref'] )
+    
+    tmp_ref=np.ma.masked_array( output['input_ref'] , np.logical_or( output['input_ref'] == output['undef_ref'] , output['input_ref'] == options['norainrefval'] ) )
+    tmp_cref=np.ma.masked_array( output['cref'] , np.logical_or( output['cref'] == output['undef_ref'] ,  output['input_ref'] == options['norainrefval'] ) )
     tmp_qc_index=np.ma.masked_array( qc_index , qc_index == options['undef'] )
 
     for ilev in options['plot']['Elevs']  :
@@ -726,12 +727,17 @@ def Dealiasing( radar , output , options )   :
       #Define a new instance of the radar strcture containing the wind (potentially affected by previous filters).
       radar.add_field_like( options['name_v'], options['name_cv'] , radar.fields[ options['name_v'] ]['data'] , True)
       tmp = order_variable_inv(  radar , output['v'] , output['undef_v'] )
-      radar.fields[ options['name_cv'] ]['data']= np.ma.masked_array( tmp , tmp==output['undef_v'] )
+      radar.fields[ options['name_cv'] ]['data']= np.ma.masked_array( tmp , mask = tmp==output['undef_v'] )
 
       #Uso una de las funciones de dealiasing de pyart con los parametros por defecto
-      winddealias=pyart.correct.region_dealias.dealias_region_based(radar,interval_splits=options[filter_name]['interval_split'],interval_limits=None, 
-                 skip_between_rays=options[filter_name]['skip_between_ray'],skip_along_ray=options[filter_name]['skip_along_ray'],centered=True,nyquist_vel=None,
-                 check_nyquist_uniform=True,gatefilter=False,rays_wrap_around=True,keep_original=False,set_limits=True,
+#      winddealias=pyart.correct.region_dealias.dealias_region_based(radar,interval_splits=20,interval_limits=None, 
+#                 skip_between_rays=0,skip_along_ray=0,centered=True,nyquist_vel=None,
+#                 check_nyquist_uniform=True,gatefilter=None,rays_wrap_around=True,keep_original=True,set_limits=True,
+#                 vel_field=options['name_cv'] ,corr_vel_field=None)
+
+      winddealias=pyart.correct.region_dealias.dealias_region_based(radar,interval_splits=3,interval_limits=None, 
+                 skip_between_rays=30,skip_along_ray=200,centered=True,nyquist_vel=None,
+                 check_nyquist_uniform=True,gatefilter=None,rays_wrap_around=True,keep_original=True,set_limits=True,
                  vel_field=options['name_cv'] ,corr_vel_field=None)
 
       #Replace cv wind by dealiased winds.
