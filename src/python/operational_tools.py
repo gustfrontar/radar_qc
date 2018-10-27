@@ -581,7 +581,7 @@ def merge_radar_object( radar_1 , radar_2 )    :
 
    return radar_1  , merged
 
-def upload_to_ftp(filename_list , ftp_host, ftp_user, ftp_pass , ftp_path , ftp_passive=False , compress=False ) :
+def upload_to_ftp( filename_list , ftp_host, ftp_user, ftp_pass , ftp_path , ftp_passive=False , compress=False ) :
     from ftplib import FTP
     #import os
     
@@ -593,6 +593,7 @@ def upload_to_ftp(filename_list , ftp_host, ftp_user, ftp_pass , ftp_path , ftp_
        my_file_name=os.path.basename( my_file )
        my_current_path=os.getcwd()
        os.chdir(my_path)
+
        if compress  :
           os.system('gzip -f ' + my_file )
           my_file_name = my_file_name + '.gz'
