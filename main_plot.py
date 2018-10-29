@@ -345,35 +345,35 @@ for my_file in file_list :
 
        plt.close()
 
-       for key in so['grid_' + options['name_cref']]  :
+#       for key in so['grid_' + options['name_cref']]  :
 
-           if key == 'az' or key == 'ra' or key == 'el'  :
+#          if key == 'az' or key == 'ra' or key == 'el'  :
 
-               max_var=np.max( so['grid_' + options['name_cref']][key] )
-               min_var= 0.0
+#               max_var=np.max( so['grid_' + options['name_cref']][key] )
+#               min_var= 0.0
 
-               figname= datapath + '/figures/' + 'GRID_' + options['name_cref'] + '_' + key + '_LEVELS_' + file_instrument + '_' + file_time + '.png'
+#               figname= datapath + '/figures/' + 'GRID_' + options['name_cref'] + '_' + key + '_LEVELS_' + file_instrument + '_' + file_time + '.png'
 
-               figsize_x = 10
-               figsize_y = 6
-               fig = plt.figure(figsize=(figsize_x,figsize_y))
+#               figsize_x = 10
+#               figsize_y = 6
+#               fig = plt.figure(figsize=(figsize_x,figsize_y))
 
-               tmp_var = np.ma.masked_array( so['grid_' + options['name_cref']][key] , mask=  so['grid_' + options['name_cref']]['nobs'] == 0 )
+#               tmp_var = np.ma.masked_array( so['grid_' + options['name_cref']][key] , mask=  so['grid_' + options['name_cref']]['nobs'] == 0 )
 
-               for ilevel in range( (so['grid_' + options['name_cref']][key]).shape[0] )  :
+#               for ilevel in range( (so['grid_' + options['name_cref']][key]).shape[0] )  :
 
-                   ax = fig.add_subplot(3,5,ilevel+1)
-                   plt.pcolormesh( 10.0*np.log10( tmp_var[ilevel,:,:] ) , vmin = min_var , vmax = max_var  )
+#                   ax = fig.add_subplot(3,5,ilevel+1)
+#                   plt.pcolormesh( 10.0*np.log10( tmp_var[ilevel,:,:] ) , vmin = min_var , vmax = max_var  )
 
-               plt.tight_layout()
-               plt.colorbar()
-               plt.savefig(figname, dpi=None, facecolor='w', edgecolor='w',
-                   orientation='portrait', papertype=None, format=None,
-                   transparent=False, bbox_inches=None, pad_inches=0.1,
-                   frameon=None)
+#               plt.tight_layout()
+#               plt.colorbar()
+#               plt.savefig(figname, dpi=None, facecolor='w', edgecolor='w',
+#                   orientation='portrait', papertype=None, format=None,
+#                   transparent=False, bbox_inches=None, pad_inches=0.1,
+#                   frameon=None)
 
-               fig_list.append( figname )
-               plt.close()
+#               fig_list.append( figname )
+#               plt.close()
 
 
 

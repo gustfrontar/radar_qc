@@ -41,7 +41,7 @@ options['plot']['VrMin']=-30
 options['plot']['VrMax']=30
 options['plot']['DbzMin']=0
 options['plot']['DbzMax']=70
-options['plot']['Elevs']=[3]             #List with elevations that will be ploted.
+options['plot']['Elevs']=[0]             #List with elevations that will be ploted.
 options['plot']['Show']=True
 options['plot']['CmapWind']='pyart_NWSVel'
 options['plot']['CmapDbz']='pyart_NWSRef'
@@ -98,8 +98,30 @@ options[filter_name]['ny']=3
 options[filter_name]['nz']=0
 options[filter_name]['code']=43
 options[filter_name]['sequential']=True                    #Wheter this filter will affect the following filters.
-options[filter_name]['order'] = [10]
+options[filter_name]['order'] = [110]
 options[filter_name]['var_update_list']=['v']              #Which variables will be filtered.
+
+#DopplerRefFilter  =============================================================
+filter_name='DopplerRefFilter'
+
+options[filter_name]=dict()
+options[filter_name]['flag']=True
+options[filter_name]['filter_undef']=True                  #Wheter gates with undef reflectivity will be flagged.
+options[filter_name]['threshold']=5.0                      #Gates with reflectivities below this threshold will be flaged.
+options[filter_name]['nx']=3                               #nx for reflectivity smoothing.
+options[filter_name]['ny']=3                               #ny for reflectivity smoothing.
+options[filter_name]['nz']=0                               #nz for reflectivity smoothing.
+options[filter_name]['save']=False  
+options[filter_name]['ify']=np.array([0,1])                 #Importance function y
+options[filter_name]['ifx']=np.array([0,1])                 #Importance function x
+options[filter_name]['code']=44
+options[filter_name]['sequential']=True                    #Wheter this filter will affect the following filters.
+options[filter_name]['order'] = [100]
+options[filter_name]['var_update_list']=['v']              #Which variables will be filtered.
+options[filter_name]['force']=True                          #Wether we will reject data based on this filter alone.
+options[filter_name]['force_value']=0.5                     #Threshold for force
+options[filter_name]['fill_value']='undef'                  #Possible values, undef, min_ref or fill value
+
 
 #Rho filter parameters  ===================================================================== 
 
@@ -168,7 +190,7 @@ options[filter_name]['force_value']=0.5                     #Threshold for force
 options[filter_name]['order'] = [15]
 options[filter_name]['var_update_list']=['ref']             #Which variables will be filtered.
 options[filter_name]['sequential']=True                     #Wheter this filter will affect the following filters.
-options[filter_name]['fill_value']='undef'                #Possible values, undef, min_ref or fill value
+options[filter_name]['fill_value']='min_ref'                #Possible values, undef, min_ref or fill value
 
 #Echo depth filter parameters ===================================================================
 
@@ -228,7 +250,7 @@ options[filter_name]['code']=14
 options[filter_name]['dvtr']=0.0                            #Wind threshold.
 options[filter_name]['force']=True                          #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                     #Threshold for force
-options[filter_name]['order'] = [7]
+options[filter_name]['order'] = [117]
 options[filter_name]['var_update_list']=['v']               #Which variables will be filtered.
 options[filter_name]['sequential']=True                     #Wheter this filter will affect the following filters.
 options[filter_name]['fill_value']='undef'                  #Possible values, undef, min_ref or fill value
@@ -248,7 +270,7 @@ options[filter_name]['w']=1.0                               #Relative parameter 
 options[filter_name]['code']=15
 options[filter_name]['force']=True                         #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                     #Threshold for force
-options[filter_name]['order'] = [8]
+options[filter_name]['order'] = [118]
 options[filter_name]['var_update_list']=['v']               #Which variables will be filtered.
 options[filter_name]['sequential']=True                     #Wheter this filter will affect the following filters.
 options[filter_name]['fill_value']='undef'                  #Possible values, undef, min_ref or fill value
@@ -361,7 +383,7 @@ options[filter_name]['code']= 19
 options[filter_name]['force']=True                          #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                     #Threshold for force
 options[filter_name]['height_thr']=1000                     #Height threshold.
-options[filter_name]['order'] = [2]
+options[filter_name]['order'] = [12]
 options[filter_name]['var_update_list']=['v','ref']         #Which variables will be filtered.
 options[filter_name]['sequential']=True                     #Wheter this filter will affect the following filters.
 options[filter_name]['fill_value']='undef'                  #Possible values, undef, min_ref or fill value
@@ -388,10 +410,11 @@ options[filter_name]['AzimuthFilter']=True                  #Enable filter to re
 options[filter_name]['ElevationFilter']=False               #Enable filter to remove isolated pixels in elevation.
 options[filter_name]['npass_filter']=3                      #Number of passes of the azimuthal continuity filter.
 options[filter_name]['percent_valid_threshold']=0.2         #Rays with valid pixels over this percentaje will be examinated.
-options[filter_name]['corr_threshold']=0.8                  #Rays that correlates well with the interference pattern will be flagged as 
+options[filter_name]['corr_threshold']=np.array([0.97,0.9,0.8])                 #Rays that correlates well with the interference pattern will be flagged as 
+options[filter_name]['azimuth_ref_diff_threshold']=np.array([0.1,0.15,0.2])           #If more than this percent of the ray correlates well with the interference pattern, then
                                                             #contaminated.
 options[filter_name]['ref_threshold']=7.0                   #Reflectivity threshold to count pixels which are close to the interference pattern.
-options[filter_name]['percent_ref_threshold']=0.1           #If more than this percent of the ray correlates well with the interference pattern, then
+options[filter_name]['percent_ref_threshold']=0.3           #If more than this percent of the ray correlates well with the interference pattern, then
                                                             #the ray is flagged as contaminated by interference.
 options[filter_name]['order'] = [14]
 options[filter_name]['var_update_list']=['ref']             #Which variables will be filtered.
@@ -412,7 +435,7 @@ options[filter_name]['w']=1.0                               #Relative parameter 
 options[filter_name]['code']=22                              
 options[filter_name]['force']=True                          #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                     #Threshold for force
-options[filter_name]['order'] = [15]
+options[filter_name]['order'] = [115]
 options[filter_name]['var_update_list']=['v']               #Which variables will be filtered.
 options[filter_name]['sequential']=True                     #Wheter this filter will affect the following filters.
 options[filter_name]['fill_value']='undef'                  #Possible values, undef, min_ref or fill value
@@ -431,7 +454,7 @@ options[filter_name]['w']=1.0                               #Relative parameter 
 options[filter_name]['code']=23
 options[filter_name]['force']=True                         #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                     #Threshold for force
-options[filter_name]['order'] = [16]
+options[filter_name]['order'] = [116]
 options[filter_name]['var_update_list']=['v']               #Which variables will be filtered.
 options[filter_name]['sequential']=True                     #Wheter this filter will affect the following filters.
 options[filter_name]['fill_value']='undef'                  #Possible values, undef, min_ref or fill value
@@ -463,38 +486,16 @@ options[filter_name]['w']=1.0                               #Relative parameter 
 options[filter_name]['code']=34
 options[filter_name]['force']=True                          #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                     #Threshold for force
-options[filter_name]['order'] = [11]
+options[filter_name]['order'] = [111]
 options[filter_name]['sequential']=True                        
 options[filter_name]['var_update_list']=['v']               #Which variables will be filtered.
 options[filter_name]['sequential']=True                     #Wheter this filter will affect the following filters.
 options[filter_name]['fill_value']='undef'                  #Possible values, undef, min_ref or fill value
 
-#Doppler Noise filter FIRST PASS, BEFORE DEALIASING    ==============================================================
-filter_name='DopplerNoiseFilter'
-options[filter_name]=dict()
-options[filter_name]['flag']=False                          #Enable / Disable filter
-options[filter_name]['nx']=[1,10]                           #NX
-options[filter_name]['ny']=[1,10]                           #NY
-options[filter_name]['nz']=[0,0]                            #NZ
-options[filter_name]['threshold']=[2.0] 
-options[filter_name]['n_filter_pass']=[3]                   #Filter repetition
-options[filter_name]['save']=False                          #Save filter aux fields to output?
-options[filter_name]['ify']=np.array([0,1])                 #Importance function y
-options[filter_name]['ifx']=np.array([0,1])                 #Importance function x
-options[filter_name]['w']=1.0                               #Relative parameter weigth. 
-options[filter_name]['code']= 1
-options[filter_name]['force']=True                          #Wether we will reject data based on this filter alone.
-options[filter_name]['force_value']=0.5                     #Threshold for force
-options[filter_name]['order'] = [0]
-options[filter_name]['var_update_list']=['v']               #Which variables will be filtered.
-options[filter_name]['sequential']=True                     #Wheter this filter will affect the following filters.
-options[filter_name]['fill_value']='undef'                  #Possible values, undef, min_ref or fill value
-
-
 #Doppler Noise filter SECOND PASS      ==============================================================
 filter_name='DopplerNoiseFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=True                          #Enable / Disable filter
+options[filter_name]['flag']=False                          #Enable / Disable filter
 options[filter_name]['nx']=[1,10]                           #NX
 options[filter_name]['ny']=[1,10]                           #NY
 options[filter_name]['nz']=[0,0]                            #NZ
@@ -507,7 +508,7 @@ options[filter_name]['w']=1.0                               #Relative parameter 
 options[filter_name]['code']= 1
 options[filter_name]['force']=True                          #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                     #Threshold for force
-options[filter_name]['order'] = [0]
+options[filter_name]['order'] = [101]
 options[filter_name]['var_update_list']=['v']               #Which variables will be filtered.
 options[filter_name]['sequential']=True                     #Wheter this filter will affect the following filters.
 options[filter_name]['fill_value']='undef'                  #Possible values, undef, min_ref or fill value

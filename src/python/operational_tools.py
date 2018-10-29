@@ -131,9 +131,13 @@ def read_file( filename , format_file )    :
 
 def rename_fields ( radar )  :
 
-  # Reflectividad RMA
+  #Unify different names for different variables depending on the data source.
+
   if 'TH' in radar.fields    :
      radar.fields['ZH'] = radar.fields.pop('TH')
+
+  if 'DBZH' in radar.fields  :
+     radar.fields['ZH'] = radar.fields.pop('DBZH')
 
   if 'V' in radar.fields     :
      radar.fields['VRAD'] = radar.fields.pop('V')
@@ -511,9 +515,10 @@ def merge_radar_object( radar_1 , radar_2 )    :
          if not my_key in radar_1.fields   :
             radar_1.fields[my_key] = radar_2.fields[my_key]
    else                                                                                  :
-      print('Warning: Inconsistent shapes found for ' + radar_1.metadata['instrument_name']  )
+      print('Warning: Inconsistent shapes',na_1,na_2,nr_1,nr_2,diff_a,diff_r)
       #Test if radial shapes conform.
       if  nr_1 != nr_2  :
+         print('Different sizes in radial dimension ',nr_1,' ',nr_2)
          #These objects have different ranges. We will try to solve this issue.
          if nr_1 < nr_2 :
             small_range = range_1
@@ -557,27 +562,35 @@ def merge_radar_object( radar_1 , radar_2 )    :
                radar_1.fields[my_key] = radar_2.fields.pop(my_key)
                merged = True
 
-      if ( na_1 != na_2 )   :
+      if ( na_1 != na_2 ) or ( diff_a != 0.0 )  :
+         print('Warning: Inconsistency in azimuth ',na_1,' ',na_2,' ',diff_a)
+         azimuth_1 = np.round( azimuth_1 * 10.0 )/10.0 
+         azimuth_2 = np.round( azimuth_2 * 10.0 )/10.0
+         #print( np.size( np.intersect1d( azimuth_1 , azimuth_2 ) ) , na_1  , np.max( azimuth_1[1:2888]-azimuth_2[0:2887]) )
          #Azimuths differ. We will take azimuths_1 as a reference and try to make them compatible.
-         if ( np.shape( np.intersect1d( azimuth_1 , azimuth_2 ) )[0] / na_1 ) >= 0.95    :
-            #Both objects are similar we will try to merge them.
-            for my_key in radar_2.fields    :
-               if not my_key in radar_1.fields   :
-                   undef = radar_1.fields[ my_key ][ '_FillValue' ] 
-                   tmp_data = np.ones( ( na_1 , nr_1 ) ) * undef 
-                   i2=0
-                   for i1 in range( 0 , na_1 )   :
-                       if( azimuth_1[i1] == azimuth_2[i2] ) and ( elevation_1[i1] == elevation_2[i2] ) :
+         #if ( np.shape( np.intersect1d( azimuth_1 , azimuth_2 ) )[0] / na_1 ) >= 0.95    :
+         #Both objects are similar we will try to merge them.
+         for my_key in radar_2.fields    :
+            if not my_key in radar_1.fields   :
+                undef = radar_2.fields[ my_key ][ '_FillValue' ] 
+                tmp_data = np.ones( ( na_1 , nr_1 ) ) * undef 
+                i2=0
+                for i1 in range( 0 , na_1 )   :
+                    if i2 <= na_2 - 1   :
+                       if( azimuth_1[i1] == azimuth_2[i2] ) and ( elev_1[i1] == elev_2[i2] ) :
                            #We have a match.
-                           tmp_data[i1] = radar_2.fields[ my_key ]['data'][i2]
+                           tmp_data[i1,:] = radar_2.fields[ my_key ]['data'][i2,:]
                            i2 = i2 + 1
-                       if( azimuth_1[i1] < azimuth_2[i2] ) and ( elevation_1[i1] <= elevation_2[i2] )  :
+                    if i2 <= na_2 - 1   :
+                       if( azimuth_1[i1] < azimuth_2[i2] ) and ( elev_1[i1] <= elev_2[i2] )  :
                            i2 = i2 + 1
-                       if( elevation_1[i1] < elevation_2[i2]  )                                        :
+                    if i2 <= na_2 - 1   :
+                       if( elev_1[i1] < elev_2[i2]  )                                        :
                            i2 = i2 + 1
-                   radar_1.fields[my_key] = radar_2.fields.pop(my_key)
-                   radar_1.fields[my_key] = np.ma.masked_array( tmp_data , tmp_data == undef )
-            merged = True
+                radar_1.fields[my_key] = dict()
+                radar_1.fields[my_key] = radar_2.fields[my_key] 
+                radar_1.fields[my_key]['data'] = np.ma.masked_array( tmp_data , tmp_data == undef )
+         merged = True
 
    return radar_1  , merged
 

@@ -41,8 +41,8 @@ options['plot']['VrMin']=-30
 options['plot']['VrMax']=30
 options['plot']['DbzMin']=0
 options['plot']['DbzMax']=70
-options['plot']['Elevs']=[0,1,2,3]             #List with elevations that will be ploted.
-options['plot']['Show']=False
+options['plot']['Elevs']=[0]             #List with elevations that will be ploted.
+options['plot']['Show']=True
 options['plot']['CmapWind']='pyart_NWSVel'
 options['plot']['CmapDbz']='pyart_NWSRef'
 
@@ -89,7 +89,7 @@ options['w_tr']=0.5                  #When total normalized weight is greather t
 filter_name='Dealiasing'
 
 options[filter_name]=dict()
-options[filter_name]['flag']=True
+options[filter_name]['flag']=False
 options[filter_name]['interval_split']=3
 options[filter_name]['skip_between_ray']=30
 options[filter_name]['skip_along_ray']=200
@@ -105,7 +105,7 @@ options[filter_name]['var_update_list']=['v']              #Which variables will
 
 filter_name='RhoFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=True                          #Enable / disable filter
+options[filter_name]['flag']=False                          #Enable / disable filter
 options[filter_name]['nx']=2                                #NX
 options[filter_name]['ny']=2                                #NY
 options[filter_name]['nz']=0                                #NZ
@@ -168,7 +168,7 @@ options[filter_name]['force_value']=0.5                     #Threshold for force
 options[filter_name]['order'] = [15]
 options[filter_name]['var_update_list']=['ref']             #Which variables will be filtered.
 options[filter_name]['sequential']=True                     #Wheter this filter will affect the following filters.
-options[filter_name]['fill_value']='undef'                #Possible values, undef, min_ref or fill value
+options[filter_name]['fill_value']='min_ref'                #Possible values, undef, min_ref or fill value
 
 #Echo depth filter parameters ===================================================================
 
@@ -278,7 +278,7 @@ options[filter_name]['fill_value']='undef'                  #Possible values, un
 #Attenuation parameters           ==============================================================
 filter_name='AttenuationFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=True                           #Enable / Disable filter
+options[filter_name]['flag']=False                           #Enable / Disable filter
 options[filter_name]['nx']=0                                #NX
 options[filter_name]['ny']=0                                #NY
 options[filter_name]['nz']=0                                #NZ
@@ -310,7 +310,7 @@ options[filter_name]['fill_value']='undef'                  #Possible values, un
 #This filter is not part of the Fuzzy logic algorithm.
 filter_name='BlockingFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=True                          #Enable / Disable filter
+options[filter_name]['flag']=False                          #Enable / Disable filter
 options[filter_name]['blocking_correction']=True            #Wether correction will be applied for partially blocked beams.
 options[filter_name]['save']=False                          #Save blocking factor into qc_output dictionary.
 options[filter_name]['code']=40                             #QC output code
@@ -328,7 +328,7 @@ options[filter_name]['fill_value']='undef'                  #Possible values, un
 #Low elevation angles filter parameters ==============================================================
 filter_name='LowElevFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=True                          #Enable / Disable filter
+options[filter_name]['flag']=False                          #Enable / Disable filter
 options[filter_name]['nx']=0                                #NX
 options[filter_name]['ny']=0                                #NY
 options[filter_name]['nz']=0                                #NZ
@@ -349,7 +349,7 @@ options[filter_name]['fill_value']='undef'                  #Possible values, un
 #Low doppler velocity filter            ==============================================================
 filter_name='LowDopplerFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=True                          #Enable / Disable filter
+options[filter_name]['flag']=False                          #Enable / Disable filter
 options[filter_name]['nx']=0                                #NX
 options[filter_name]['ny']=0                                #NY
 options[filter_name]['nz']=0                                #NZ
@@ -370,10 +370,10 @@ options[filter_name]['fill_value']='undef'                  #Possible values, un
 #This filter is not included in the Fuzzy-logic approach.
 filter_name='InterferenceFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=True                          #Enable / Disable filter
+options[filter_name]['flag']=False                          #Enable / Disable filter
 options[filter_name]['save']=False                          #Save filter aux fields to output?
 options[filter_name]['nx']=0                                #NX
-options[filter_name]['ny']=4                                #NY
+options[filter_name]['ny']=7                                #NY
 options[filter_name]['nz']=0                                #NZ
 options[filter_name]['code']= 20
 options[filter_name]['ify']=np.array([0,1.0])                 #Importance function y
@@ -388,11 +388,11 @@ options[filter_name]['AzimuthFilter']=True                  #Enable filter to re
 options[filter_name]['ElevationFilter']=False               #Enable filter to remove isolated pixels in elevation.
 options[filter_name]['npass_filter']=3                      #Number of passes of the azimuthal continuity filter.
 options[filter_name]['percent_valid_threshold']=0.2         #Rays with valid pixels over this percentaje will be examinated.
-options[filter_name]['corr_threshold']=0.8                  #Rays that correlates well with the interference pattern will be flagged as 
-                                                            #contaminated.
-options[filter_name]['ref_threshold']=7.0                   #Reflectivity threshold to count pixels which are close to the interference pattern.
-options[filter_name]['percent_ref_threshold']=0.1           #If more than this percent of the ray correlates well with the interference pattern, then
-                                                            #the ray is flagged as contaminated by interference.
+options[filter_name]['corr_threshold']=np.array([0.97,0.9,0.8,0.7])                 #Rays that correlates well with the interference pattern will be flagged as 
+options[filter_name]['azimuth_ref_diff_threshold']=np.array([0.1,0.15,0.2,0.3])           #If more than this percent of the ray correlates well with the interference pattern, then
+                                                            #the ray is flagged as contaminated by interference.#the ray is flagged as contaminated by interference.
+options[filter_name]['ref_threshold']=7.0                   #Reflectivity threshold to count pixels which are close to the interference pattern.                 
+options[filter_name]['percent_ref_threshold']=0.3           #Threshold to measure the azimuthal coherence of the reflectivity.
 options[filter_name]['order'] = [14]
 options[filter_name]['var_update_list']=['ref']             #Which variables will be filtered.
 options[filter_name]['sequential']=True                     #Wheter this filter will affect the following filters.
@@ -439,7 +439,7 @@ options[filter_name]['fill_value']='undef'                  #Possible values, un
 #Doppler Spatial Coherence Filter ==============================================================
 filter_name='DopplerSpatialCoherenceFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=True                           #Enable / Disable filter
+options[filter_name]['flag']=False                           #Enable / Disable filter
 options[filter_name]['nx']=2                                #NX
 options[filter_name]['ny']=2                                #NY
 options[filter_name]['nz']=0                                #NZ
@@ -473,7 +473,7 @@ options[filter_name]['fill_value']='undef'                  #Possible values, un
 
 filter_name='DopplerNoiseFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=True                          #Enable / Disable filter
+options[filter_name]['flag']=False                          #Enable / Disable filter
 options[filter_name]['nx']=[1,10]                           #NX
 options[filter_name]['ny']=[1,10]                           #NY
 options[filter_name]['nz']=[0,0]                            #NZ

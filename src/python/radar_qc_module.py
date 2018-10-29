@@ -176,10 +176,16 @@ def check_valid_data( radar , options )   :
 
     for my_key in radar.fields    :
        if my_key == options['name_ref']   :
-          radar.fields[ my_key ]['data'].data[ np.isinf( radar.fields[ my_key ]['data'].data )  ] = options['norainrefval']
-          radar.fields[ my_key ]['data'].data[ np.isnan( radar.fields[ my_key ]['data'].data )  ] = options['norainrefval']
-          radar.fields[ my_key ]['data'].data[ radar.fields[ my_key ]['data'].data < options['norainrefval']  ] = options['norainrefval']
-          radar.fields[ my_key ]['data'].mask= radar.fields[ my_key ]['data'].data == radar.fields[ my_key ]['_FillValue']
+
+          if np.sum( radar.fields[ my_key ]['data'].data != radar.fields[ my_key ]['_FillValue'] ) > 480   :
+             
+             radar.fields[ my_key ]['data'].data[ np.isinf( radar.fields[ my_key ]['data'].data )  ] = options['norainrefval']
+             radar.fields[ my_key ]['data'].data[ np.isnan( radar.fields[ my_key ]['data'].data )  ] = options['norainrefval']
+             radar.fields[ my_key ]['data'].data[ radar.fields[ my_key ]['data'].data < options['norainrefval']  ] = options['norainrefval']
+             radar.fields[ my_key ]['data'].data[ radar.fields[ my_key ]['data'].data == radar.fields[ my_key ]['_FillValue']  ] = options['norainrefval']
+             radar.fields[ my_key ]['data'].mask= radar.fields[ my_key ]['data'].data == radar.fields[ my_key ]['_FillValue']
+
+          
           
        else                               :
           radar.fields[ my_key ]['data'].data[ np.isinf( radar.fields[ my_key ]['data'].data )  ] = radar.fields[ my_key ]['_FillValue']
@@ -467,17 +473,23 @@ def output_update( output , qc_index , options , filter_name )  :
          output['maxw_ref']=output['maxw_ref'] + options[filter_name]['w']
       else                                   :
          if options[filter_name]['fill_value']  == 'undef'       :
-            output['cref'][ weigth > options[filter_name]['force_value'] ]=output['undef_ref']
+            tmp_mask = np.logical_and( weigth > options[filter_name]['force_value'] , output['cref'] != output['undef_ref'] )
+            output['cref'][ tmp_mask ]=output['undef_ref']
             if options[filter_name]['sequential']   :
-               output['ref'][ weigth > options[filter_name]['force_value'] ]=output['undef_ref']
+               tmp_mask = np.logical_and( weigth > options[filter_name]['force_value'] , output['ref'] != output['undef_ref'] )
+               output['ref'][ tmp_mask ]=output['undef_ref']
          elif options[filter_name]['fill_value']  == 'min_ref'   :
-            output['cref'][ weigth > options[filter_name]['force_value'] ]=options['norainrefval'] 
+            tmp_mask = np.logical_and( weigth > options[filter_name]['force_value'] , output['cref'] != output['undef_ref'] )
+            output['cref'][ tmp_mask ]=options['norainrefval'] 
             if options[filter_name]['sequential']   :
-               output['ref'][ weigth > options[filter_name]['force_value'] ]=options['norainrefval']
+               tmp_mask = np.logical_and( weigth > options[filter_name]['force_value'] , output['cref'] != output['undef_ref'] )
+               output['ref'][ tmp_mask ]=options['norainrefval']
          else                                                    :
-            output['cref'][ weigth > options[filter_name]['force_value'] ]=options[filter_name]['fill_value']
+            tmp_mask = np.logical_and( weigth > options[filter_name]['force_value'] , output['cref'] != output['undef_ref'] )
+            output['cref'][ tmp_mask ]=options[filter_name]['fill_value']
             if options[filter_name]['sequential']   :
-               output['ref'][ weigth > options[filter_name]['force_value'] ]=options[filter_name]['fill_value']
+               tmp_mask = np.logical_and( weigth > options[filter_name]['force_value'] , output['ref'] != output['undef_ref'] )
+               output['ref'][ tmp_mask ]=options[filter_name]['fill_value']
 
 
          output['qcref'][ weigth > options[filter_name]['force_value'] ] = options[filter_name]['code']
@@ -534,31 +546,38 @@ def plot_filter( output , qc_index , weigth , options , filter_name )  :
    if ( 'ref' in options[filter_name]['var_update_list'] ) and ( 'ref' in output )  :
 
     
-    tmp_ref=np.ma.masked_array( output['input_ref'] , np.logical_or( output['input_ref'] == output['undef_ref'] , output['input_ref'] == options['norainrefval'] ) )
-    tmp_cref=np.ma.masked_array( output['cref'] , np.logical_or( output['cref'] == output['undef_ref'] ,  output['input_ref'] == options['norainrefval'] ) )
+    #tmp_ref=np.ma.masked_array( output['input_ref'] , np.logical_or( output['input_ref'] == output['undef_ref'] , output['input_ref'] == options['norainrefval'] ) )
+    #tmp_cref=np.ma.masked_array( output['cref'] , np.logical_or( output['cref'] == output['undef_ref'] ,  output['input_ref'] == options['norainrefval'] ) )
+
+    tmp_ref=np.ma.masked_array( output['input_ref'] , output['input_ref'] == output['undef_ref'] )
+    tmp_cref=np.ma.masked_array( output['cref'] , output['cref'] == output['undef_ref'] )
+
     tmp_qc_index=np.ma.masked_array( qc_index , qc_index == options['undef'] )
+
+    tmp_x = np.ma.masked_array( output['x'] , output['x'] == options['undef'] )
+    tmp_y = np.ma.masked_array( output['y'] , output['y'] == options['undef'] )
 
     for ilev in options['plot']['Elevs']  :
 
        plt.figure(figsize=(8, 8))
        plt.subplot(2,2,1)
 
-       plt.pcolor(output['x'][:,:,ilev]/1e3,output['y'][:,:,ilev]/1e3, tmp_ref[:,:,ilev],vmin=options['plot']['DbzMin'],vmax=options['plot']['DbzMax'],cmap=options['plot']['CmapDbz'])
+       plt.pcolor(tmp_x[:,:,ilev]/1e3,tmp_y[:,:,ilev]/1e3, tmp_ref[:,:,ilev],vmin=options['plot']['DbzMin'],vmax=options['plot']['DbzMax'],cmap=options['plot']['CmapDbz'])
        plt.title('Original Reflectivity')
        plt.colorbar()
 
        plt.subplot(2,2,2)
-       plt.pcolor(output['x'][:,:,ilev]/1e3,output['y'][:,:,ilev]/1e3, tmp_cref[:,:,ilev],vmin=options['plot']['DbzMin'],vmax=options['plot']['DbzMax'],cmap=options['plot']['CmapDbz'])
+       plt.pcolor(tmp_x[:,:,ilev]/1e3,tmp_y[:,:,ilev]/1e3, tmp_cref[:,:,ilev],vmin=options['plot']['DbzMin'],vmax=options['plot']['DbzMax'],cmap=options['plot']['CmapDbz'])
        plt.title('Corrected Reflectivity')
        plt.colorbar()
 
        plt.subplot(2,2,3)
-       plt.pcolor(output['x'][:,:,ilev]/1e3,output['y'][:,:,ilev]/1e3, ( output['qcref'][:,:,ilev]==options[filter_name]['code'] ).astype(float) )
+       plt.pcolor(tmp_x[:,:,ilev]/1e3,tmp_y[:,:,ilev]/1e3, ( output['qcref'][:,:,ilev]==options[filter_name]['code'] ).astype(float) )
        plt.title('Pixels corrected by ' + filter_name)
        plt.colorbar()
 
        plt.subplot(2,2,4)
-       plt.pcolor(output['x'][:,:,ilev]/1e3,output['y'][:,:,ilev]/1e3, ( tmp_qc_index[:,:,ilev] ) )
+       plt.pcolor(tmp_x[:,:,ilev]/1e3,tmp_y[:,:,ilev]/1e3, ( tmp_qc_index[:,:,ilev] ) )
        plt.title('QC Index')
        plt.colorbar()
                                                                                                     
@@ -769,6 +788,43 @@ def Dealiasing( radar , output , options )   :
          output['v'] = output['cv'] 
    
    return radar , output 
+
+
+#===================================================
+# LOW ELEVATION ANGLE REFLECTIVITY FILTER
+#===================================================
+
+def DopplerRefFilter( radar , output , options)  :
+
+   import numpy as np
+   from common_qc_tools  import qc  #Fortran code routines.
+   #Remove doppler gates associated with an undef refelctivity or with reflectivity under a certain threshold.
+
+   filter_name='DopplerRefFilter'
+
+   if  ( options['name_ref'] in radar.fields ) and  ( options['name_v'] in radar.fields ) :
+
+     na=output['na']
+     nr=output['nr']
+     ne=output['ne']
+     nx=options[filter_name]['nx']
+     ny=options[filter_name]['ny']
+     nz=options[filter_name]['nz']
+
+     output['smooth_ref']=qc.box_functions_2d(datain=output['ref'],na=na,nr=nr,ne=ne,undef=output['undef_ref']
+                                               ,boxx=nx,boxy=ny,boxz=nz,operation='MEAN',threshold=0.0)
+
+     tmp_index=np.zeros([na,nr,ne])
+
+     if options[filter_name]['filter_undef']  :
+        tmp_index[ output['smooth_ref'] == output['undef_ref']  ] = 1.0
+
+     
+     tmp_index[ np.logical_and( output['smooth_ref'] <= options[filter_name]['threshold'] , output['smooth_ref'] != output['undef_ref'] )] = 1.0
+     
+     output = output_update( output , tmp_index , options , filter_name )
+
+   return radar , output
 
 #===================================================
 # MODEL FILTER 
@@ -1884,7 +1940,8 @@ def interference_filter ( ref , undef , min_ref , r , my_conf )  :
    corr_threshold=my_conf['corr_threshold']
    ref_threshold=my_conf['ref_threshold']
    percent_ref_threshold=my_conf['percent_ref_threshold']
-
+   azimuth_ref_diff_threshold=my_conf['azimuth_ref_diff_threshold']
+   
    Power_Regression = my_conf['Power_Regression']
 
    #Main loops
@@ -1897,6 +1954,16 @@ def interference_filter ( ref , undef , min_ref , r , my_conf )  :
            local_sref[0:offset]=undef
 
            undef_mask = local_sref != undef 
+
+           #Get the following and previous rays.
+
+           local_sref_m1 = np.copy( tmp_ref[i-1,:,k] )
+ 
+           if i < na-1   :
+              local_sref_p1 = np.copy( tmp_ref[i+1,:,k] )
+           else          :
+              local_sref_p1 = np.copy( tmp_ref[na-1,:,k] )
+              
 
            local_ref = np.copy( ref[i,:,k] )
            local_ref[0:offset] =undef
@@ -1926,6 +1993,7 @@ def interference_filter ( ref , undef , min_ref , r , my_conf )  :
 
               local_fit_ref = 10.0*np.log10( local_fit_power ) + 20.0 * np.log10( r ) + 2.0 * att * r
 
+
            else:
 
               local_fit_power = np.zeros( nr ) 
@@ -1934,19 +2002,47 @@ def interference_filter ( ref , undef , min_ref , r , my_conf )  :
            if ( np.sum( local_inlier_mask.astype(int) ) >= 10 )  :
                if ( np.std(local_sref[local_inlier_mask]) > 0 ) :
                   corrcoef=np.corrcoef( local_fit_ref[ local_inlier_mask ],local_sref[ local_inlier_mask ] )[0,1]
+                  corrcoef_1=np.corrcoef( r[local_inlier_mask] , local_sref[ local_inlier_mask ] )[0,1]
+
+                  tmp_mask = np.logical_and( local_inlier_mask , local_sref_p1 != undef ) 
+                  if np.sum(tmp_mask) >= 10   :
+                     azimuth_ref_diff = np.power( np.mean( local_sref[ tmp_mask ] - local_sref_p1[ tmp_mask ] ) , 2) 
+                  else                        :
+                     azimuth_ref_diff = 0.0
+                  tmp_mask = np.logical_and( local_inlier_mask , local_sref_m1 != undef )
+                  if np.sum(tmp_mask) >= 10   :
+                     azimuth_ref_diff = azimuth_ref_diff + np.power( np.mean( local_sref[ tmp_mask ] - local_sref_m1[ tmp_mask ] ) , 2) 
+                  else                        :
+                     azimuth_ref_diff = 0.0
+
+                  azimuth_ref_diff = np.sqrt( azimuth_ref_diff / 2.0 )  / np.mean( local_sref[ local_inlier_mask ] ) 
+
                else                                                 :
                   corrcoef = np.array(0.0)
+                  corrcoef_1 = 0.0
+                  azimuth_ref_diff = 0.0
 
            else                                             :
 
               corrcoef=np.array(0.0)
+              corrcoef_1 = 0.0
+              azimuth_ref_diff = 0.0
 
 
            #if k == 0 :
            #   print( i , corrcoef , np.sum( local_inlier_mask.astype(int) )  )
+           filter_ray = False
+           
+           if np.sum( local_inlier_mask )/(nr-offset) > percent_ref_threshold  :
+
+              for it in range(np.size(corr_threshold) ) :
+
+                  if ( corrcoef > corr_threshold[it] ) & ( azimuth_ref_diff > azimuth_ref_diff_threshold[it] )  :
+                     filter_ray = True
 
 
-           if ( corrcoef > corr_threshold ) & ( np.sum( local_inlier_mask )/(nr-offset) > percent_ref_threshold )  :
+
+           if filter_ray  :
 
               #This means that this ray is likely to be contaminated by interference.
 
@@ -2021,7 +2117,7 @@ def interference_filter ( ref , undef , min_ref , r , my_conf )  :
                   ref[i,:,k][ tmp_mask ] = undef
                   tmp_index[i,:,k][ tmp_mask ] = 1.0
 
-               elif  i==na-3   :
+               elif  i==na-2   :
                   tmp_mask = np.logical_and( ref[i-1,:,k] == undef , ref[i,:,k] == undef )
                   tmp_mask = np.logical_and( ref[i,:,k]   != undef , tmp_mask )
                   ref[i,:,k][ tmp_mask ] = undef
