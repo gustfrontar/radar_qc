@@ -59,7 +59,7 @@ sys.path.append( qc_path + '/radar_so/fortran/')
 sys.path.append( qc_path + '/radar_so/')
 
 import radar_qc_module as rqc        #Radar qc python modules
-import conf_defaults as conf         #Radar qc default configuration
+import conf_defaults   as conf         #Radar qc default configuration
 import operational_tools as ot       #Operational tools.
 import radar_so as so                #Superobbing module
 
@@ -105,7 +105,9 @@ print('')
 #Obtenemos la lista de archivos.
 file_list = ot.get_file_list( datapath , c_ini_date , c_end_date , time_search_type='filename' , file_type_list = file_type_list )
 
-#file_list = ['/ms-36/mrugna/RMA/datos/RMA1/2018/10/10/12/1819/RMA1_0200_02_TH_20181010T121819Z.H5']
+#file_list = ['/home/qcradar/data//cfradial/cfrad.20181028_033655.RMA2.nc']
+#file_list = ['/home/qcradar/data/cfradial/cfrad.20181028_032427.ANG.nc']
+#file_list = ['/home/qcradar/data/cfradial/cfrad.20181027_184006.PAR.nc']
 
 print(file_list)
 
@@ -117,8 +119,6 @@ print('')
 
 #Obtenemos la lista de objetos radares.
 radar_list = ot.read_multiple_files(  file_list , instrument_list )
-
-
 my_updated_dirs =  []
 
 my_updated_tars =  []
@@ -160,7 +160,7 @@ for radar in radar_list :
 
           my_time_datetime = ot.get_time_from_filename( my_file )
 
-          my_time = dt.datetime.strftime( my_time_datetime  - dt.timedelta( seconds=3600) , '%Y%m%d_%H' )
+          my_time = dt.datetime.strftime( my_time_datetime  + dt.timedelta( seconds=3600) , '%Y%m%d_%H' )
 
           my_minute = dt.datetime.strftime( my_time_datetime , '%M' )
  
