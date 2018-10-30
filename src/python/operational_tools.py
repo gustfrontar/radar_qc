@@ -566,27 +566,19 @@ def merge_radar_object( radar_1 , radar_2 )    :
          print('Warning: Inconsistency in azimuth ',na_1,' ',na_2,' ',diff_a)
          azimuth_1 = np.round( azimuth_1 * 10.0 )/10.0 
          azimuth_2 = np.round( azimuth_2 * 10.0 )/10.0
-         #print( np.size( np.intersect1d( azimuth_1 , azimuth_2 ) ) , na_1  , np.max( azimuth_1[1:2888]-azimuth_2[0:2887]) )
-         #Azimuths differ. We will take azimuths_1 as a reference and try to make them compatible.
-         #if ( np.shape( np.intersect1d( azimuth_1 , azimuth_2 ) )[0] / na_1 ) >= 0.95    :
-         #Both objects are similar we will try to merge them.
+         ##print( np.size( np.intersect1d( azimuth_1 , azimuth_2 ) ) , na_1  , np.max( azimuth_1[1:2888]-azimuth_2[0:2887]) )
+         ##Azimuths differ. We will take azimuths_1 as a reference and try to make them compatible.
+         ##if ( np.shape( np.intersect1d( azimuth_1 , azimuth_2 ) )[0] / na_1 ) >= 0.95    :
+         ##Both objects are similar we will try to merge them.
          for my_key in radar_2.fields    :
             if not my_key in radar_1.fields   :
                 undef = radar_2.fields[ my_key ][ '_FillValue' ] 
                 tmp_data = np.ones( ( na_1 , nr_1 ) ) * undef 
-                i2=0
                 for i1 in range( 0 , na_1 )   :
-                    if i2 <= na_2 - 1   :
-                       if( azimuth_1[i1] == azimuth_2[i2] ) and ( elev_1[i1] == elev_2[i2] ) :
-                           #We have a match.
-                           tmp_data[i1,:] = radar_2.fields[ my_key ]['data'][i2,:]
-                           i2 = i2 + 1
-                    if i2 <= na_2 - 1   :
-                       if( azimuth_1[i1] < azimuth_2[i2] ) and ( elev_1[i1] <= elev_2[i2] )  :
-                           i2 = i2 + 1
-                    if i2 <= na_2 - 1   :
-                       if( elev_1[i1] < elev_2[i2]  )                                        :
-                           i2 = i2 + 1
+
+                     my_ind=np.nonzero( np.logical_and( azimuth_2 == azimuth_1[i1] , elev_2 == elev_1[i1] ) )
+                     if np.size( my_ind ) == 1 :
+                        tmp_data[i1,:] = radar_2.fields[ my_key ]['data'][my_ind,:]
                 radar_1.fields[my_key] = dict()
                 radar_1.fields[my_key] = radar_2.fields[my_key] 
                 radar_1.fields[my_key]['data'] = np.ma.masked_array( tmp_data , tmp_data == undef )
