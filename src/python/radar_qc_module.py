@@ -177,7 +177,7 @@ def check_valid_data( radar , options )   :
     for my_key in radar.fields    :
        if my_key == options['name_ref']   :
 
-          if np.sum( radar.fields[ my_key ]['data'].data != radar.fields[ my_key ]['_FillValue'] ) > 480   :
+          if np.sum( radar.fields[ my_key ]['data'].data != radar.fields[ my_key ]['_FillValue'] ) > 0.005*np.size( radar.fields[ my_key ]['data'].data )   :
              
              radar.fields[ my_key ]['data'].data[ np.isinf( radar.fields[ my_key ]['data'].data )  ] = options['norainrefval']
              radar.fields[ my_key ]['data'].data[ np.isnan( radar.fields[ my_key ]['data'].data )  ] = options['norainrefval']

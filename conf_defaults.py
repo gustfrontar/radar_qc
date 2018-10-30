@@ -98,7 +98,7 @@ options[filter_name]['ny']=3
 options[filter_name]['nz']=0
 options[filter_name]['code']=43
 options[filter_name]['sequential']=True                    #Wheter this filter will affect the following filters.
-options[filter_name]['order'] = [110]
+options[filter_name]['order'] = [100]
 options[filter_name]['var_update_list']=['v']              #Which variables will be filtered.
 
 #DopplerRefFilter  =============================================================
@@ -116,7 +116,7 @@ options[filter_name]['ify']=np.array([0,1])                 #Importance function
 options[filter_name]['ifx']=np.array([0,1])                 #Importance function x
 options[filter_name]['code']=44
 options[filter_name]['sequential']=True                    #Wheter this filter will affect the following filters.
-options[filter_name]['order'] = [100]
+options[filter_name]['order'] = [110]
 options[filter_name]['var_update_list']=['v']              #Which variables will be filtered.
 options[filter_name]['force']=True                          #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                     #Threshold for force
