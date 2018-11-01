@@ -462,7 +462,7 @@ options[filter_name]['fill_value']='undef'                  #Possible values, un
 #Doppler Spatial Coherence Filter ==============================================================
 filter_name='DopplerSpatialCoherenceFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=True                          #Enable / Disable filter
+options[filter_name]['flag']=False                          #Enable / Disable filter
 options[filter_name]['nx']=2                                #NX
 options[filter_name]['ny']=2                                #NY
 options[filter_name]['nz']=0                                #NZ
@@ -495,7 +495,7 @@ options[filter_name]['fill_value']='undef'                  #Possible values, un
 #Doppler Noise filter SECOND PASS      ==============================================================
 filter_name='DopplerNoiseFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=False                          #Enable / Disable filter
+options[filter_name]['flag']=True                          #Enable / Disable filter
 options[filter_name]['nx']=[1,10]                           #NX
 options[filter_name]['ny']=[1,10]                           #NY
 options[filter_name]['nz']=[0,0]                            #NZ

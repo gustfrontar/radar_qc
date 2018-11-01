@@ -802,25 +802,30 @@ def DopplerRefFilter( radar , output , options)  :
 
    filter_name='DopplerRefFilter'
 
-   if  ( options['name_ref'] in radar.fields ) and  ( options['name_v'] in radar.fields ) :
+   if   options['name_v'] in radar.fields   :
 
-     na=output['na']
-     nr=output['nr']
-     ne=output['ne']
-     nx=options[filter_name]['nx']
-     ny=options[filter_name]['ny']
-     nz=options[filter_name]['nz']
+     if options['name_ref'] in radar.fields   :
 
-     output['smooth_ref']=qc.box_functions_2d(datain=output['ref'],na=na,nr=nr,ne=ne,undef=output['undef_ref']
-                                               ,boxx=nx,boxy=ny,boxz=nz,operation='MEAN',threshold=0.0)
+        na=output['na']
+        nr=output['nr']
+        ne=output['ne']
+        nx=options[filter_name]['nx']
+        ny=options[filter_name]['ny']
+        nz=options[filter_name]['nz']
 
-     tmp_index=np.zeros([na,nr,ne])
+        output['smooth_ref']=qc.box_functions_2d(datain=output['ref'],na=na,nr=nr,ne=ne,undef=output['undef_ref']
+                                                  ,boxx=nx,boxy=ny,boxz=nz,operation='MEAN',threshold=0.0)
 
-     if options[filter_name]['filter_undef']  :
-        tmp_index[ output['smooth_ref'] == output['undef_ref']  ] = 1.0
+        tmp_index=np.zeros([na,nr,ne])
 
-     
-     tmp_index[ np.logical_and( output['smooth_ref'] <= options[filter_name]['threshold'] , output['smooth_ref'] != output['undef_ref'] )] = 1.0
+        if options[filter_name]['filter_undef']  :
+           tmp_index[ output['smooth_ref'] == output['undef_ref']  ] = 1.0
+
+        tmp_index[ np.logical_and( output['smooth_ref'] <= options[filter_name]['threshold'] , output['smooth_ref'] != output['undef_ref'] )] = 1.0
+
+     else                                      :
+
+        tmp_index=np.ones([na,nr,ne])
      
      output = output_update( output , tmp_index , options , filter_name )
 
