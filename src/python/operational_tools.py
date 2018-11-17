@@ -225,7 +225,16 @@ def get_strat ( filename , radar )  :
        if '0300_01' in filename  :  #300-1 STRATEGY
           nyquist_velocity     = 4.42
        if '0300_02' in filename  :  #300-2 STRATEGY
+          nyquist_velocity     = 16.56
+
+       if '0301_01' in filename  :  #300-1 STRATEGY
+
+       #TODO: Esta estrategia tiene una velocidad nyquist que varia con el angulo de elevacion.
+       #Para tratar correctamente estos datos tenemos que tener eso en cuenta.
+          nyquist_velocity     = 4.42
+       if '0301_02' in filename  :  #300-2 STRATEGY
           nyquist_velocity     = 13.25
+
 
        if '0201_01' in filename  :  #201-1 STRATEGY
           nyquist_velocity     = 4.42
@@ -238,6 +247,7 @@ def get_strat ( filename , radar )  :
           nyquist_velocity     = 4.42
        if '0202_02' in filename  :  #200-2 STRATEGY
           nyquist_velocity     = 13.25
+       
 
 
     if ( 'PAR' in filename ) or ( 'ANG' in filename ) or ( 'PER' in filename )  :
@@ -559,7 +569,7 @@ def merge_radar_object( radar_1 , radar_2 )    :
       if ( na_1 == na_2 ) and ( diff_a == 0.0 )   :
          for my_key in radar_2.fields    :
             if not my_key in radar_1.fields   :
-               radar_1.fields[my_key] = radar_2.fields.pop(my_key)
+               radar_1.fields[my_key] = radar_2.fields[my_key]
                merged = True
 
       if ( na_1 != na_2 ) or ( diff_a != 0.0 )  :

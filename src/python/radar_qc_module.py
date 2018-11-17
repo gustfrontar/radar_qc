@@ -802,13 +802,14 @@ def DopplerRefFilter( radar , output , options)  :
 
    filter_name='DopplerRefFilter'
 
+   na=output['na']
+   nr=output['nr']
+   ne=output['ne']
+
    if   options['name_v'] in radar.fields   :
 
      if options['name_ref'] in radar.fields   :
 
-        na=output['na']
-        nr=output['nr']
-        ne=output['ne']
         nx=options[filter_name]['nx']
         ny=options[filter_name]['ny']
         nz=options[filter_name]['nz']
