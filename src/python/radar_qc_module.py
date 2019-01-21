@@ -171,10 +171,23 @@ def check_valid_data( radar , options )   :
        radar.fields[my_key]['data'] = ( radar.fields[my_key]['data'] ).astype( default_type )
 
     #=========================
+    # Check if variables are stored as masked arrays 
+    # If not then convert them to masked arrays.
+    #=========================
+
+    for my_key in radar.fields    :
+
+       if not np.ma.is_masked( radar.fields[ my_key ]['data'] ) :
+
+          radar.fields[ my_key ]['data'] = np.ma.masked_array( radar.fields[ my_key ]['data'] , mask = radar.fields[ my_key ]['data'] == ['_FillValue'] )
+
+
+    #=========================
     # Check Nan and Inf
     #=========================
 
     for my_key in radar.fields    :
+       print( my_key  )
        if my_key == options['name_ref']   :
 
           if np.sum( radar.fields[ my_key ]['data'].data != radar.fields[ my_key ]['_FillValue'] ) > 0.005*np.size( radar.fields[ my_key ]['data'].data )   :
@@ -185,8 +198,6 @@ def check_valid_data( radar , options )   :
              radar.fields[ my_key ]['data'].data[ radar.fields[ my_key ]['data'].data == radar.fields[ my_key ]['_FillValue']  ] = options['norainrefval']
              radar.fields[ my_key ]['data'].mask= radar.fields[ my_key ]['data'].data == radar.fields[ my_key ]['_FillValue']
 
-          
-          
        else                               :
           radar.fields[ my_key ]['data'].data[ np.isinf( radar.fields[ my_key ]['data'].data )  ] = radar.fields[ my_key ]['_FillValue']
           radar.fields[ my_key ]['data'].data[ np.isnan( radar.fields[ my_key ]['data'].data )  ] = radar.fields[ my_key ]['_FillValue']

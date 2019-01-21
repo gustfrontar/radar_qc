@@ -1,4 +1,4 @@
-#!/home/qcradar/.conda/envs/da/bin/python
+##!/home/qcradar/.conda/envs/da/bin/python
 import datetime as dt                #Datetime operations
 import numpy as np                   #Numpy
 import os
@@ -8,7 +8,7 @@ import os
 #=========================================================================================================
 
 #General section
-qc_path = "/home/jruiz/share/"
+qc_path = "/home/jruiz/Dropbox/DATA/"
 
 datapath = '/ms-36/mrugna/RMA/datos/'  #Main data path.
 datapath_out = './'    #Out data path
@@ -102,7 +102,7 @@ print('')
 #Obtenemos la lista de archivos.
 file_list = ot.get_file_list( datapath , c_ini_date , c_end_date , time_search_type='filename' , file_type_list = file_type_list )
 
-file_list = ['./cfrad.20181008_181228.RMA2.nc']
+file_list = ['../TMP_DATOS_RADAR/cfrad.20181110_192431.0000_to_20181110_192555.0000_RMA1_0301_02.nc']
 #file_list = ['/ms-36/mrugna/RMA/datos/RMA2/2018/10/09/01/0028/RMA2_0200_01_TH_20181009T010028Z.H5']
 
 print(file_list)
