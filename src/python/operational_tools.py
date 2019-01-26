@@ -374,7 +374,7 @@ def get_strat ( filename , radar )  :
     return radar
 
 
-def get_file_list( datapath , init_time , end_time , time_search_type = None , file_type_list = None )     :
+def get_file_list( datapath , init_time , end_time , time_search_type = None , file_type_list = None , instrument_type_list = None )     :
 
    #datapath : base path of radar data
    #init time: [yyyymmddhhMMss] beginning of the time window
@@ -389,6 +389,7 @@ def get_file_list( datapath , init_time , end_time , time_search_type = None , f
    if time_search_type == None :
       time_search_type = 'timestamp'
 
+   
    date_min = dt.datetime.strptime( init_time , '%Y%m%d%H%M%S')
    date_max = dt.datetime.strptime( end_time  , '%Y%m%d%H%M%S')
 
@@ -409,7 +410,7 @@ def get_file_list( datapath , init_time , end_time , time_search_type = None , f
    
    #Keep only some file names and some paths.
 
-   final_file_list = []
+   tmp_file_list = []
 
    if file_type_list != None :
 
@@ -419,13 +420,28 @@ def get_file_list( datapath , init_time , end_time , time_search_type = None , f
 
          if any(ft in filename for ft in file_type_list ):
  
-            final_file_list.append( my_file )
+            tmp_file_list.append( my_file )
 
-   else                      :
+      file_list = tmp_file_list[:]
 
-      final_file_list  = file_list 
+   tmp_file_list = []
 
-   return final_file_list
+   if instrument_type_list != None :
+      
+      for my_file in file_list :
+
+         instrument_type = get_instrument_type_from_filename( my_file )
+
+         for it in instrument_type_list :
+             if it == instrument_type  : 
+                tmp_file_list.append( my_file ) 
+
+      file_list = tmp_file_list[:]
+
+
+   
+
+   return file_list
 
 
 

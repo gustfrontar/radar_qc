@@ -1562,10 +1562,18 @@ def order_variable ( radar , var_name , undef )  :
 
    #From azimuth , range -> azimuth , range , elevation 
 
-   ray_angle_res = np.unique( radar.ray_angle_res['data'] )
+   if radar.ray_angle_res != None   :
+      print( radar.ray_agnle_res , radar.ray_angle_res == None )
+      ray_angle_res = np.unique( radar.ray_angle_res['data'] )
+   else                             :
+      print('Warning: ray_angle_res no esta definido, estimo la resolucion en radio como la diferencia entre los primeros angulos')
+      ray_angle_res = np.min( np.abs( radar.azimuth['data'][1:] - radar.azimuth['data'][0:-1] ) )
+      print('La resolucion en rango estimada es: ',ray_angle_res)
+
+
    if( np.size( ray_angle_res ) >= 2 )  :
       print('Warning: La resolucion en azimuth no es uniforme en los diferentes angulos de elevacion ')
-      print('Warning: El codigo no esta preparado para considerar este caso y puede producir efectos indesaedos ')
+      print('Warning: El codigo no esta preparado para considerar este caso y puede producir efectos indeseados ')
    ray_angle_res=np.nanmean( ray_angle_res )
 
    levels=np.sort( np.unique(radar.elevation['data']) )
@@ -1645,7 +1653,14 @@ def order_variable_inv (  radar , var , undef )  :
 
    levels=np.sort( np.unique(radar.elevation['data']) )
 
-   ray_angle_res = np.unique( radar.ray_angle_res['data'] )
+   if radar.ray_angle_res != None   :
+      print( radar.ray_agnle_res , radar.ray_angle_res == None )
+      ray_angle_res = np.unique( radar.ray_angle_res['data'] )
+   else                             :
+      print('Warning: ray_angle_res no esta definido, estimo la resolucion en radio como la diferencia entre los primeros angulos')
+      ray_angle_res = np.min( np.abs( radar.azimuth['data'][1:] - radar.azimuth['data'][0:-1] ) )
+      print('La resolucion en rango estimada es: ',ray_angle_res)
+
    if( np.size( ray_angle_res ) >= 2 )  :
       print('Warning: La resolucion en azimuth no es uniforme en los diferentes angulos de elevacion ')
       print('Warning: El codigo no esta preparado para considerar este caso y puede producir efectos indesaedos ')
