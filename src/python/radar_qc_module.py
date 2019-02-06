@@ -1563,7 +1563,7 @@ def order_variable ( radar , var_name , undef )  :
    #From azimuth , range -> azimuth , range , elevation 
 
    if radar.ray_angle_res != None   :
-      print( radar.ray_agnle_res , radar.ray_angle_res == None )
+      #print( radar.ray_angle_res , radar.ray_angle_res == None )
       ray_angle_res = np.unique( radar.ray_angle_res['data'] )
    else                             :
       print('Warning: ray_angle_res no esta definido, estimo la resolucion en radio como la diferencia entre los primeros angulos')
@@ -1654,7 +1654,7 @@ def order_variable_inv (  radar , var , undef )  :
    levels=np.sort( np.unique(radar.elevation['data']) )
 
    if radar.ray_angle_res != None   :
-      print( radar.ray_agnle_res , radar.ray_angle_res == None )
+      #print( radar.ray_angle_res , radar.ray_angle_res == None )
       ray_angle_res = np.unique( radar.ray_angle_res['data'] )
    else                             :
       print('Warning: ray_angle_res no esta definido, estimo la resolucion en radio como la diferencia entre los primeros angulos')
