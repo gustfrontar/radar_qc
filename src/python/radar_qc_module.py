@@ -1773,6 +1773,10 @@ def dopplerspatialcoherence_filter( v , undef , my_conf ) :
 
                  coherence_index[i,:,k] = coherence_index[i,:,k] + 3.0
 
+   #import matplotlib.pyplot
+   #plt.pcolor( coherence_index[:,:,2] )
+   #plt.colorbar()
+
    if my_conf['compute_vertical_coherence']   :
    #CONSIDER THE COHERENCE WITH THE NEIGHBOR BEAMS IN VERTICAL DIRECTION
 
