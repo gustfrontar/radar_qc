@@ -132,24 +132,31 @@ def read_file( filename , format_file )    :
 def rename_fields ( radar )  :
 
   #Unify different names for different variables depending on the data source.
+  #If the intended name is already present, then we will use this variable 
+  #and ignore any other variable that may contain a similar field.
 
-  if 'TH' in radar.fields    :
-     radar.fields['ZH'] = radar.fields.pop('TH')
+  if not 'ZH' in radar.fields  :
 
-  if 'DBZH' in radar.fields  :
-     radar.fields['ZH'] = radar.fields.pop('DBZH')
+     if 'TH' in radar.fields    :
+        radar.fields['ZH'] = radar.fields.pop('TH')
 
-  if 'V' in radar.fields     :
-     radar.fields['VRAD'] = radar.fields.pop('V')
+     if 'DBZH' in radar.fields  :
+        radar.fields['ZH'] = radar.fields.pop('DBZH')
 
-  if 'dBZ' in radar.fields    :
-     radar.fields['ZH'] = radar.fields.pop('dBZ')
+  if not 'VRAD' in radar.fields  :
+     if 'V' in radar.fields     :
+        radar.fields['VRAD'] = radar.fields.pop('V')
 
-  if 'W' in radar.fields     :
-     radar.fields['WRAD'] = radar.fields.pop('W')
+     if 'dBZ' in radar.fields    :
+        radar.fields['ZH'] = radar.fields.pop('dBZ')
 
-  if 'RhoHV' in radar.fields :
-     radar.fields['RHOHV'] = radar.fields.pop('RhoHV') 
+  if not 'WRAD' in radar.fields  :
+     if 'W' in radar.fields     :
+        radar.fields['WRAD'] = radar.fields.pop('W')
+
+  if not 'RHOHV' in radar.fields  :
+     if 'RhoHV' in radar.fields :
+        radar.fields['RHOHV'] = radar.fields.pop('RhoHV') 
 
   return radar   
 
@@ -719,7 +726,7 @@ def save_cfradial( local_path , radar , fileformat='NETCDF4' )  :
 
     print('Writing file : ',filename)
 
-    pyart.io.cfradial.write_cfradial(filename , radar, format=fileformat, time_reference=None, arm_time_variables=False)
+    pyart.io.cfradial.write_cfradial(filename , radar, format=fileformat  ) #,  arm_time_variables=False)
 
   
 

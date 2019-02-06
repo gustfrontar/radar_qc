@@ -360,12 +360,20 @@ DO kk=1,ne
         ENDIF
 
       ELSEIF( OPERATION == 'MAXN')THEN
-        !Local maximum tacking care of undef values.
-        dataout(ii,jj,kk)=maxval( tmp_field(1:NITEMS) )
+        IF( NITEMS > 0 )THEN
+           !Local maximum tacking care of undef values.
+           dataout(ii,jj,kk)=maxval( tmp_field(1:NITEMS) )
+        ELSE
+           dataout(ii,jj,kk)=UNDEF
+        ENDIF 
 
       ELSEIF( OPERATION == 'MINN')THEN
-        !Local maximum tacking care of undef values.
-        dataout(ii,jj,kk)=minval( tmp_field(1:NITEMS) )
+        IF( NITEMS > 0 )THEN
+          !Local maximum tacking care of undef values.
+          dataout(ii,jj,kk)=minval( tmp_field(1:NITEMS) )
+        ELSE
+          dataout(ii,jj,kk)=UNDEF
+        ENDIF
 
       ENDIF
 
@@ -566,7 +574,7 @@ ref=reflectivity   !reflectivity is intent in.
 base_detected=.false.
 top_detected=.false.
 
-!Before computation extend data one or to levels below the first echo. This is done to prevent the first level to fall outside the computation
+!Before computation extend data one or two levels below the first echo. This is done to prevent the first level to fall outside the computation
 !of these scores.
 DO iz=1,nz
    IF( z(iz) > 3000 )EXIT
@@ -620,7 +628,7 @@ ENDDO !End for loop over levels
 
 DO itop=1,max_levs
    IF( tmp(itop,1) .NE. UNDEF  .AND.  tmp(itop,2) .NE. UNDEF )THEN  !Echo top and echo base
-       DO iz=1,nz-1
+       DO iz=1,nz !Juan - 1
           IF( z(iz) >= tmp(itop,2) .AND. z(iz) <= tmp(itop,1))THEN
                echo_top_3d(iz)=tmp(itop,1)
           ENDIF

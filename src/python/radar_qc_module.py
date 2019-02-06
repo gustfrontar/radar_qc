@@ -427,25 +427,31 @@ def  update_radar_object( radar , output , options )   :
 
    import numpy as np
 
-   if options['name_ref'] in radar.fields :
+   if options['keep_original_fields']   : 
+      #We will add variables to the file corresponding to the corrected REF and VRAD.
 
-      tmp=order_variable_inv( radar , output['cref'] , output['undef_ref'] )
-      radar.add_field_like( options['name_ref'] , options['name_cref'] , radar.fields[ options['name_ref'] ]['data'] , True)
-      radar.fields[ options['name_cref'] ]['data']=np.ma.masked_array(tmp , mask = ( tmp==output['undef_ref'] ) )
+      if options['name_ref'] in radar.fields :
 
-      #print( np.min( radar.fields[options['name_cref']]['data'] ) ) 
+         tmp=order_variable_inv( radar , output['cref'] , output['undef_ref'] )
+         radar.add_field_like( options['name_ref'] , options['name_cref'] , radar.fields[ options['name_ref'] ]['data'] , True)
+         radar.fields[ options['name_cref'] ]['data']=np.ma.masked_array(tmp , mask = ( tmp==output['undef_ref'] ) )
 
-   if options['name_v'] in radar.fields :
+         #print( np.min( radar.fields[options['name_cref']]['data'] ) ) 
 
-      tmp=order_variable_inv( radar , output['cv'] , output['undef_v'] )
-      radar.add_field_like( options['name_v'] , options['name_cv'] , radar.fields[ options['name_v'] ]['data'] , True)
-      radar.fields[ options['name_cv'] ]['data']=np.ma.masked_array(tmp , mask = ( tmp==output['undef_v'] ) )
+      if options['name_v'] in radar.fields :
 
-   if not options['keep_original_fields']  :
+         tmp=order_variable_inv( radar , output['cv'] , output['undef_v'] )
+         radar.add_field_like( options['name_v'] , options['name_cv'] , radar.fields[ options['name_v'] ]['data'] , True)
+         radar.fields[ options['name_cv'] ]['data']=np.ma.masked_array(tmp , mask = ( tmp==output['undef_v'] ) )
 
-      radar.fields.pop( options['name_v']   , None )
-      radar.fields.pop( options['name_ref'] , None )
-      radar.fields.pop( options['name_rho'] , None )
+   else                                 :
+      #We will overwrite the original variable names in the radar structure.
+      if options['name_ref'] in radar.fields   : 
+         tmp=order_variable_inv( radar , output['cref'] , output['undef_ref'] )
+         radar.fields[ options['name_ref'] ]['data']=np.ma.masked_array(tmp , mask = ( tmp==output['undef_ref'] ) )
+      if options['name_v'] in radar.fields     :
+         tmp=order_variable_inv( radar , output['cv'] , output['undef_v'] )
+         radar.fields[ options['name_v'] ]['data']=np.ma.masked_array(tmp , mask = ( tmp==output['undef_v'] ) )
 
    return radar , output 
 
@@ -925,7 +931,7 @@ def EchoTopFilter( radar , output , options )   :
                                                 ,undef=output['undef_ref'],nx=nx,ny=ny,nz=nz)
          tmp_index=tmp_data_3d[:,:,:,0]
 
-      tmp_index = tmp_index - output['topo']  #Compute the echo top height over the terrain.
+      tmp_index[ tmp_index != output['undef_ref'] ] = tmp_index[ tmp_index != output['undef_ref'] ] - output['topo'][ tmp_index != output['undef_ref'] ]  #Compute the echo top height over the terrain.
         
       computed_etfilter = True  #In case we need any of the other variables computed in this routine.
 

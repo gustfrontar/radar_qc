@@ -24,7 +24,8 @@ options['filename'] = ''          #The name of the input netcdf file
 options['output_to_file'] = False #Wether the output will be written to a netcdf file.
 options['filename_out'] = ''      #The name of the netcdf file where output will be written.
 options['file_out_format']='NETCDF4'
-options['keep_original_fields']=True
+options['keep_original_fields']=False  #If true additional fields will be added to the netcdf file.
+                                       #If false, corrected reflectivity and winds will be stored with the original names
 #Topography database paths
 options['toporawdatapath']=""
 options['toporadardatapath']=""
@@ -89,7 +90,7 @@ options['w_tr']=0.5                  #When total normalized weight is greather t
 filter_name='Dealiasing'
 
 options[filter_name]=dict()
-options[filter_name]['flag']=True
+options[filter_name]['flag']=False
 options[filter_name]['interval_split']=3
 options[filter_name]['skip_between_ray']=30
 options[filter_name]['skip_along_ray']=200
@@ -467,7 +468,7 @@ options[filter_name]['nx']=2                                #NX
 options[filter_name]['ny']=2                                #NY
 options[filter_name]['nz']=0                                #NZ
 options[filter_name]['threshold_undef']=0.1                 #Minimum percentage of valid points required
-options[filter_name]['threshold_corr'] =0.6                 #Minimum correlation required to keep a ray.
+options[filter_name]['threshold_corr'] =0.1                 #Minimum correlation required to keep a ray.
 options[filter_name]['threshold_coherence_index']=1         #Threshold to decied which pixels will be removed.
 options[filter_name]['compute_horizontal_coherence']=True   #Flag to consider coherence in azimuth.
 options[filter_name]['compute_vertical_coherence']=False    #Flag to consider coherence in elevation
@@ -478,7 +479,7 @@ options[filter_name]['elevationfilter']=False               #Apply issolated dat
 options[filter_name]['enable_speckle']=True                 #Wether speckle filter will be applied to the remaining data.
 options[filter_name]['speckle_threshold']=0.3               #Threshold to discard pixels based on speckle index.
 options[filter_name]['consistency_metric']='constant'       #Possible values are 'Ransac' or 'Constant'
-options[filter_name]['constant_consistency_threshold']=3.5  #Consecutive values which are farther than this threshold will be flagged.
+options[filter_name]['constant_consistency_threshold']=6.0  #Consecutive values which are farther than this threshold will be flagged.
 options[filter_name]['ify']=np.array([0,0.9,20])            #Importance function y
 options[filter_name]['ifx']=np.array([0,1,1])               #Importance function x
 options[filter_name]['save']=False                          #Save filter aux fields to output?
@@ -492,7 +493,7 @@ options[filter_name]['var_update_list']=['v']               #Which variables wil
 options[filter_name]['sequential']=True                     #Wheter this filter will affect the following filters.
 options[filter_name]['fill_value']='undef'                  #Possible values, undef, min_ref or fill value
 
-#Doppler Noise filter SECOND PASS      ==============================================================
+#Doppler Noise filter      ==============================================================
 filter_name='DopplerNoiseFilter'
 options[filter_name]=dict()
 options[filter_name]['flag']=False                          #Enable / Disable filter

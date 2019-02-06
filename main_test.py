@@ -129,26 +129,54 @@ for radar in radar_list :
       print(' QC')
       print('=============================================================================')
       print('')
- 
-      #Call QC routine
-      radar_old = np.copy( radar ) 
+
+      undef=radar.fields['ZH']['_FillValue']
+
+      [current_ref_old,_,_,_,_] = rqc.order_variable( radar , 'ZH' , undef )
+      [current_dv_old,_,_,_,_]  = rqc.order_variable( radar , 'VRAD' , undef )
 
       [ radar , qc_output ] = rqc.main_qc( options , radar )
 
-      #Save data in cfradial format
+      [current_ref,_,_,_,_]    = rqc.order_variable( radar , 'ZH' , undef )
+      [current_dv,_,_,_,_]     = rqc.order_variable( radar , 'VRAD' , undef )
 
+      #Overwrite data clev in options['plot']['Elevs']  :
+      PlotData = True
       import matplotlib.pyplot as plt
+      if PlotData :
 
-      plt.figure()
- 
-      plt.subplot(1,2,1)
-      plt.pcolor( qc_output['cref'][:,:,0] )
-      plt.colorbar()
+         for ilev in range( 2 , 3 ) :
+             plt.figure(figsize=(10, 5))
+             plt.subplot(1,2,1)
 
-      plt.subplot(1,2,2)
-      plt.pcolor( qc_output['ref'][:,:,0] )
-      plt.colorbar()
-      plt.show()
+             plt.pcolor(current_ref_old[:,:,ilev],vmin=-10,vmax=70,cmap='pyart_NWSRef')
+             plt.title('Original Reflectivity')
+             plt.colorbar()
+
+             plt.subplot(1,2,2)
+             plt.pcolor(current_ref[:,:,ilev],vmin=-10,vmax=70,cmap='pyart_NWSRef')
+             plt.title('Corrected Reflectivity')
+             plt.colorbar()
+
+
+             plt.figure(figsize=(10, 5))
+             plt.subplot(1,2,1)
+
+             plt.pcolor(current_dv_old[:,:,ilev],vmin=-30,vmax=30,cmap='pyart_NWSVel')
+             plt.title('Original Doppler')
+             plt.colorbar()
+
+             plt.subplot(1,2,2)
+             plt.pcolor(current_dv[:,:,ilev],vmin=-30,vmax=30,cmap='pyart_NWSVel')
+             plt.title('Corrected Doppler')
+             plt.colorbar()
+
+
+             plt.show()
+
+
+
+      #Save data in cfradial format
       ot.save_cfradial( datapath_out + '/cfradial/' , radar )
 
 
