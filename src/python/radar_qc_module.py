@@ -1115,6 +1115,8 @@ def RefSpeckleFilter( radar , output , options )    :
 
       tmp_index[ tmp_index == output['undef_ref'] ] = options['undef']
 
+      tmp_index[ output['ref'] == options['norainrefval'] ] = options['undef']
+
       output = output_update( output , tmp_index , options , filter_name )
 
    return radar , output 

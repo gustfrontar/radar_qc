@@ -105,8 +105,8 @@ print('')
 #Obtenemos la lista de archivos.
 file_list = ot.get_file_list( datapath , c_ini_date , c_end_date , time_search_type='filename' , file_type_list = file_type_list )
 
-file_list = ['./cfrad.20181110_210453.0000_to_20181110_211134.0000_RMA1_0301_01.nc']
-#file_list = ['./cfrad.20181110_211145.0000_to_20181110_211308.0000_RMA1_0301_02.nc']
+#file_list = ['./cfrad.20181110_210453.0000_to_20181110_211134.0000_RMA1_0301_01.nc']
+file_list = ['./cfrad.20181110_211145.0000_to_20181110_211308.0000_RMA1_0301_02.nc']
 #file_list = ['/home/qcradar/data/cfradial/cfrad.20181028_032427.ANG.nc']
 #file_list = ['/home/qcradar/data/cfradial/cfrad.20181027_184006.PAR.nc']
 
