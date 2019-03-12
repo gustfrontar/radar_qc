@@ -938,7 +938,9 @@ def EchoTopFilter( radar , output , options )   :
       #JUAN: Comente esta linea para poder filtrar tambien los ecos de terreno cerca del radar.
       #tmp_index[ tmp_max_z < options[filter_name]['heigthtr'] ] = output['undef_ref']  #Do not consider this filter when the volume maximum heigth is below
                                                                   #the specified threshold (i.e. pixels close to the radar)
-
+      #If the pixel is already a "norain" pixel then leave it as it is.                           
+      tmp_index[ output['ref'] == options['norainrefval'] ] = options['undef']
+      #If the pixel is already undef then leave it as it is.
       tmp_index[ tmp_index == output['undef_ref'] ] = options['undef']
 
       output = output_update( output , tmp_index , options , filter_name ) 
@@ -1058,8 +1060,21 @@ def RhoFilter( radar , output , options )  :
       #Compute the filter parameter
       tmp_index=qc.box_functions_2d(datain=rhohv,na=na,nr=nr,ne=ne,undef=output['undef_rho']
                                               ,boxx=nx,boxy=ny,boxz=nz,operation='MEAN',threshold=0.0)
+      #Compute smoothed reflectivity (areas with large reflectivity wont be affected by the filter)
+      smooth_ref=qc.box_functions_2d(datain=output['ref'],na=na,nr=nr,ne=ne,undef=output['undef_ref']
+                                              ,boxx=nx,boxy=ny,boxz=nz,operation='MEAN',threshold=0.0)
 
       tmp_index[ tmp_index == output['undef_rho'] ] = options['undef']
+
+      tmp_mask = np.logical_or( smooth_ref > options[filter_name]['ref_threshold'] , output['cref'] == options['norainrefval'] )
+
+      tmp_index[tmp_mask] = options['undef']
+
+      #import matplotlib.pyplot as plt
+      #tmp_index[tmp_index==options['undef']]=np.nan
+      #plt.pcolor( tmp_index[:,:,0] )
+      #plt.colorbar()
+      #plt.show()
 
       output = output_update( output , tmp_index , options , filter_name ) 
 
@@ -1157,12 +1172,16 @@ def AttenuationFilter( radar , output , options )   :
 
       beaml=radar.range['data'][1]-radar.range['data'][0] #Get beam length
 
-      tmp_index=qc.get_attenuation( var=output['cref'],na=na,nr=nr,ne=ne,undef=output['undef_ref']
+      [tmp_index,corrected_ref]=qc.get_attenuation( var=output['cref'],na=na,nr=nr,ne=ne,undef=output['undef_ref']
                                                 ,beaml=beaml,cal_error=options[filter_name]['attcalerror']
                                                 ,is_power=options[filter_name]['is_power']
-                                                ,coefs=options[filter_name]['att_coefs'] )
+                                                ,coefs=options[filter_name]['att_coefs'],mindbz=options['norainrefval'] )
 
       tmp_index[ tmp_index == output['undef_ref'] ] = options['undef']
+
+      if options[filter_name]['attenuation_correction'] & ( options['name_ref'] in radar.fields )  :
+
+          output['cref'] = corrected_ref 
 
       output = output_update( output , tmp_index , options , filter_name )
 

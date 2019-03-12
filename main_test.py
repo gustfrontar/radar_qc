@@ -8,7 +8,7 @@ import os
 #=========================================================================================================
 
 #General section
-qc_path = "/home/jruiz/Dropbox/DATA/"
+qc_path = "/home/jruiz/share/"
 
 datapath = '/ms-36/mrugna/RMA/datos/'  #Main data path.
 datapath_out = '/home/jruiz/Dropbox/DATA/TMP_DATOS_RADAR/'    #Out data path
@@ -105,7 +105,8 @@ print('')
 #Obtenemos la lista de archivos.
 file_list = ot.get_file_list( datapath , c_ini_date , c_end_date , time_search_type='filename' , file_type_list = file_type_list )
 
-file_list = ['../TMP_DATOS_RADAR/original/cfrad.20181110_192431.0000_to_20181110_192555.0000_RMA1_0301_02.nc']
+file_list = ['./cfrad.20181110_210453.0000_to_20181110_211134.0000_RMA1_0301_01.nc']
+#file_list = ['./cfrad.20181110_211145.0000_to_20181110_211308.0000_RMA1_0301_02.nc']
 #file_list = ['/home/qcradar/data/cfradial/cfrad.20181028_032427.ANG.nc']
 #file_list = ['/home/qcradar/data/cfradial/cfrad.20181027_184006.PAR.nc']
 
@@ -137,7 +138,7 @@ for radar in radar_list :
 
       [ radar , qc_output ] = rqc.main_qc( options , radar )
 
-      [current_ref,_,_,_,_]    = rqc.order_variable( radar , 'ZH' , undef )
+      [current_ref,_,_,_,_]    = rqc.order_variable( radar , 'CZH' , undef )
       [current_dv,_,_,_,_]     = rqc.order_variable( radar , 'VRAD' , undef )
 
       #Overwrite data clev in options['plot']['Elevs']  :
@@ -145,31 +146,33 @@ for radar in radar_list :
       import matplotlib.pyplot as plt
       if PlotData :
 
-         for ilev in range( 2 , 3 ) :
+         for ilev in range( current_ref_old.shape[2] ) :
              plt.figure(figsize=(10, 5))
              plt.subplot(1,2,1)
 
+             #plt.pcolor(current_ref_old[110:170,130:300,ilev],vmin=-10,vmax=70,cmap='pyart_NWSRef')
              plt.pcolor(current_ref_old[:,:,ilev],vmin=-10,vmax=70,cmap='pyart_NWSRef')
              plt.title('Original Reflectivity')
              plt.colorbar()
 
              plt.subplot(1,2,2)
+             #plt.pcolor(current_ref[110:170,130:300,ilev],vmin=-10,vmax=70,cmap='pyart_NWSRef')
              plt.pcolor(current_ref[:,:,ilev],vmin=-10,vmax=70,cmap='pyart_NWSRef')
              plt.title('Corrected Reflectivity')
              plt.colorbar()
 
 
-             plt.figure(figsize=(10, 5))
-             plt.subplot(1,2,1)
+             #plt.figure(figsize=(10, 5))
+             #plt.subplot(1,2,1)
 
-             plt.pcolor(current_dv_old[:,:,ilev],vmin=-30,vmax=30,cmap='pyart_NWSVel')
-             plt.title('Original Doppler')
-             plt.colorbar()
+             #plt.pcolor(current_dv_old[:,:,ilev],vmin=-30,vmax=30,cmap='pyart_NWSVel')
+             #plt.title('Original Doppler')
+             #plt.colorbar()
 
-             plt.subplot(1,2,2)
-             plt.pcolor(current_dv[:,:,ilev],vmin=-30,vmax=30,cmap='pyart_NWSVel')
-             plt.title('Corrected Doppler')
-             plt.colorbar()
+             #plt.subplot(1,2,2)
+             #plt.pcolor(current_dv[:,:,ilev],vmin=-30,vmax=30,cmap='pyart_NWSVel')
+             #plt.title('Corrected Doppler')
+             #plt.colorbar()
 
 
              plt.show()
@@ -177,7 +180,7 @@ for radar in radar_list :
 
 
       #Save data in cfradial format
-      ot.save_cfradial( datapath_out + '/cfradial/' , radar )
+      #ot.save_cfradial( datapath_out + '/cfradial/' , radar )
 
 
 

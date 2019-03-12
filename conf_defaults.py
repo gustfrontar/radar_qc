@@ -1,4 +1,4 @@
-# Author: Rapid Refresh Argentina Team
+
 # License: BSD 3 clause
 
 # History:  Created 10-2017
@@ -24,7 +24,7 @@ options['filename'] = ''          #The name of the input netcdf file
 options['output_to_file'] = False #Wether the output will be written to a netcdf file.
 options['filename_out'] = ''      #The name of the netcdf file where output will be written.
 options['file_out_format']='NETCDF4'
-options['keep_original_fields']=False  #If true additional fields will be added to the netcdf file.
+options['keep_original_fields']=True  #If true additional fields will be added to the netcdf file.
                                        #If false, corrected reflectivity and winds will be stored with the original names
 #Topography database paths
 options['toporawdatapath']=""
@@ -129,8 +129,8 @@ options[filter_name]['fill_value']='undef'                  #Possible values, un
 filter_name='RhoFilter'
 options[filter_name]=dict()
 options[filter_name]['flag']=True                          #Enable / disable filter
-options[filter_name]['nx']=2                                #NX
-options[filter_name]['ny']=2                                #NY
+options[filter_name]['nx']=5                                #NX
+options[filter_name]['ny']=5                                #NY
 options[filter_name]['nz']=0                                #NZ
 options[filter_name]['save']=False                          #Save filter aux fields to output?
 options[filter_name]['ify']=np.array([1,1,0,0])             #Importance function y
@@ -142,7 +142,8 @@ options[filter_name]['force_value']=0.5                     #Threshold for force
 options[filter_name]['order'] = [20]
 options[filter_name]['var_update_list']=['ref']             #Which variables will be filtered.
 options[filter_name]['sequential']=True                     #Wheter this filter will affect the following filters.
-options[filter_name]['fill_value']='min_ref'                  #Possible values, undef, min_ref or fill value
+options[filter_name]['fill_value']='undef'                  #Possible values, undef, min_ref or fill value
+options[filter_name]['ref_threshold']=40.0                  #Smoothed reflectivities over this threshold wont be affected by the rho filter.
 
 #Model filter parameters  ===================================================================== 
 
@@ -175,23 +176,23 @@ options[filter_name]['fill_value']='undef'                  #Possible values, un
 filter_name='EchoTopFilter'
 options[filter_name]=dict()
 options[filter_name]['flag']=True                           #Enable / disable filter
-options[filter_name]['nx']=2                                #NX
-options[filter_name]['ny']=2                                #NY
+options[filter_name]['nx']=10                                #NX
+options[filter_name]['ny']=10                                #NY
 options[filter_name]['nz']=0                                #NZ
 options[filter_name]['fast_computation']=True               #Enable fast version of echo top computation.
 options[filter_name]['save']=False                          #Save filter aux fields to output?
 options[filter_name]['ify']=np.array([1,1,0,0])             #Importance function y
-options[filter_name]['ifx']=np.array([0,2500,3000,20000])   #Importance function x
+options[filter_name]['ifx']=np.array([0,999,1000,20000])   #Importance function x
 options[filter_name]['w']=1.0                               #Relative parameter weigth. 
 options[filter_name]['code']=11
-options[filter_name]['heigthtr']=3000                       #Do not use this filter if volume height 
+options[filter_name]['heigthtr']=1000                       #Do not use this filter if volume height 
                                                             #is lower than this threshold
 options[filter_name]['force']=True                          #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                     #Threshold for force
 options[filter_name]['order'] = [15]
 options[filter_name]['var_update_list']=['ref']             #Which variables will be filtered.
 options[filter_name]['sequential']=True                     #Wheter this filter will affect the following filters.
-options[filter_name]['fill_value']='min_ref'                #Possible values, undef, min_ref or fill value
+options[filter_name]['fill_value']='undef'                #Possible values, undef, min_ref or fill value
 
 #Echo depth filter parameters ===================================================================
 
@@ -233,7 +234,7 @@ options[filter_name]['force_value']=0.5                     #Threshold for force
 options[filter_name]['order'] = [30]
 options[filter_name]['var_update_list']=['ref']             #Which variables will be filtered.
 options[filter_name]['sequential']=True                     #Wheter this filter will affect the following filters.
-options[filter_name]['fill_value']='min_ref'                  #Possible values, undef, min_ref or fill value
+options[filter_name]['fill_value']='undef'                  #Possible values, undef, min_ref or fill value
 
 #Doppler speckle filter  parameters ==============================================================
 
@@ -306,16 +307,17 @@ options[filter_name]['nx']=0                                #NX
 options[filter_name]['ny']=0                                #NY
 options[filter_name]['nz']=0                                #NZ
 options[filter_name]['save']=False                          #Save filter aux fields to output?
-options[filter_name]['ify']=np.array([0,0,1,1])             #Importance function y
-options[filter_name]['ifx']=np.array([0,1,10,100])          #Importance function x
+options[filter_name]['ify']=np.array([1,1,0,0,0])             #Importance function y
+options[filter_name]['ifx']=np.array([-100,-10,-9,-1,0])       #Importance function x
 options[filter_name]['w']=1.0                               #Relative parameter weigth. 
 options[filter_name]['code']=17
 options[filter_name]['attcalerror']=1.0                     #Calibration error
+options[filter_name]['attenuation_correction']=True         #Wether attenuation will be corrected.
 options[filter_name]['is_power']=False                      #If input is in mm^6/m^3 set this to true.
 options[filter_name]['att_coefs']=np.array([543,1.36,1.55e-3,1.30]) #Coefficients for the computation of attenuation (see below) 
 options[filter_name]['force']=True                          #Wether we will reject data based on this filter alone.
 options[filter_name]['force_value']=0.5                     #Threshold for force
-options[filter_name]['order'] = [2]
+options[filter_name]['order'] = [50]
 options[filter_name]['var_update_list']=['ref']             #Which variables will be filtered.
 options[filter_name]['sequential']=True                     #Wheter this filter will affect the following filters.
 options[filter_name]['fill_value']='undef'                  #Possible values, undef, min_ref or fill value
@@ -351,7 +353,7 @@ options[filter_name]['fill_value']='undef'                  #Possible values, un
 #Low elevation angles filter parameters ==============================================================
 filter_name='LowElevFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=True                          #Enable / Disable filter
+options[filter_name]['flag']=False                          #Enable / Disable filter
 options[filter_name]['nx']=0                                #NX
 options[filter_name]['ny']=0                                #NY
 options[filter_name]['nz']=0                                #NZ
@@ -372,7 +374,7 @@ options[filter_name]['fill_value']='undef'                  #Possible values, un
 #Low doppler velocity filter            ==============================================================
 filter_name='LowDopplerFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=True                          #Enable / Disable filter
+options[filter_name]['flag']=True                           #Enable / Disable filter
 options[filter_name]['nx']=0                                #NX
 options[filter_name]['ny']=0                                #NY
 options[filter_name]['nz']=0                                #NZ
@@ -385,7 +387,7 @@ options[filter_name]['force']=True                          #Wether we will reje
 options[filter_name]['force_value']=0.5                     #Threshold for force
 options[filter_name]['height_thr']=1000                     #Height threshold.
 options[filter_name]['order'] = [12]
-options[filter_name]['var_update_list']=['v','ref']         #Which variables will be filtered.
+options[filter_name]['var_update_list']=['v']               #Which variables will be filtered.
 options[filter_name]['sequential']=True                     #Wheter this filter will affect the following filters.
 options[filter_name]['fill_value']='undef'                  #Possible values, undef, min_ref or fill value
 
@@ -393,7 +395,7 @@ options[filter_name]['fill_value']='undef'                  #Possible values, un
 #This filter is not included in the Fuzzy-logic approach.
 filter_name='InterferenceFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=True                           #Enable / Disable filter
+options[filter_name]['flag']=True                          #Enable / Disable filter
 options[filter_name]['save']=False                          #Save filter aux fields to output?
 options[filter_name]['nx']=0                                #NX
 options[filter_name]['ny']=4                                #NY
@@ -425,7 +427,7 @@ options[filter_name]['fill_value']='undef'                  #Possible values, un
 #Dealiasing border filter            ==============================================================
 filter_name='DealiasingEdgeFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=True                          #Enable / Disable filter
+options[filter_name]['flag']=True                           #Enable / Disable filter
 options[filter_name]['nx']=3                                #NX
 options[filter_name]['ny']=3                                #NY
 options[filter_name]['nz']=0                                #NZ
@@ -518,7 +520,7 @@ options[filter_name]['fill_value']='undef'                  #Possible values, un
 #Detects holes in high reflectivity regions. 
 filter_name='MissingRefFilter'
 options[filter_name]=dict()
-options[filter_name]['flag']=False                          #Enable / Disable filter
+options[filter_name]['flag']=True                           #Enable / Disable filter
 options[filter_name]['threshold']=10                        #Threshold to detect sudden jumps in reflectivity between two consecutive pixels.
 options[filter_name]['nmissing_max']=15                     #Maximum number of missing values in a radial beam.
 options[filter_name]['save']=False                          #Save filter aux fields to output?
