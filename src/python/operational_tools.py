@@ -178,6 +178,8 @@ def get_strat ( filename , radar )  :
     #Get the corresponding radar strategy depending on the filename.
     radar.altitude_agl['data'] = 0.0
 
+    strategy='Unknown'
+
 
     #TODO: Ver si podemos calcular esto en funcion de lo que esta
     #en la estructura radar en lugar de tener que sacarlo del nombre del archivo.
@@ -186,75 +188,92 @@ def get_strat ( filename , radar )  :
 
        if '9005_01' in filename  :  #9005-1 STRATEGY
           nyquist_velocity     = 6.63
+          strategy = '9005_01'
        if '9005_02' in filename  :  #9005-2 STRATEGY
           nyquist_velocity     = 33.04
+          strategy = '9005_02'
        if '9005_03' in filename  :  #9005-3 STRATEGY
           nyquist_velocity     = 3.98
-
+          strategy = '9005_03'
        if '0117_01' in filename  :  #122-1 STRATEGY
           nyquist_velocity     = 6.63
+          strategy = '0117_01'
        if '0117_02' in filename  :  #122-2 STRATEGY
           nyquist_velocity     = 13.25
-
+          strategy = '0117_02'
        if '0121_01' in filename  :  #122-1 STRATEGY
           nyquist_velocity     = 6.63
+          strategy = '0121_01'
        if '0121_02' in filename  :  #122-2 STRATEGY
           nyquist_velocity     = 13.25
-
+          strategy = '0121_02'
        if '0122_01' in filename  :  #122-1 STRATEGY
           nyquist_velocity     = 8.28
+          strategy = '0122_01'
        if '0122_02' in filename  :  #122-2 STRATEGY
           nyquist_velocity     = 39.79
+          strategy = '0122_02'
        if '0122_03' in filename  :  #122-3 STRATEGY
           nyquist_velocity     = 13.35
-
+          strategy = '0122_03'
        if '0123_01' in filename  :  #123-1 STRATEGY
           nyquist_velocity     = 8.28
+          strategy = '0123_01'
        if '0123_02' in filename  :  #123-2 STRATEGY
           nyquist_velocity     = 39.79
+          strategy = '0123_02'
        if '0123_03' in filename  :  #123-3 STRATEGY
           nyquist_velocity     = 13.25
+          strategy = '0123_03'
        if '0123_04' in filename  :  #123-4 STRATEGY
           nyquist_velocity     = 8.28
-
+          strategy = '0123_04'
        if '0200_01' in filename  :  #200-1 STRATEGY
           nyquist_velocity     = 4.42
+          strategy = '0200_01'
        if '0200_02' in filename  :  #200-2 STRATEGY
           nyquist_velocity     = 13.25
-
+          strategy = '0200_02'
        if '0300_01' in filename  :  #300-1 STRATEGY
           nyquist_velocity     = 4.42
+          strategy = '0300_01'
        if '0300_02' in filename  :  #300-2 STRATEGY
           nyquist_velocity     = 16.56
-
+          strategy = '0300_02'
        if '0301_01' in filename  :  #300-1 STRATEGY
 
        #TODO: Esta estrategia tiene una velocidad nyquist que varia con el angulo de elevacion.
        #Para tratar correctamente estos datos tenemos que tener eso en cuenta.
           nyquist_velocity     = 4.42
+          strategy = '0301_01'
        if '0301_02' in filename  :  #300-2 STRATEGY
-          nyquist_velocity     = 13.25
-
-
+          nyquist_velocity     = 16.56
+          strategy = '0301_02'
        if '0201_01' in filename  :  #201-1 STRATEGY
           nyquist_velocity     = 4.42
+          strategy = '0201_01'
        if '0201_02' in filename  :  #201-2 STRATEGY
           nyquist_velocity     = 13.25
+          strategy = '0201_02'
        if '0201_03' in filename  :  #201-3 STRATEGY
           nyquist_velocity     = 8.28
-
+          strategy = '0201_03'
        if '0202_01' in filename  :  #200-1 STRATEGY
           nyquist_velocity     = 4.42
+          strategy = '0202_01'
        if '0202_02' in filename  :  #200-2 STRATEGY
           nyquist_velocity     = 13.25
+          strategy = '0202_02'
        
 
 
     if ( 'PAR' in filename ) or ( 'ANG' in filename ) or ( 'PER' in filename )  :
           if np.max( radar.range['data']  ) == 119875.0 :
              nyquist_velocity = 39.8  #120
+             strategy = '0120_IN'
           if np.max( radar.range['data']  ) == 239750.0 :
              nyquist_velocity = 6.63  #240
+             strategy = '0240_IN'
 
 
 
@@ -367,6 +386,9 @@ def get_strat ( filename , radar )  :
     if not 'meters_to_center_of_first_gate' in radar.range :
        radar.range['meters_to_center_of_first_gate']= radar.range['data'][0]  #meters_between_gates / 2.0
 
+    radar.instrument_parameters['strategy'] = strategy
+
+
     return radar
 
 
@@ -429,8 +451,9 @@ def get_time_from_filename( file_complete_path )    :
 
    #import datetime as dt
    #import os 
-
+#   print(file_complete_path)
    filename = os.path.basename( file_complete_path )
+#   print(file_complete_path)
    file_time = None
 
    format = get_format_from_filename( file_complete_path )
@@ -672,6 +695,7 @@ def remove_from_localpath_timebased( local_path , ini_time , end_time , file_for
          file_format = get_format_from_filename( filename )
 
          if time_search_type == 'filename'   :
+            print('CURRENT FILE IS: '+current_filename)
             date_c = get_time_from_filename( current_filename )
          if time_search_type == 'timestamp'  :
             date_c = dt.fromtimestamp( os.stat(current_filename).st_ctime )
@@ -691,7 +715,7 @@ def save_cfradial( local_path , radar , fileformat='NETCDF4' )  :
 
     input_file = radar.files[0] 
 
-    file_instrument = get_instrument_type_from_filename( input_file )
+    file_instrument = get_instrument_type_from_filename( input_file ) + '_' + radar.instrument_parameters['strategy']
 
     file_time   = dt.datetime.strftime( get_time_from_filename( input_file ) , '%Y%m%d_%H%M%S' )
  
