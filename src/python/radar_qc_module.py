@@ -171,10 +171,23 @@ def check_valid_data( radar , options )   :
        radar.fields[my_key]['data'] = ( radar.fields[my_key]['data'] ).astype( default_type )
 
     #=========================
+    # Check if variables are stored as masked arrays 
+    # If not then convert them to masked arrays.
+    #=========================
+
+    for my_key in radar.fields    :
+
+       if not np.ma.is_masked( radar.fields[ my_key ]['data'] ) :
+
+          radar.fields[ my_key ]['data'] = np.ma.masked_array( radar.fields[ my_key ]['data'] , mask = radar.fields[ my_key ]['data'] == ['_FillValue'] )
+
+
+    #=========================
     # Check Nan and Inf
     #=========================
 
     for my_key in radar.fields    :
+       print( my_key  )
        if my_key == options['name_ref']   :
 
           if np.sum( radar.fields[ my_key ]['data'].data != radar.fields[ my_key ]['_FillValue'] ) > 0.005*np.size( radar.fields[ my_key ]['data'].data )   :
@@ -185,8 +198,6 @@ def check_valid_data( radar , options )   :
              radar.fields[ my_key ]['data'].data[ radar.fields[ my_key ]['data'].data == radar.fields[ my_key ]['_FillValue']  ] = options['norainrefval']
              radar.fields[ my_key ]['data'].mask= radar.fields[ my_key ]['data'].data == radar.fields[ my_key ]['_FillValue']
 
-          
-          
        else                               :
           radar.fields[ my_key ]['data'].data[ np.isinf( radar.fields[ my_key ]['data'].data )  ] = radar.fields[ my_key ]['_FillValue']
           radar.fields[ my_key ]['data'].data[ np.isnan( radar.fields[ my_key ]['data'].data )  ] = radar.fields[ my_key ]['_FillValue']
@@ -416,25 +427,31 @@ def  update_radar_object( radar , output , options )   :
 
    import numpy as np
 
-   if options['name_ref'] in radar.fields :
+   if options['keep_original_fields']   : 
+      #We will add variables to the file corresponding to the corrected REF and VRAD.
 
-      tmp=order_variable_inv( radar , output['cref'] , output['undef_ref'] )
-      radar.add_field_like( options['name_ref'] , options['name_cref'] , radar.fields[ options['name_ref'] ]['data'] , True)
-      radar.fields[ options['name_cref'] ]['data']=np.ma.masked_array(tmp , mask = ( tmp==output['undef_ref'] ) )
+      if options['name_ref'] in radar.fields :
 
-      #print( np.min( radar.fields[options['name_cref']]['data'] ) ) 
+         tmp=order_variable_inv( radar , output['cref'] , output['undef_ref'] )
+         radar.add_field_like( options['name_ref'] , options['name_cref'] , radar.fields[ options['name_ref'] ]['data'] , True)
+         radar.fields[ options['name_cref'] ]['data']=np.ma.masked_array(tmp , mask = ( tmp==output['undef_ref'] ) )
 
-   if options['name_v'] in radar.fields :
+         #print( np.min( radar.fields[options['name_cref']]['data'] ) ) 
 
-      tmp=order_variable_inv( radar , output['cv'] , output['undef_v'] )
-      radar.add_field_like( options['name_v'] , options['name_cv'] , radar.fields[ options['name_v'] ]['data'] , True)
-      radar.fields[ options['name_cv'] ]['data']=np.ma.masked_array(tmp , mask = ( tmp==output['undef_v'] ) )
+      if options['name_v'] in radar.fields :
 
-   if not options['keep_original_fields']  :
+         tmp=order_variable_inv( radar , output['cv'] , output['undef_v'] )
+         radar.add_field_like( options['name_v'] , options['name_cv'] , radar.fields[ options['name_v'] ]['data'] , True)
+         radar.fields[ options['name_cv'] ]['data']=np.ma.masked_array(tmp , mask = ( tmp==output['undef_v'] ) )
 
-      radar.fields.pop( options['name_v']   , None )
-      radar.fields.pop( options['name_ref'] , None )
-      radar.fields.pop( options['name_rho'] , None )
+   else                                 :
+      #We will overwrite the original variable names in the radar structure.
+      if options['name_ref'] in radar.fields   : 
+         tmp=order_variable_inv( radar , output['cref'] , output['undef_ref'] )
+         radar.fields[ options['name_ref'] ]['data']=np.ma.masked_array(tmp , mask = ( tmp==output['undef_ref'] ) )
+      if options['name_v'] in radar.fields     :
+         tmp=order_variable_inv( radar , output['cv'] , output['undef_v'] )
+         radar.fields[ options['name_v'] ]['data']=np.ma.masked_array(tmp , mask = ( tmp==output['undef_v'] ) )
 
    return radar , output 
 
@@ -914,14 +931,16 @@ def EchoTopFilter( radar , output , options )   :
                                                 ,undef=output['undef_ref'],nx=nx,ny=ny,nz=nz)
          tmp_index=tmp_data_3d[:,:,:,0]
 
-      tmp_index = tmp_index - output['topo']  #Compute the echo top height over the terrain.
+      tmp_index[ tmp_index != output['undef_ref'] ] = tmp_index[ tmp_index != output['undef_ref'] ] - output['topo'][ tmp_index != output['undef_ref'] ]  #Compute the echo top height over the terrain.
         
       computed_etfilter = True  #In case we need any of the other variables computed in this routine.
 
       #JUAN: Comente esta linea para poder filtrar tambien los ecos de terreno cerca del radar.
       #tmp_index[ tmp_max_z < options[filter_name]['heigthtr'] ] = output['undef_ref']  #Do not consider this filter when the volume maximum heigth is below
                                                                   #the specified threshold (i.e. pixels close to the radar)
-
+      #If the pixel is already a "norain" pixel then leave it as it is.                           
+      tmp_index[ output['ref'] == options['norainrefval'] ] = options['undef']
+      #If the pixel is already undef then leave it as it is.
       tmp_index[ tmp_index == output['undef_ref'] ] = options['undef']
 
       output = output_update( output , tmp_index , options , filter_name ) 
@@ -1041,8 +1060,21 @@ def RhoFilter( radar , output , options )  :
       #Compute the filter parameter
       tmp_index=qc.box_functions_2d(datain=rhohv,na=na,nr=nr,ne=ne,undef=output['undef_rho']
                                               ,boxx=nx,boxy=ny,boxz=nz,operation='MEAN',threshold=0.0)
+      #Compute smoothed reflectivity (areas with large reflectivity wont be affected by the filter)
+      smooth_ref=qc.box_functions_2d(datain=output['ref'],na=na,nr=nr,ne=ne,undef=output['undef_ref']
+                                              ,boxx=nx,boxy=ny,boxz=nz,operation='MEAN',threshold=0.0)
 
       tmp_index[ tmp_index == output['undef_rho'] ] = options['undef']
+
+      tmp_mask = np.logical_or( smooth_ref > options[filter_name]['ref_threshold'] , output['cref'] == options['norainrefval'] )
+
+      tmp_index[tmp_mask] = options['undef']
+
+      #import matplotlib.pyplot as plt
+      #tmp_index[tmp_index==options['undef']]=np.nan
+      #plt.pcolor( tmp_index[:,:,0] )
+      #plt.colorbar()
+      #plt.show()
 
       output = output_update( output , tmp_index , options , filter_name ) 
 
@@ -1082,6 +1114,8 @@ def RefSpeckleFilter( radar , output , options )    :
                                                 ,boxx=nx,boxy=ny,boxz=nz,operation='COU2',threshold=tr) 
 
       tmp_index[ tmp_index == output['undef_ref'] ] = options['undef']
+
+      tmp_index[ output['ref'] == options['norainrefval'] ] = options['undef']
 
       output = output_update( output , tmp_index , options , filter_name )
 
@@ -1140,12 +1174,16 @@ def AttenuationFilter( radar , output , options )   :
 
       beaml=radar.range['data'][1]-radar.range['data'][0] #Get beam length
 
-      tmp_index=qc.get_attenuation( var=output['cref'],na=na,nr=nr,ne=ne,undef=output['undef_ref']
+      [tmp_index,corrected_ref]=qc.get_attenuation( var=output['cref'],na=na,nr=nr,ne=ne,undef=output['undef_ref']
                                                 ,beaml=beaml,cal_error=options[filter_name]['attcalerror']
                                                 ,is_power=options[filter_name]['is_power']
-                                                ,coefs=options[filter_name]['att_coefs'] )
+                                                ,coefs=options[filter_name]['att_coefs'],mindbz=options['norainrefval'] )
 
       tmp_index[ tmp_index == output['undef_ref'] ] = options['undef']
+
+      if options[filter_name]['attenuation_correction'] & ( options['name_ref'] in radar.fields )  :
+
+          output['cref'] = corrected_ref 
 
       output = output_update( output , tmp_index , options , filter_name )
 
@@ -1551,10 +1589,18 @@ def order_variable ( radar , var_name , undef )  :
 
    #From azimuth , range -> azimuth , range , elevation 
 
-   ray_angle_res = np.unique( radar.ray_angle_res['data'] )
+   if radar.ray_angle_res != None   :
+      #print( radar.ray_angle_res , radar.ray_angle_res == None )
+      ray_angle_res = np.unique( radar.ray_angle_res['data'] )
+   else                             :
+      print('Warning: ray_angle_res no esta definido, estimo la resolucion en radio como la diferencia entre los primeros angulos')
+      ray_angle_res = np.min( np.abs( radar.azimuth['data'][1:] - radar.azimuth['data'][0:-1] ) )
+      print('La resolucion en rango estimada es: ',ray_angle_res)
+
+
    if( np.size( ray_angle_res ) >= 2 )  :
       print('Warning: La resolucion en azimuth no es uniforme en los diferentes angulos de elevacion ')
-      print('Warning: El codigo no esta preparado para considerar este caso y puede producir efectos indesaedos ')
+      print('Warning: El codigo no esta preparado para considerar este caso y puede producir efectos indeseados ')
    ray_angle_res=np.nanmean( ray_angle_res )
 
    levels=np.sort( np.unique(radar.elevation['data']) )
@@ -1634,7 +1680,14 @@ def order_variable_inv (  radar , var , undef )  :
 
    levels=np.sort( np.unique(radar.elevation['data']) )
 
-   ray_angle_res = np.unique( radar.ray_angle_res['data'] )
+   if radar.ray_angle_res != None   :
+      #print( radar.ray_angle_res , radar.ray_angle_res == None )
+      ray_angle_res = np.unique( radar.ray_angle_res['data'] )
+   else                             :
+      print('Warning: ray_angle_res no esta definido, estimo la resolucion en radio como la diferencia entre los primeros angulos')
+      ray_angle_res = np.min( np.abs( radar.azimuth['data'][1:] - radar.azimuth['data'][0:-1] ) )
+      print('La resolucion en rango estimada es: ',ray_angle_res)
+
    if( np.size( ray_angle_res ) >= 2 )  :
       print('Warning: La resolucion en azimuth no es uniforme en los diferentes angulos de elevacion ')
       print('Warning: El codigo no esta preparado para considerar este caso y puede producir efectos indesaedos ')
@@ -1740,6 +1793,10 @@ def dopplerspatialcoherence_filter( v , undef , my_conf ) :
               else  :
 
                  coherence_index[i,:,k] = coherence_index[i,:,k] + 3.0
+
+   #import matplotlib.pyplot
+   #plt.pcolor( coherence_index[:,:,2] )
+   #plt.colorbar()
 
    if my_conf['compute_vertical_coherence']   :
    #CONSIDER THE COHERENCE WITH THE NEIGHBOR BEAMS IN VERTICAL DIRECTION

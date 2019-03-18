@@ -26,11 +26,11 @@ datapath='/home/jruiz/share/DATA/DATOS_RADAR/RRA_radar/'
 
 datapath_out='/home/jruiz/share/DATA/DATOS_RADAR/RRA_radar_superobbing/'
 
-instrument_list = ['RMA1','PAR']
-#instrument_list = ['RMA1','RMA3','RMA4','RMA5','RMA6',
-#                 'RMA7', 'RMA8',
-#                 'PAR',
-#                 'PER', 'ANG']         #Instrument list.
+#instrument_list = ['RMA1','PAR']
+instrument_list = ['RMA1','RMA3','RMA4','RMA5','RMA6',
+                 'RMA7', 'RMA8',
+                 'PAR',
+                 'PER', 'ANG']         #Instrument list.
 
 file_type_list = ['cfrad']
 

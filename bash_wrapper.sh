@@ -1,8 +1,8 @@
-#!/bin/bash
+	#!/bin/bash
 
 my_script=$1
 
-source activate gdal
+source activate qc
 
 ulimit -s unlimited
 

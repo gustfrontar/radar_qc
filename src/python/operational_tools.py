@@ -132,24 +132,31 @@ def read_file( filename , format_file )    :
 def rename_fields ( radar )  :
 
   #Unify different names for different variables depending on the data source.
+  #If the intended name is already present, then we will use this variable 
+  #and ignore any other variable that may contain a similar field.
 
-  if 'TH' in radar.fields    :
-     radar.fields['ZH'] = radar.fields.pop('TH')
+  if not 'ZH' in radar.fields  :
 
-  if 'DBZH' in radar.fields  :
-     radar.fields['ZH'] = radar.fields.pop('DBZH')
+     if 'TH' in radar.fields    :
+        radar.fields['ZH'] = radar.fields.pop('TH')
 
-  if 'V' in radar.fields     :
-     radar.fields['VRAD'] = radar.fields.pop('V')
+     if 'DBZH' in radar.fields  :
+        radar.fields['ZH'] = radar.fields.pop('DBZH')
 
-  if 'dBZ' in radar.fields    :
-     radar.fields['ZH'] = radar.fields.pop('dBZ')
+  if not 'VRAD' in radar.fields  :
+     if 'V' in radar.fields     :
+        radar.fields['VRAD'] = radar.fields.pop('V')
 
-  if 'W' in radar.fields     :
-     radar.fields['WRAD'] = radar.fields.pop('W')
+     if 'dBZ' in radar.fields    :
+        radar.fields['ZH'] = radar.fields.pop('dBZ')
 
-  if 'RhoHV' in radar.fields :
-     radar.fields['RHOHV'] = radar.fields.pop('RhoHV') 
+  if not 'WRAD' in radar.fields  :
+     if 'W' in radar.fields     :
+        radar.fields['WRAD'] = radar.fields.pop('W')
+
+  if not 'RHOHV' in radar.fields  :
+     if 'RhoHV' in radar.fields :
+        radar.fields['RHOHV'] = radar.fields.pop('RhoHV') 
 
   return radar   
 
@@ -187,6 +194,7 @@ def get_strat ( filename , radar )  :
 
 
        if '9005_01' in filename  :  #9005-1 STRATEGY
+<<<<<<< HEAD
           nyquist_velocity     = 6.63
           strategy = '9005_01'
        if '9005_02' in filename  :  #9005-2 STRATEGY
@@ -264,16 +272,85 @@ def get_strat ( filename , radar )  :
        if '0202_02' in filename  :  #200-2 STRATEGY
           nyquist_velocity     = 13.25
           strategy = '0202_02'
+=======
+          nyquist_velocity     = 6.63 * np.ones( np.shape( np.unique( radar.elevation['data'] ) ) )
+       if '9005_02' in filename  :  #9005-2 STRATEGY
+          nyquist_velocity     = 33.04 * np.ones( np.shape( np.unique( radar.elevation['data'] ) ) )
+       if '9005_03' in filename  :  #9005-3 STRATEGY
+          nyquist_velocity     = 3.98 * np.ones( np.shape( np.unique( radar.elevation['data'] ) ) )
+
+       if '0117_01' in filename  :  #122-1 STRATEGY
+          nyquist_velocity     = 6.63 * np.ones( np.shape( np.unique( radar.elevation['data'] ) ) )
+       if '0117_02' in filename  :  #122-2 STRATEGY
+          nyquist_velocity     = 13.25 * np.ones( np.shape( np.unique( radar.elevation['data'] ) ) )
+
+       if '0121_01' in filename  :  #122-1 STRATEGY
+          nyquist_velocity     = 6.63 * np.ones( np.shape( np.unique( radar.elevation['data'] ) ) )
+       if '0121_02' in filename  :  #122-2 STRATEGY
+          nyquist_velocity     = 13.25 * np.ones( np.shape( np.unique( radar.elevation['data'] ) ) )
+
+       if '0122_01' in filename  :  #122-1 STRATEGY
+          nyquist_velocity     = 8.28 * np.ones( np.shape( np.unique( radar.elevation['data'] ) ) )
+       if '0122_02' in filename  :  #122-2 STRATEGY
+          nyquist_velocity     = 39.79 * np.ones( np.shape( np.unique( radar.elevation['data'] ) ) )
+       if '0122_03' in filename  :  #122-3 STRATEGY
+          nyquist_velocity     = 13.35 * np.ones( np.shape( np.unique( radar.elevation['data'] ) ) )
+
+       if '0123_01' in filename  :  #123-1 STRATEGY
+          nyquist_velocity     = 8.28 * np.ones( np.shape( np.unique( radar.elevation['data'] ) ) )
+       if '0123_02' in filename  :  #123-2 STRATEGY
+          nyquist_velocity     = 39.79 * np.ones( np.shape( np.unique( radar.elevation['data'] ) ) )
+       if '0123_03' in filename  :  #123-3 STRATEGY
+          nyquist_velocity     = 13.25 * np.ones( np.shape( np.unique( radar.elevation['data'] ) ) )
+       if '0123_04' in filename  :  #123-4 STRATEGY
+          nyquist_velocity     = 8.28 * np.ones( np.shape( np.unique( radar.elevation['data'] ) ) )
+
+       if '0200_01' in filename  :  #200-1 STRATEGY
+          nyquist_velocity     = 4.42 * np.ones( np.shape( np.unique( radar.elevation['data'] ) ) )
+       if '0200_02' in filename  :  #200-2 STRATEGY
+          nyquist_velocity     = 13.25 * np.ones( np.shape( np.unique( radar.elevation['data'] ) ) )
+
+       if '0300_01' in filename  :  #300-1 STRATEGY
+          nyquist_velocity     = 4.42 * np.ones( np.shape( np.unique( radar.elevation['data'] ) ) )
+       if '0300_02' in filename  :  #300-2 STRATEGY
+          nyquist_velocity     = 16.56 * np.ones( np.shape( np.unique( radar.elevation['data'] ) ) )
+
+       if '0301_01' in filename  :  #300-1 STRATEGY
+
+       #Esta estrategia tiene una velocidad nyquist que varia con el angulo de elevacion.
+          nyquist_velocity     = np.array([4.42,4.42,4.42,6.63,6.63,6.63,6.63,8.28,8.28,8.28,8.28,8.28,8.28,8.28,8.28])
+       if '0301_02' in filename  :  #300-2 STRATEGY
+          nyquist_velocity     = 13.25 * np.ones( np.shape( np.unique( radar.elevation['data'] ) ) )
+
+
+       if '0201_01' in filename  :  #201-1 STRATEGY
+          nyquist_velocity     = 4.42 * np.ones( np.shape( np.unique( radar.elevation['data'] ) ) )
+       if '0201_02' in filename  :  #201-2 STRATEGY
+          nyquist_velocity     = 13.25 * np.ones( np.shape( np.unique( radar.elevation['data'] ) ) )
+       if '0201_03' in filename  :  #201-3 STRATEGY
+          nyquist_velocity     = 8.28 * np.ones( np.shape( np.unique( radar.elevation['data'] ) ) )
+
+       if '0202_01' in filename  :  #200-1 STRATEGY
+          nyquist_velocity     = 4.42 * np.ones( np.shape( np.unique( radar.elevation['data'] ) ) )
+       if '0202_02' in filename  :  #200-2 STRATEGY
+          nyquist_velocity     = 13.25 * np.ones( np.shape( np.unique( radar.elevation['data'] ) ) )
+>>>>>>> d8f49d432fcf23d8349c77ea2098dca0ed2b88ca
        
 
 
     if ( 'PAR' in filename ) or ( 'ANG' in filename ) or ( 'PER' in filename )  :
           if np.max( radar.range['data']  ) == 119875.0 :
+<<<<<<< HEAD
              nyquist_velocity = 39.8  #120
              strategy = '0120_IN'
           if np.max( radar.range['data']  ) == 239750.0 :
              nyquist_velocity = 6.63  #240
              strategy = '0240_IN'
+=======
+             nyquist_velocity = 39.8 * np.ones( np.shape( np.unique( radar.elevation['data'] ) ) )  #120
+          if np.max( radar.range['data']  ) == 239750.0 :
+             nyquist_velocity = 6.63 * np.ones( np.shape( np.unique( radar.elevation['data'] ) ) ) #240
+>>>>>>> d8f49d432fcf23d8349c77ea2098dca0ed2b88ca
 
 
 
@@ -349,7 +426,12 @@ def get_strat ( filename , radar )  :
        radar.instrument_parameters['nyquist_velocity']['_FillValue']= local_fill_value
        radar.instrument_parameters['nyquist_velocity']['meta_group']='instrument_parameters'
 
-       radar.instrument_parameters['nyquist_velocity']['data'] = ma.array(np.ones( np.shape(radar.azimuth['data']) )*nyquist_velocity , mask = np.zeros( np.shape(radar.azimuth['data']) , dtype=bool ) , fill_value = local_fill_value )
+       tmp_nyquist = np.ones( np.shape( radar.azimuth['data'] ) )
+       for ielev , elev in enumerate( np.unique( radar.elevation['data'] ) ) :
+
+          tmp_nyquist[ radar.elevation['data'] == elev ] = nyquist_velocity[ ielev ]
+
+       radar.instrument_parameters['nyquist_velocity']['data'] = ma.array( tmp_nyquist , mask = np.zeros( np.shape( tmp_nyquist ) , dtype=bool ) , fill_value = local_fill_value )
 
     if (not 'radar_beam_width_v' in radar.instrument_parameters ) or ( radar.instrument_parameters['radar_beam_width_v'] == None ) :
        radar.instrument_parameters['radar_beam_width_v']=dict()
@@ -392,7 +474,7 @@ def get_strat ( filename , radar )  :
     return radar
 
 
-def get_file_list( datapath , init_time , end_time , time_search_type = None , file_type_list = None )     :
+def get_file_list( datapath , init_time , end_time , time_search_type = None , file_type_list = None , instrument_type_list = None )     :
 
    #datapath : base path of radar data
    #init time: [yyyymmddhhMMss] beginning of the time window
@@ -407,6 +489,7 @@ def get_file_list( datapath , init_time , end_time , time_search_type = None , f
    if time_search_type == None :
       time_search_type = 'timestamp'
 
+   
    date_min = dt.datetime.strptime( init_time , '%Y%m%d%H%M%S')
    date_max = dt.datetime.strptime( end_time  , '%Y%m%d%H%M%S')
 
@@ -427,7 +510,7 @@ def get_file_list( datapath , init_time , end_time , time_search_type = None , f
    
    #Keep only some file names and some paths.
 
-   final_file_list = []
+   tmp_file_list = []
 
    if file_type_list != None :
 
@@ -437,13 +520,28 @@ def get_file_list( datapath , init_time , end_time , time_search_type = None , f
 
          if any(ft in filename for ft in file_type_list ):
  
-            final_file_list.append( my_file )
+            tmp_file_list.append( my_file )
 
-   else                      :
+      file_list = tmp_file_list[:]
 
-      final_file_list  = file_list 
+   tmp_file_list = []
 
-   return final_file_list
+   if instrument_type_list != None :
+      
+      for my_file in file_list :
+
+         instrument_type = get_instrument_type_from_filename( my_file )
+
+         for it in instrument_type_list :
+             if it == instrument_type  : 
+                tmp_file_list.append( my_file ) 
+
+      file_list = tmp_file_list[:]
+
+
+   
+
+   return file_list
 
 
 
@@ -723,7 +821,7 @@ def save_cfradial( local_path , radar , fileformat='NETCDF4' )  :
 
     print('Writing file : ',filename)
 
-    pyart.io.cfradial.write_cfradial(filename , radar, format=fileformat, time_reference=None, arm_time_variables=False)
+    pyart.io.cfradial.write_cfradial(filename , radar, format=fileformat  ) #,  arm_time_variables=False)
 
   
 

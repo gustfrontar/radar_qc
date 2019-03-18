@@ -92,7 +92,7 @@ RETURN
 END SUBROUTINE RHO_FILTER
 
 
-SUBROUTINE GET_ATTENUATION(var,na,nr,ne,undef,beaml,cal_error,coefs,is_power,attenuation)
+SUBROUTINE GET_ATTENUATION(var,na,nr,ne,undef,beaml,cal_error,coefs,is_power,attenuation,corrected_var,mindbz)
 
 !==========================================================================================
 !  This function estimates the attenuation percentaje due to metereological
@@ -115,16 +115,20 @@ SUBROUTINE GET_ATTENUATION(var,na,nr,ne,undef,beaml,cal_error,coefs,is_power,att
 IMPLICIT NONE
 INTEGER     ,INTENT(IN)    :: na,nr,ne
 REAL(r_size),INTENT(IN)    :: var(na,nr,ne) !Input reflectivity in dBZ
+REAL(r_size),INTENT(OUT)   :: corrected_var(na,nr,ne) !Output corrected reflectivity in dBZ
 REAL(r_size),INTENT(IN)    :: undef
 LOGICAL     ,INTENT(IN)    :: is_power      !If input data is in mm^6/m^3 the set this to true.
 REAL(r_size),INTENT(IN)    :: coefs(4)
 REAL(r_size),INTENT(OUT)   :: attenuation(na,nr,ne) !Attenuation factor.
 REAL(r_size),INTENT(IN)    :: beaml  !Beam length (m)
+REAL(r_size),INTENT(IN)    :: mindbz 
 REAL(r_size)               :: a_coef , b_coef , c_coef , d_coef , alfa , beta  !Attenuation parameters
 REAL(r_size),INTENT(IN)    :: cal_error !Calibration erro (use 1.0 if we dont know it)
-REAL(r_size)               :: tmp_data_3d(na,nr,ne)
-INTEGER                    :: ia,ir,ie
-REAL(r_size)               :: power(2) , mean_k
+REAL(r_size)               :: power(nr) , attenuation_power(nr)
+INTEGER                    :: ia,ir,ie,ir2
+REAL(r_size)               :: mean_k
+REAL(r_size),PARAMETER     :: max_dbz_correction = 10.0d0
+
 
 !Coefficients for C-Band radars based on
 !Quantification of Path-Integrated Attenuation for X- and C-Band Weather
@@ -149,11 +153,10 @@ d_coef=coefs(4)
 alfa=(c_coef**d_coef)/(a_coef**(d_coef/b_coef))
 beta=(d_coef/b_coef)
 
-
-tmp_data_3d=10.0d0**(var/10)
-where( var == undef )
-     tmp_data_3d=0.0d0
-endwhere
+!tmp_data_3d=10.0d0**(var/10)
+!where( var == undef )
+!     tmp_data_3d=0.0d0
+!endwhere
 
 !==========================================================================
 ! Iterative algorithm to compute attenuation. Based on the forward
@@ -163,23 +166,46 @@ endwhere
 !We iterate forward in the range direction.
 attenuation(:,1,:)=1.0d0*cal_error
 
-!$OMP PARALLEL DO SCHEDULE(DYNAMIC) PRIVATE(ia,ie,ir,mean_k)
+!$OMP PARALLEL DO SCHEDULE(DYNAMIC) PRIVATE(ia,ie,ir,ir2,mean_k,power,attenuation_power)
 DO ia=1,na
  DO ie=1,ne
-  DO ir=1,nr-1
+  power = 10.0d0**(var(ia,:,ie)/10.0d0)
+  attenuation_power = 1.0d0
+  where( var(ia,:,ie) == undef ) 
+      power = 0.0d0
+  endwhere
 
-    !First: correct Z using the current value for the attenuation.
+    DO ir=1,nr-1
 
-    mean_k=1.0d-3*(alfa*( (0.5)*(tmp_data_3d(ia,ir,ie)+tmp_data_3d(ia,ir+1,ie)) )**beta ) 
-    !Compute mean k between ir and ir+1 (k is dbz/m);
-    attenuation(ia,ir+1,ie)=attenuation(ia,ir,ie)*exp(-0.46d0*mean_k*beaml)
+       mean_k=1.0d-3*(alfa*( (0.5)*(power(ir)+power(ir+1)) )**beta ) 
+       !Compute mean k between ir and ir+1 (k is dbz/m);
+       attenuation_power(ir+1) = attenuation_power(ir) *exp(-0.46d0*mean_k*beaml)
+       !attenuation(ia,ir+1,ie)=attenuation(ia,ir,ie)*exp(-0.46d0*mean_k*beaml)
 
+       attenuation(ia,ir+1,ie) = 10.0d0*log10( attenuation_power(ir+1) )
+
+       !If attenuation is les than max_dbz_correction, then correct attenuation.
+       if ( attenuation(ia,ir+1,ie) > -1.0*max_dbz_correction )then
+          do ir2=ir+1,nr
+             if ( var(ia,ir2,ie) > mindbz ) then
+                power(ir2) = power(ir2) / exp(-0.46d0*mean_k*beaml)
+             endif
+          enddo 
+       endif 
+
+    ENDDO
+  
+    DO ir = 1 , nr  
+      IF ( power( ir ) > 0.0d0 )THEN
+         corrected_var(ia,ir,ie) = 10.0d0*log10( power(ir) )
+      ELSE
+         corrected_var(ia,ir,ie) = undef 
+      ENDIF
    ENDDO
  ENDDO
 ENDDO
 !$OMP END PARALLEL DO
 
-attenuation=-10.0d0*log10(attenuation)  !Compute PIA (in dBZ)
 
 END SUBROUTINE GET_ATTENUATION
 
@@ -360,12 +386,20 @@ DO kk=1,ne
         ENDIF
 
       ELSEIF( OPERATION == 'MAXN')THEN
-        !Local maximum tacking care of undef values.
-        dataout(ii,jj,kk)=maxval( tmp_field(1:NITEMS) )
+        IF( NITEMS > 0 )THEN
+           !Local maximum tacking care of undef values.
+           dataout(ii,jj,kk)=maxval( tmp_field(1:NITEMS) )
+        ELSE
+           dataout(ii,jj,kk)=UNDEF
+        ENDIF 
 
       ELSEIF( OPERATION == 'MINN')THEN
-        !Local maximum tacking care of undef values.
-        dataout(ii,jj,kk)=minval( tmp_field(1:NITEMS) )
+        IF( NITEMS > 0 )THEN
+          !Local maximum tacking care of undef values.
+          dataout(ii,jj,kk)=minval( tmp_field(1:NITEMS) )
+        ELSE
+          dataout(ii,jj,kk)=UNDEF
+        ENDIF
 
       ENDIF
 
@@ -566,7 +600,7 @@ ref=reflectivity   !reflectivity is intent in.
 base_detected=.false.
 top_detected=.false.
 
-!Before computation extend data one or to levels below the first echo. This is done to prevent the first level to fall outside the computation
+!Before computation extend data one or two levels below the first echo. This is done to prevent the first level to fall outside the computation
 !of these scores.
 DO iz=1,nz
    IF( z(iz) > 3000 )EXIT
@@ -620,7 +654,7 @@ ENDDO !End for loop over levels
 
 DO itop=1,max_levs
    IF( tmp(itop,1) .NE. UNDEF  .AND.  tmp(itop,2) .NE. UNDEF )THEN  !Echo top and echo base
-       DO iz=1,nz-1
+       DO iz=1,nz !Juan - 1
           IF( z(iz) >= tmp(itop,2) .AND. z(iz) <= tmp(itop,1))THEN
                echo_top_3d(iz)=tmp(itop,1)
           ENDIF
