@@ -1034,7 +1034,7 @@ DO iz=1,nz
      first_maximum_threshold .AND. .NOT. found_first_maximum )THEN
    found_first_maximum=.TRUE. 
  ELSE
-   IF( reflectivity(iz) > output_2d(6) )THEN
+   IF( reflectivity(iz) > output_2d(7) )THEN
      output_2d(7) = reflectivity(iz) !Keep updating the maximum until we reach the first maximum.
      output_2d(6) = z(iz)            !Keep updating the height of the maximum 
    ENDIF
